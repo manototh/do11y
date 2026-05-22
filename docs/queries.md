@@ -560,51 +560,54 @@ ORDER BY expandRate DESC
 
 View all page metrics in a single query.
 
-```apl
-['do11y']
-| summarize 
-    pageViews = countif(eventType == 'page_view'),
-    avgScrollDepth = avgif(maxScrollDepth, eventType == 'page_exit'),
-    avgTimeSeconds = avgif(activeTimeSeconds, eventType == 'page_exit'),
-    linkClicks = countif(eventType == 'link_click'),
-    codeCopies = countif(eventType == 'code_copied'),
-    searches = countif(eventType == 'search_opened'),
-    tocClicks = countif(eventType == 'toc_click'),
-    expands = countif(eventType == 'expand_collapse')
-  by path
-| where pageViews > 10
-| extend 
-    clicksPerView = round(1.0 * linkClicks / pageViews, 2),
-    copiesPerView = round(1.0 * codeCopies / pageViews, 2)
-| order by pageViews desc
+```sql
+SELECT
+    path,
+    countIf(eventType = 'page_view') AS pageViews,
+    avgIf(maxScrollDepth, eventType = 'page_exit') AS avgScrollDepth,
+    avgIf(activeTimeSeconds, eventType = 'page_exit') AS avgTimeSeconds,
+    countIf(eventType = 'link_click') AS linkClicks,
+    countIf(eventType = 'code_copied') AS codeCopies,
+    countIf(eventType = 'search_opened') AS searches,
+    countIf(eventType = 'toc_click') AS tocClicks,
+    countIf(eventType = 'expand_collapse') AS expands,
+    round(1.0 * linkClicks / pageViews, 2) AS clicksPerView,
+    round(1.0 * codeCopies / pageViews, 2) AS copiesPerView
+FROM do11y
+GROUP BY path
+HAVING pageViews > 10
+ORDER BY pageViews DESC
 ```
 
 ### Compare sections
 
 Aggregate performance by URL prefix (section).
 
-```apl
-['do11y']
-| extend section = extract("^/([^/]+)", 1, path)
-| where eventType == 'page_exit'
-| summarize 
-    visits = count(),
-    avgTime = avg(activeTimeSeconds),
-    avgScroll = avg(maxScrollDepth)
-  by section
-| order by visits desc
+```sql
+SELECT
+    extract(path, '^/([^/]+)') AS section,
+    count() AS visits,
+    avg(activeTimeSeconds) AS avgTime,
+    avg(maxScrollDepth) AS avgScroll
+FROM do11y
+WHERE eventType = 'page_exit'
+GROUP BY section
+ORDER BY visits DESC
 ```
 
 ### Week-over-week trend
 
 Track traffic growth over time.
 
-```apl
-['do11y']
-| where eventType == 'page_view'
-| extend week = startofweek(_time)
-| summarize pageViews = count(), uniqueSessions = dcount(sessionId) by bin_auto(_time), week
-| order by week asc
+```sql
+SELECT
+    toStartOfWeek(_time) AS week,
+    count() AS pageViews,
+    uniq(sessionId) AS uniqueSessions
+FROM do11y
+WHERE eventType = 'page_view'
+GROUP BY week
+ORDER BY week ASC
 ```
 
 ## Device and context
@@ -613,39 +616,42 @@ Track traffic growth over time.
 
 Compare engagement by device type.
 
-```apl
-['do11y']
-| where eventType == 'page_exit'
-| summarize 
-    visits = count(),
-    avgTime = avg(activeTimeSeconds),
-    avgScroll = avg(maxScrollDepth)
-  by deviceType
+```sql
+SELECT
+    deviceType,
+    count() AS visits,
+    avg(activeTimeSeconds) AS avgTime,
+    avg(maxScrollDepth) AS avgScroll
+FROM do11y
+WHERE eventType = 'page_exit'
+GROUP BY deviceType
 ```
 
 ### Viewport impact on engagement
 
 See how screen size affects user behavior.
 
-```apl
-['do11y']
-| where eventType == 'page_exit'
-| summarize 
-    visits = count(),
-    avgScroll = avg(maxScrollDepth)
-  by viewportCategory
-| order by visits desc
+```sql
+SELECT
+    viewportCategory,
+    count() AS visits,
+    avg(maxScrollDepth) AS avgScroll
+FROM do11y
+WHERE eventType = 'page_exit'
+GROUP BY viewportCategory
+ORDER BY visits DESC
 ```
 
 ### Browser breakdown
 
 Understand your audience's browser preferences.
 
-```apl
-['do11y']
-| where eventType == 'page_view'
-| summarize sessions = dcount(sessionId) by browserFamily
-| order by sessions desc
+```sql
+SELECT browserFamily, uniq(sessionId) AS sessions
+FROM do11y
+WHERE eventType = 'page_view'
+GROUP BY browserFamily
+ORDER BY sessions DESC
 ```
 
 ## Key metrics reference
