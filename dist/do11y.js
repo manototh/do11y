@@ -1,6 +1,6 @@
 (function() {
 	//#region src/do11y.ts
-	const VERSION = "0.0.5";
+	const VERSION = "0.0.6";
 	const _alreadyLoaded = !!window.__axiomDo11yInitialized;
 	window.__axiomDo11yInitialized = true;
 	const config = {
@@ -106,6 +106,17 @@
 			contentSelector: "main, article, [role=\"main\"], .VPContent, [class*=\"content\"]",
 			tabContainerSelector: ".vp-code-group .tabs, [role=\"tablist\"]",
 			tocSelector: ".VPDocAsideOutline, [class*=\"toc\"]",
+			feedbackSelector: "[class*=\"feedback\"], [class*=\"helpful\"]"
+		},
+		starlight: {
+			searchSelector: "site-search button[data-open-modal], sl-doc-search .DocSearch-Button, button[aria-label*=\"search\" i]",
+			copyButtonSelector: ".expressive-code .copy button, .copy button[data-code]",
+			codeBlockSelector: ".expressive-code pre, pre",
+			navigationSelector: "nav, [role=\"navigation\"], [class*=\"sidebar\"]",
+			footerSelector: "footer, [role=\"contentinfo\"], [class*=\"footer\"]",
+			contentSelector: "main, .sl-markdown-content, [role=\"main\"]",
+			tabContainerSelector: "starlight-tabs [role=\"tablist\"], [role=\"tablist\"]",
+			tocSelector: ".right-sidebar-panel, starlight-toc, mobile-starlight-toc",
 			feedbackSelector: "[class*=\"feedback\"], [class*=\"helpful\"]"
 		}
 	};

@@ -3,12 +3,12 @@
  *
  * Framework-agnostic documentation observability. Works with any static-site
  * generator or docs framework including Mintlify, Docusaurus, Nextra,
- * GitBook, MkDocs Material, VitePress, and plain HTML.
+ * GitBook, MkDocs Material, VitePress, Starlight (Astro), and plain HTML.
  *
  * Set the `framework` config option to your docs framework. Supported
  * values: 'mintlify', 'docusaurus', 'nextra', 'gitbook', 'mkdocs-material',
- * 'vitepress'. Set to 'custom' and provide your own selectors if your
- * framework is not listed.
+ * 'vitepress', 'starlight'. Set to 'custom' and provide your own selectors
+ * if your framework is not listed.
  *
  * This script collects anonymous usage data without:
  * - Cookies (uses sessionStorage only - cleared when browser closes)
@@ -43,6 +43,7 @@ export type FrameworkPreset =
   | 'gitbook'
   | 'mkdocs-material'
   | 'vitepress'
+  | 'starlight'
   | 'custom';
 
 export interface FrameworkSelectors {
@@ -243,6 +244,17 @@ const FRAMEWORK_PRESETS: Record<string, FrameworkSelectors> = {
     contentSelector: 'main, article, [role="main"], .VPContent, [class*="content"]',
     tabContainerSelector: '.vp-code-group .tabs, [role="tablist"]',
     tocSelector: '.VPDocAsideOutline, [class*="toc"]',
+    feedbackSelector: '[class*="feedback"], [class*="helpful"]',
+  },
+  starlight: {
+    searchSelector: 'site-search button[data-open-modal], sl-doc-search .DocSearch-Button, button[aria-label*="search" i]',
+    copyButtonSelector: '.expressive-code .copy button, .copy button[data-code]',
+    codeBlockSelector: '.expressive-code pre, pre',
+    navigationSelector: 'nav, [role="navigation"], [class*="sidebar"]',
+    footerSelector: 'footer, [role="contentinfo"], [class*="footer"]',
+    contentSelector: 'main, .sl-markdown-content, [role="main"]',
+    tabContainerSelector: 'starlight-tabs [role="tablist"], [role="tablist"]',
+    tocSelector: '.right-sidebar-panel, starlight-toc, mobile-starlight-toc',
     feedbackSelector: '[class*="feedback"], [class*="helpful"]',
   },
 };
