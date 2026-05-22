@@ -12,7 +12,7 @@ head:
 
 # Audit docs with AI agent
 
-The [**Analyze Do11y data** skill](https://github.com/do11y/do11y/blob/main/.cursor/skills/analyze-do11y-data/SKILL.md) turns your Do11y datasource into a prioritized list of documentation improvements. It runs in an AI agent and queries your Tinybird datasource directly, checks for instrumentation gaps, and produces a structured audit report.
+The [**Analyze Do11y data** skill](https://github.com/manototh/docservable/blob/main/.cursor/skills/analyze-do11y-data/SKILL.md) turns your Do11y datasource into a prioritized list of documentation improvements. It runs in an AI agent and queries your Tinybird datasource directly, checks for instrumentation gaps, and produces a structured audit report.
 
 ## Prerequisites
 
@@ -33,7 +33,7 @@ Create a Tinybird token with read access to the datasource. This is different fr
 
 ## Run the audit
 
-Copy the [**Analyze Do11y data** skill](https://github.com/do11y/do11y/blob/main/.cursor/skills/analyze-do11y-data/SKILL.md) into the AI agent and ask it to analyze your docs:
+Copy the [**Analyze Do11y data** skill](https://github.com/manototh/docservable/blob/main/.cursor/skills/analyze-do11y-data/SKILL.md) into the AI agent and ask it to analyze your docs:
 
 > Analyze my Do11y data. Datasource: `do11y`, token: `TOKEN`, host: `api.tinybird.co`.
 
