@@ -12,38 +12,34 @@ head:
 
 # Audit docs with AI agent
 
-The [**Analyze Do11y data** skill](https://github.com/axiomhq/do11y/blob/main/.cursor/skills/analyze-do11y-data/SKILL.md) turns your Do11y dataset into a prioritized list of documentation improvements. It runs in an AI agent and queries your Axiom dataset directly, checks for instrumentation gaps, and produces a structured audit report.
+The [**Analyze Do11y data** skill](https://github.com/do11y/do11y/blob/main/.cursor/skills/analyze-do11y-data/SKILL.md) turns your Do11y datasource into a prioritized list of documentation improvements. It runs in an AI agent and queries your Tinybird datasource directly, checks for instrumentation gaps, and produces a structured audit report.
 
 ## Prerequisites
 
-Before running the skill, get these credentials from Axiom using [Get started](/get-started):
+Before running the skill, get these credentials from Tinybird using [Get started](/get-started):
 
-- **Dataset:** Axiom dataset where Do11y sends events
-- **Domain:** Edge deployment domain
+- **Datasource:** Tinybird datasource where Do11y sends events
+- **Host:** Tinybird API host (e.g. `api.tinybird.co`)
 
-## Create API token with query access
+## Create a read token
 
-Create an API token with query access to the dataset. This is required to run the audit and it's different from the ingest token you created in [Get started](/get-started).
+Create a Tinybird token with read access to the datasource. This is different from the append-only token used for ingestion.
 
-1. In Axiom, click ⚙️ **Settings > API Tokens**.
-1. Click **New API token**.
-1. Name your API token.
-1. In the **Token permissions** section, click **Advanced**.
-1. Uncheck all options selected by default.
-1. In the **Individual datasets** section, select the dataset you have created for Do11y. Don't select any other datasets.
-1. In the **Query** row of the Do11y dataset, check **Read**.
-1. Click **Create**.
-1. Copy the API token that appears and store it securely. It won't be displayed again.
+1. In Tinybird, go to **Tokens**.
+2. Click **Create Token**.
+3. Give it a name like `do11y-read`.
+4. Under scopes, select **DATASOURCE:READ** and choose your datasource.
+5. Copy the token.
 
 ## Run the audit
 
-Copy the [**Analyze Do11y data** skill](https://github.com/axiomhq/do11y/blob/main/.cursor/skills/analyze-do11y-data/SKILL.md) into the AI agent and ask it to analyze your docs:
+Copy the [**Analyze Do11y data** skill](https://github.com/do11y/do11y/blob/main/.cursor/skills/analyze-do11y-data/SKILL.md) into the AI agent and ask it to analyze your docs:
 
-> Analyze my Do11y data. Dataset: `DATASET_NAME`, token: `API_TOKEN`, domain: `DOMAIN`.
+> Analyze my Do11y data. Datasource: `do11y`, token: `TOKEN`, host: `api.tinybird.co`.
 
-Additionally, define the time range for the audit. This is the period of time you want to analyze.
+Additionally, define the time range for the audit.
 
-The agent picks up the skill automatically. It queries your dataset, checks for common instrumentation gaps, and returns a report.
+The agent picks up the skill automatically. It queries your datasource, checks for common instrumentation gaps, and returns a report.
 
 ## What the report covers
 
@@ -57,4 +53,8 @@ The agent organizes output into seven sections:
 1. **Routing issues:** Paths outside the expected URL structure and suspected 404s.
 1. **Prioritized actions:** Immediate content changes, short-term redirects, and instrumentation fixes.
 
-For individual APL queries to explore your data on your own, see [Example queries](/queries).
+For individual SQL queries to explore your data on your own, see [Example queries](/queries).
+
+## Alternative: Insights script
+
+For a quick automated report without needing to run an agent interactively, use the [insights script](/insights). It queries the same metrics and generates recommendations using an LLM.

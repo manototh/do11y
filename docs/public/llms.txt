@@ -1,6 +1,6 @@
 # Do11y
 
-> Do11y is a documentation observability solution from Axiom. It turns documentation usage into machine data by streaming behavioral events — page views, scroll depth, link clicks, search queries, code-block copies, section reading time, tab switches, TOC clicks, feedback, and expand/collapse interactions — from your docs site to Axiom in real time.
+> Do11y is a documentation observability tool. It turns documentation usage into structured event data by streaming behavioral events (page views, scroll depth, link clicks, search queries, code-block copies, section reading time, tab switches, TOC clicks, feedback, and expand/collapse interactions) from your docs site to Tinybird in real time.
 
 Do11y is agent-native: it detects AI platform referrers (ChatGPT, Perplexity, Claude, Gemini, Copilot, DeepSeek, and others) so you can understand how agents and humans engage with your content differently.
 
@@ -11,14 +11,15 @@ Privacy: no cookies, no PII, no device fingerprinting, no cross-site tracking. U
 ## Docs
 
 - [Introduction](https://docservable.com/introduction): What Do11y tracks, the privacy model, and supported frameworks.
-- [Prerequisites](https://docservable.com/get-started): Create an Axiom account, dataset, and ingest-only API token.
-- [Manual setup](https://docservable.com/install/manual): CDN and self-hosting instructions for any framework, plus the automatic GitHub Action sync and integration dashboard.
-- [Configuration](https://docservable.com/configuration): All configuration options — Axiom connection, behavioral options, framework values, and custom selectors.
-- [APL queries](https://docservable.com/queries): Ready-to-run APL queries for traffic, engagement, navigation, content performance, and more.
+- [Get started](https://docservable.com/get-started): Create a Tinybird account and configure Do11y.
+- [Manual setup](https://docservable.com/install/manual): CDN and self-hosting instructions for any framework.
+- [Configuration](https://docservable.com/configuration): All configuration options including destination, behavioral options, framework values, and custom selectors.
+- [SQL queries](https://docservable.com/queries): Ready-to-run SQL queries for traffic, engagement, navigation, content performance, and more.
+- [Insights](https://docservable.com/insights): AI-powered recommendations about what to fix in your documentation.
 - [Reference](https://docservable.com/reference): Events schema, AI traffic detection fields, JavaScript API, and known limitations.
 
 ## Optional
 
-- [GitHub](https://github.com/axiomhq/do11y): Source code, releases, and issue tracker.
-- [npm](https://www.npmjs.com/package/@axiomhq/do11y): Package published as @axiomhq/do11y.
-- [Axiom](https://axiom.co): The observability platform that powers Do11y.
+- [GitHub](https://github.com/do11y/do11y): Source code, releases, and issue tracker.
+- [npm](https://www.npmjs.com/package/do11y): Package published as do11y.
+- [Tinybird](https://www.tinybird.co): The analytics platform that stores Do11y event data.

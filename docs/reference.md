@@ -45,14 +45,14 @@ Detection is referrer-based: it checks whether `document.referrer` hostname matc
 
 ## JavaScript API
 
-Do11y exposes `window.AxiomDo11y` for debugging and integration:
+Do11y exposes `window.Do11y` for debugging and integration:
 
 ```javascript
-AxiomDo11y.getConfig()    // Current config (token redacted)
-AxiomDo11y.isEnabled()    // Whether tracking is active
-AxiomDo11y.flush()        // Force-send queued events
-AxiomDo11y.getQueueSize() // Number of queued events
-AxiomDo11y.version        // Script version
+Do11y.getConfig()    // Current config (token redacted)
+Do11y.isEnabled()    // Whether tracking is active
+Do11y.flush()        // Force-send queued events
+Do11y.getQueueSize() // Number of queued events
+Do11y.version        // Script version
 ```
 
 `cleanup()` and `debug()` are intentionally not exposed on the global object. Exposing `cleanup()` would allow any third-party script on the page to silently stop tracking. Exposing `debug()` would allow any script to enable verbose console output that reveals the configured ingest endpoint and queued event data.

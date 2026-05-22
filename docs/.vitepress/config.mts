@@ -9,7 +9,7 @@ const OG_IMAGE = `${SITE_URL}og-image.png`
 export default defineConfig({
   base: PATH,
   title: "Do11y",
-  description: "Documentation observability for Axiom. Stream behavioral events from your docs site in real time.",
+  description: "Documentation observability. Stream behavioral events from your docs site in real time.",
   sitemap: {
     hostname: `${SITE_URL}`,
   },
@@ -20,13 +20,12 @@ export default defineConfig({
     ['meta', { property: 'og:site_name', content: 'Do11y' }],
     ['meta', { property: 'og:image', content: OG_IMAGE }],
     ['meta', { name: 'twitter:card', content: 'summary_large_image' }],
-    ['meta', { name: 'twitter:site', content: '@axiomhq' }],
     ['meta', { name: 'twitter:image', content: OG_IMAGE }],
-    ['meta', { name: 'axiom-do11y-domain', content: 'us-east-1.aws.edge.axiom.co' }],
-    ['meta', { name: 'axiom-do11y-token', content: 'xaat-72de74ac-7a9e-45a2-87cb-6b31cd8a3a84' }],
-    ['meta', { name: 'axiom-do11y-dataset', content: 'mano-docs-site-of-do11y' }],
-    ['meta', { name: 'axiom-do11y-framework', content: 'vitepress' }],
-    ['script', { src: 'https://cdn.jsdelivr.net/npm/@axiomhq/do11y@latest/dist/do11y.min.js' }],
+    ['meta', { name: 'do11y-token', content: 'YOUR_TINYBIRD_TOKEN' }],
+    ['meta', { name: 'do11y-datasource', content: 'do11y' }],
+    ['meta', { name: 'do11y-host', content: 'api.tinybird.co' }],
+    ['meta', { name: 'do11y-framework', content: 'vitepress' }],
+    ['script', { src: 'https://cdn.jsdelivr.net/npm/do11y@latest/dist/do11y.min.js' }],
   ],
   themeConfig: {
     siteTitle: 'Do11y Documentation',
@@ -76,7 +75,8 @@ export default defineConfig({
         text: 'Analyze',
         collapsed: false,
         items: [
-          { text: 'Integration dashboard', link: '/integration-dashboard' },
+          { text: 'Analyzing your data', link: '/integration-dashboard' },
+          { text: 'Insights', link: '/insights' },
           { text: 'Audit docs with AI agent', link: '/audit' },
           { text: 'Example queries', link: '/queries' },
         ],
@@ -110,17 +110,16 @@ export default defineConfig({
     ],
 
     editLink: {
-      pattern: 'https://github.com/axiomhq/do11y/edit/main/docs/:path',
+      pattern: 'https://github.com/do11y/do11y/edit/main/docs/:path',
       text: 'Edit this page on GitHub',
     },
 
     socialLinks: [
-      { icon: 'github', link: 'https://github.com/axiomhq/do11y' }
+      { icon: 'github', link: 'https://github.com/do11y/do11y' }
     ],
 
     footer: {
       message: 'Released under the MIT License.',
-      copyright: 'Copyright © Axiom, Inc.'
     },
   }
 })

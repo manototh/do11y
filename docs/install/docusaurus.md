@@ -18,17 +18,17 @@ Add the following to the `headTags` and `scripts` fields in `docusaurus.config.j
 
 ```js
 headTags: [
-  { tagName: 'meta', attributes: { name: 'axiom-do11y-domain', content: 'AXIOM_DOMAIN' } },
-  { tagName: 'meta', attributes: { name: 'axiom-do11y-token', content: 'API_TOKEN' } },
-  { tagName: 'meta', attributes: { name: 'axiom-do11y-dataset', content: 'DATASET_NAME' } },
-  { tagName: 'meta', attributes: { name: 'axiom-do11y-framework', content: 'docusaurus' } },
+  { tagName: 'meta', attributes: { name: 'do11y-token', content: 'YOUR_TINYBIRD_TOKEN' } },
+  { tagName: 'meta', attributes: { name: 'do11y-datasource', content: 'do11y' } },
+  { tagName: 'meta', attributes: { name: 'do11y-host', content: 'api.tinybird.co' } },
+  { tagName: 'meta', attributes: { name: 'do11y-framework', content: 'docusaurus' } },
 ],
 scripts: [
-  { src: 'https://cdn.jsdelivr.net/npm/@axiomhq/do11y@latest/dist/do11y.min.js', defer: true },
+  { src: 'https://cdn.jsdelivr.net/npm/do11y@latest/dist/do11y.min.js', defer: true },
 ],
 ```
 
-Replace `AXIOM_DOMAIN`, `API_TOKEN`, and `DATASET_NAME` with your [Axiom credentials](/get-started).
+Replace the token with your [Tinybird credentials](/get-started).
 
 ## Advanced configuration
 
@@ -36,10 +36,10 @@ To use options beyond the basic credentials (scroll thresholds, tracking toggles
 
 ```js
 headTags: [
-  { tagName: 'meta', attributes: { name: 'axiom-do11y-domain', content: 'AXIOM_DOMAIN' } },
-  { tagName: 'meta', attributes: { name: 'axiom-do11y-token', content: 'API_TOKEN' } },
-  { tagName: 'meta', attributes: { name: 'axiom-do11y-dataset', content: 'DATASET_NAME' } },
-  { tagName: 'meta', attributes: { name: 'axiom-do11y-framework', content: 'docusaurus' } },
+  { tagName: 'meta', attributes: { name: 'do11y-token', content: 'YOUR_TINYBIRD_TOKEN' } },
+  { tagName: 'meta', attributes: { name: 'do11y-datasource', content: 'do11y' } },
+  { tagName: 'meta', attributes: { name: 'do11y-host', content: 'api.tinybird.co' } },
+  { tagName: 'meta', attributes: { name: 'do11y-framework', content: 'docusaurus' } },
   {
     tagName: 'script',
     attributes: {},
@@ -47,7 +47,7 @@ headTags: [
   },
 ],
 scripts: [
-  { src: 'https://cdn.jsdelivr.net/npm/@axiomhq/do11y@latest/dist/do11y.min.js', defer: true },
+  { src: 'https://cdn.jsdelivr.net/npm/do11y@latest/dist/do11y.min.js', defer: true },
 ],
 ```
 
@@ -55,6 +55,6 @@ See the [configuration reference](/configuration) for all available options.
 
 ## Next steps
 
-- [Analyze data in the integration dashboard](/integration-dashboard)
+- [Get insights from your data](/insights)
 - [Query your data](/queries)
 - [Advanced configuration](/configuration)

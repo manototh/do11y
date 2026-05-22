@@ -1,26 +1,45 @@
 ---
 title: Configuration
-description: All Do11y configuration options, including Axiom connection, behavior, framework, and custom selectors.
+description: All Do11y configuration options, including destination, behavior, framework, and custom selectors.
 head:
   - - meta
     - property: og:title
       content: Configuration — Do11y
   - - meta
     - property: og:description
-      content: All Do11y configuration options, including Axiom connection, behavior, framework, and custom selectors.
+      content: All Do11y configuration options, including destination, behavior, framework, and custom selectors.
 ---
 
 # Configuration
 
 Set all options via `window.Do11yConfig` using an inline script or a separate config file, or via meta tags. When both are present, meta tags take precedence over `window.Do11yConfig`, which takes precedence over the defaults.
 
-## Axiom connection
+## Destination
+
+Do11y supports two destinations for event data: Tinybird (default) and generic HTTP.
 
 | Option | Default | Description |
 |---|---|---|
-| `axiomHost` | `'AXIOM_DOMAIN'` | Base domain of your Axiom edge deployment. See [Edge deployments](https://axiom.co/docs/reference/edge-deployments). |
-| `axiomDataset` | `'DATASET_NAME'` | Name of the Axiom dataset to store your data. |
-| `axiomToken` | `'API_TOKEN'` | Ingest-only API token scoped to the dataset. |
+| `destination` | `'tinybird'` | Where to send events. `'tinybird'` or `'http'`. |
+
+### Tinybird
+
+| Option | Default | Description |
+|---|---|---|
+| `tinybirdHost` | `'api.tinybird.co'` | Tinybird API host. Use `'api.eu-central-1.aws.tinybird.co'` for EU. |
+| `tinybirdToken` | `''` | Token with `DATASOURCE:APPEND` scope. |
+| `tinybirdDatasource` | `'do11y'` | Name of the Tinybird datasource. |
+
+### HTTP
+
+Send events to any HTTPS endpoint. Useful for custom backends, webhook relays, or other analytics platforms.
+
+| Option | Default | Description |
+|---|---|---|
+| `httpEndpoint` | `''` | Full URL to POST events to. Must be HTTPS. |
+| `httpHeaders` | `{}` | Custom headers to include (e.g. authorization). |
+
+When using HTTP, events are sent as a JSON array in the POST body. The `Content-Type: application/json` header is set automatically.
 
 ## Behavior
 
@@ -39,7 +58,7 @@ Set all options via `window.Do11yConfig` using an inline script or a separate co
 | `trackTocClicks` | `true` | Track on-page table of contents clicks. |
 | `trackExpandCollapse` | `true` | Track expand/collapse interactions (details, accordions). |
 | `trackFeedback` | `true` | Track "Was this helpful?" feedback widget clicks. |
-| `allowedDomains` | `['ALLOWED_DOMAINS']` | Restrict which domains may send data. Set to `null` to allow any. |
+| `allowedDomains` | `null` | Restrict which domains may send data. Set to `null` to allow any. |
 | `respectDNT` | `true` | Honor the browser's Do Not Track setting. |
 | `maxRetries` | `2` | Retry count for failed requests. |
 | `retryDelay` | `1000` | Base delay between retries in milliseconds (doubles each attempt). |
@@ -63,7 +82,7 @@ When you set `framework` to a supported value, Do11y automatically configures th
 You can also set the framework via a meta tag:
 
 ```html
-<meta name="axiom-do11y-framework" content="docusaurus">
+<meta name="do11y-framework" content="docusaurus">
 ```
 
 ## Custom selectors
@@ -86,9 +105,9 @@ Example:
 
 ```js
 window.Do11yConfig = {
-  axiomHost: 'us-east-1.aws.edge.axiom.co',
-  axiomToken: 'xaat-your-ingest-token',
-  axiomDataset: 'do11y',
+  tinybirdHost: 'api.tinybird.co',
+  tinybirdToken: 'p.your-ingest-token',
+  tinybirdDatasource: 'do11y',
   framework: 'custom',
   searchSelector: '#search-input',
   copyButtonSelector: '.copy-btn',

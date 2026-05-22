@@ -4,7 +4,7 @@ layout: home
 hero:
   name: "Do11y"
   text: "Documentation observability"
-  tagline: Turn documentation usage into machine data. Stream behavioral events from your docs site to Axiom in real time.
+  tagline: Turn documentation usage into structured event data. Stream behavioral events from your docs site to Tinybird in real time.
   actions:
     - theme: brand
       text: Get started
@@ -27,6 +27,6 @@ features:
     details: Mintlify, Docusaurus, Nextra, MkDocs Material, and VitePress are supported. For anything else, use manual setup with custom selectors.
   - title: Rich behavioral events
     details: Page views, scroll depth, link clicks, search queries, code-block copies, section reading time, tab switches, TOC clicks, feedback, and expand/collapse interactions.
-  - title: Integration dashboard
-    details: Axiom automatically creates a dashboard when you start sending Do11y data from your docs site. It shows page views, scroll depth, code copies, reading time, and more, without any additional setup.
+  - title: AI-powered insights
+    details: Run the insights script to get actionable recommendations about which pages to fix, based on engagement data. Connects to Promptless for automated documentation improvement PRs.
 ---

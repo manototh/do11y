@@ -12,9 +12,9 @@ head:
 
 # Introduction
 
-Do11y is a documentation observability solution from [Axiom](https://axiom.co). It turns documentation usage into machine data by streaming behavioral events from your docs site to Axiom in real time.
+Do11y is a documentation observability tool. It turns documentation usage into structured event data by streaming behavioral events from your docs site to [Tinybird](https://www.tinybird.co) (or any HTTP endpoint) in real time.
 
-Do11y is built for humans and machines alike. It emits observability data that is easy to read in the Axiom UI and easy to query programmatically.
+Do11y is built for humans and machines alike. It emits observability data that is easy to query with SQL and easy to feed into automated insights pipelines.
 
 Do11y is agent-native. It detects AI platform referrers so you can understand how agents and humans engage with your content differently.
 
@@ -28,7 +28,7 @@ Technical writers, information architects, and documentation engineers need diff
 
 Do11y tracks documentation-specific behavior automatically. Section reading time records which headings stayed in the viewport long enough to be read, not just whether the user was on the page. Code-block copies capture which example, in which language, in which section. Tab switches tell you which framework or language your audience actually uses. Table of contents (TOC) usage can be a hint for page organization as high click rates can signal that a page is too long or poorly structured.
 
-General analytics tools also lock you into their reporting interface. Do11y sends raw events to Axiom, where you query them with full flexibility. You can ask questions that a prebuilt dashboard would never surface, such as which sessions copied a code block and then exited without navigating further.
+General analytics tools also lock you into their reporting interface. Do11y sends raw events to Tinybird, where you query them with SQL and full flexibility. You can ask questions that a prebuilt dashboard would never surface, such as which sessions copied a code block and then exited without navigating further.
 
 The privacy profile is different too. Tools that rely on cookies or build persistent user profiles require a GDPR/CCPA consent banner. Do11y uses `sessionStorage`, collects no personal data, and does no fingerprinting, which removes that compliance overhead for most teams. You usually don't need a GDPR/CCPA consent banner for using Do11y. If your organization has specific compliance obligations, verify with your legal team.
 
