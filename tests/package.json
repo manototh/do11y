@@ -1,0 +1,20 @@
+{
+  "name": "do11y-tests",
+  "private": true,
+  "type": "commonjs",
+  "scripts": {
+    "test-integrations": "tsx test-integrations.ts",
+    "test-e2e-live": "tsx test-e2e-live.ts",
+    "test-live-sites": "tsx test-live-sites.ts",
+    "test-queries": "tsx test-queries.ts"
+  },
+  "dependencies": {
+    "dotenv": "^16.4.5",
+    "puppeteer": "^24.0.0"
+  },
+  "devDependencies": {
+    "@types/node": "latest",
+    "tsx": "latest",
+    "typescript": "latest"
+  }
+}

@@ -1,0 +1,24 @@
+# Do11y
+
+> Do11y is a documentation observability solution from Axiom. It turns documentation usage into machine data by streaming behavioral events — page views, scroll depth, link clicks, search queries, code-block copies, section reading time, tab switches, TOC clicks, feedback, and expand/collapse interactions — from your docs site to Axiom in real time.
+
+Do11y is agent-native: it detects AI platform referrers (ChatGPT, Perplexity, Claude, Gemini, Copilot, DeepSeek, and others) so you can understand how agents and humans engage with your content differently.
+
+The runtime artifact is a single dependency-free JavaScript file. It supports Mintlify, Docusaurus, Nextra, MkDocs Material, and VitePress out of the box. For other frameworks, manual setup is available via CDN or self-hosting.
+
+Privacy: no cookies, no PII, no device fingerprinting, no cross-site tracking. Uses sessionStorage. No GDPR consent banner required.
+
+## Docs
+
+- [Introduction](https://docservable.com/introduction): What Do11y tracks, the privacy model, and supported frameworks.
+- [Prerequisites](https://docservable.com/get-started): Create an Axiom account, dataset, and ingest-only API token.
+- [Manual setup](https://docservable.com/install/manual): CDN and self-hosting instructions for any framework, plus the automatic GitHub Action sync and integration dashboard.
+- [Configuration](https://docservable.com/configuration): All configuration options — Axiom connection, behavioral options, framework values, and custom selectors.
+- [APL queries](https://docservable.com/queries): Ready-to-run APL queries for traffic, engagement, navigation, content performance, and more.
+- [Reference](https://docservable.com/reference): Events schema, AI traffic detection fields, JavaScript API, and known limitations.
+
+## Optional
+
+- [GitHub](https://github.com/axiomhq/do11y): Source code, releases, and issue tracker.
+- [npm](https://www.npmjs.com/package/@axiomhq/do11y): Package published as @axiomhq/do11y.
+- [Axiom](https://axiom.co): The observability platform that powers Do11y.

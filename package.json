@@ -1,0 +1,34 @@
+{
+  "name": "@axiomhq/do11y",
+  "version": "0.0.6",
+  "description": "Documentation observability for Axiom",
+  "type": "module",
+  "main": "./dist/do11y.min.js",
+  "exports": {
+    ".": "./dist/do11y.min.js",
+    "./min": "./dist/do11y.min.js"
+  },
+  "files": [
+    "dist",
+    "examples"
+  ],
+  "scripts": {
+    "build": "rolldown -c rolldown.config.ts",
+    "lint": "oxlint src",
+    "format": "oxfmt src",
+    "check": "tsc --noEmit"
+  },
+  "keywords": [
+    "axiom",
+    "analytics",
+    "documentation",
+    "observability"
+  ],
+  "license": "MIT",
+  "devDependencies": {
+    "oxfmt": "latest",
+    "oxlint": "latest",
+    "rolldown": "latest",
+    "typescript": "latest"
+  }
+}

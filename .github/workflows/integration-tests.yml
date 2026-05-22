@@ -1,0 +1,42 @@
+name: Integration tests
+
+on:
+  schedule:
+    - cron: '0 6 * * *'  # Every day at 06:00 UTC
+  workflow_dispatch:
+
+jobs:
+  integration-tests:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.x'
+
+      - name: Install mkdocs-material
+        run: pip install mkdocs-material
+
+      - name: Install root dependencies and build
+        run: npm ci && npm run build
+
+      - name: Install test dependencies
+        run: npm ci
+        working-directory: tests
+
+      - name: Run integration tests
+        run: npm run test-integrations
+        working-directory: tests
+        env:
+          AXIOM_DOMAIN: ${{ secrets.AXIOM_DOMAIN }}
+          AXIOM_TOKEN: ${{ secrets.AXIOM_TOKEN }}
+          AXIOM_DATASET: ${{ secrets.AXIOM_DATASET }}
+          SKIP_BUILD: '1'

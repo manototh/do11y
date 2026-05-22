@@ -1,0 +1,10 @@
+{
+  "name": "do11y-test-vitepress",
+  "private": true,
+  "scripts": {
+    "start": "vitepress dev --port 4003"
+  },
+  "dependencies": {
+    "vitepress": "^1.6.0"
+  }
+}

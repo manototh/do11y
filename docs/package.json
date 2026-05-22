@@ -1,0 +1,12 @@
+{
+  "name": "do11y-docs",
+  "description": "Documentation for AxiomDo11y",
+  "scripts": {
+    "dev": "vitepress dev",
+    "build": "vitepress build",
+    "preview": "vitepress preview"
+  },
+  "devDependencies": {
+    "vitepress": "^2.0.0-alpha.17"
+  }
+}
