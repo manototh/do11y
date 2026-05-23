@@ -19,13 +19,13 @@ Set up Do11y in two steps:
 
 ## Create a Supabase project
 
-[Sign up for Supabase](https://supabase.com/dashboard) with GitHub or Google. No credit card required. The free tier includes 500 MB of database storage with no time-based retention limits.
+[Sign up for Supabase](https://supabase.com/dashboard). You don't need a credit card. The free tier includes more than enough storage for most docs sites with no time-based retention limits.
 
-A project is created automatically when you sign up. Note your **Project URL** and **publishable key** from **Settings > API Keys**.
+After you create your project, click **Copy** in the Project Overview page, and note your **Project URL** and **Publishable key**.
 
 ## Create the events table
 
-Open the **SQL Editor** in the Supabase dashboard and run this:
+In Supabase, open the **SQL Editor** in the left sidebar and run the following:
 
 ```sql
 create table do11y_events (
@@ -37,6 +37,7 @@ create table do11y_events (
 alter table do11y_events enable row level security;
 
 grant insert on do11y_events to anon;
+grant select on do11y_events to service_role;
 
 create policy "Allow anonymous inserts"
   on do11y_events for insert
@@ -44,18 +45,9 @@ create policy "Allow anonymous inserts"
   with check (true);
 ```
 
-This creates a table that accepts event data from Do11y and allows anonymous inserts via the publishable key. The publishable key cannot read data, only write it.
+This SQL script creates a table that accepts event data from Do11y and allows anonymous inserts via the publishable key. The publishable key cannot read data, only write it. The script also grants SELECT access on the table to the service role. This is needed for the insights script to work.
 
-## Your credentials
-
-You now have the two values Do11y needs. Find them in the Supabase dashboard under **Settings > API Keys**:
-
-| Value | Where to find it | Config option |
-|---|---|---|
-| Project URL | Settings > API Keys > "Project URL" | `supabaseUrl` |
-| Publishable key | Settings > API Keys > publishable key (`sb_publishable_...`) | `supabaseKey` |
-
-The table name defaults to `do11y_events`. Change it with the `supabaseTable` option if you used a different name.
+The default table name is `do11y_events`. If you use a different name, add the `supabaseTable` parameter to your Do11y configuration.
 
 ## Add Do11y to your documentation site
 
@@ -70,7 +62,7 @@ Follow the install guide for your documentation framework:
 
 ## Alternative: HTTP destination
 
-If you prefer to send events to your own backend or a different analytics service, set `destination` to `'http'`:
+To send events to your own backend or a different analytics service, set `destination` to `'http'`:
 
 ```js
 window.Do11yConfig = {

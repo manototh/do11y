@@ -17,12 +17,13 @@ Do11y includes an insights script that analyzes your documentation analytics and
 ## Quick start
 
 ```bash
-DATABASE_URL=postgresql://postgres:password@db.abc123.supabase.co:5432/postgres \
+SUPABASE_URL=https://your-project.supabase.co \
+SUPABASE_SECRET_KEY=sb_secret_... \
 OPENAI_API_KEY=sk-... \
 npx tsx scripts/insights.ts
 ```
 
-Find your connection string in the Supabase dashboard under **Settings > Database > Connection string** (use the "URI" format).
+Find `SUPABASE_SECRET_KEY` in the Supabase dashboard under **Settings > API Keys** (the secret key starting with `sb_secret_`). This key can read data and should never be exposed client-side.
 
 The script outputs a markdown report with:
 
@@ -35,7 +36,8 @@ The script outputs a markdown report with:
 
 | Variable | Required | Default | Description |
 |---|---|---|---|
-| `DATABASE_URL` | Yes | — | Supabase Postgres connection string |
+| `SUPABASE_URL` | Yes | — | Supabase project URL |
+| `SUPABASE_SECRET_KEY` | Yes | — | Secret key (`sb_secret_...`) for reading data |
 | `OPENAI_API_KEY` | Yes | — | OpenAI API key |
 | `SUPABASE_TABLE` | No | `do11y_events` | Table name |
 | `OPENAI_MODEL` | No | `gpt-4o` | Model for generating recommendations |
@@ -60,10 +62,10 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: 20
-      - run: npm install pg
       - run: npx tsx scripts/insights.ts
         env:
-          DATABASE_URL: ${{ secrets.DATABASE_URL }}
+          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          SUPABASE_SECRET_KEY: ${{ secrets.SUPABASE_SECRET_KEY }}
           OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
 ```
 

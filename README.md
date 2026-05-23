@@ -153,7 +153,8 @@ All options can be set via `window.Do11yConfig` or meta tags. See the [configura
 Get AI-powered recommendations about what to fix:
 
 ```bash
-DATABASE_URL=postgresql://... \
+SUPABASE_URL=https://your-project.supabase.co \
+SUPABASE_SECRET_KEY=sb_secret_... \
 OPENAI_API_KEY=sk-... \
 npx tsx scripts/insights.ts
 ```

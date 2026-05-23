@@ -2,29 +2,40 @@
 // Originally derived from https://github.com/axiomhq/do11y
 /**
  * Do11y Insights — generate actionable documentation recommendations from
- * behavioral analytics stored in Supabase (PostgreSQL).
+ * behavioral analytics stored in Supabase.
+ *
+ * Uses the Supabase REST API (no direct Postgres connection needed).
  *
  * Usage:
- *   DATABASE_URL=postgresql://... \
+ *   SUPABASE_URL=https://xxx.supabase.co \
+ *   SUPABASE_SERVICE_KEY=eyJ... \
  *   OPENAI_API_KEY=... npx tsx scripts/insights.ts
  *
  * Environment variables:
- *   DATABASE_URL        — Supabase Postgres connection string (from Settings > Database)
- *   SUPABASE_TABLE      — Table name (default: do11y_events)
- *   OPENAI_API_KEY      — OpenAI API key for generating recommendations
- *   OPENAI_MODEL        — Model to use (default: gpt-4o)
- *   DAYS_BACK           — Number of days to analyze (default: 30)
+ *   SUPABASE_URL         — Supabase project URL
+ *   SUPABASE_SECRET_KEY  — Secret key (sb_secret_...) for reading data
+ *   SUPABASE_TABLE       — Table name (default: do11y_events)
+ *   OPENAI_API_KEY       — OpenAI API key for generating recommendations
+ *   OPENAI_MODEL         — Model to use (default: gpt-4o)
+ *   DAYS_BACK            — Number of days to analyze (default: 30)
  */
 
-const DATABASE_URL = process.env.DATABASE_URL;
+const SUPABASE_URL = process.env.SUPABASE_URL;
+const SUPABASE_SECRET_KEY = process.env.SUPABASE_SECRET_KEY;
 const SUPABASE_TABLE = process.env.SUPABASE_TABLE || 'do11y_events';
 const OPENAI_API_KEY = process.env.OPENAI_API_KEY;
 const OPENAI_MODEL = process.env.OPENAI_MODEL || 'gpt-4o';
 const DAYS_BACK = parseInt(process.env.DAYS_BACK || '30', 10);
 
-if (!DATABASE_URL) {
-  console.error('Error: DATABASE_URL environment variable is required');
-  console.error('Find it in your Supabase dashboard under Settings > Database > Connection string');
+if (!SUPABASE_URL) {
+  console.error('Error: SUPABASE_URL environment variable is required');
+  console.error('This is your Supabase project URL (e.g. https://abc123.supabase.co)');
+  process.exit(1);
+}
+
+if (!SUPABASE_SECRET_KEY) {
+  console.error('Error: SUPABASE_SECRET_KEY environment variable is required');
+  console.error('Find it in Supabase dashboard: Settings > API Keys > secret key (sb_secret_...)');
   process.exit(1);
 }
 
@@ -33,122 +44,156 @@ if (!OPENAI_API_KEY) {
   process.exit(1);
 }
 
-interface Row {
+interface EventPayload {
+  _time: string;
+  eventType: string;
+  path: string;
+  activeTimeSeconds?: number;
+  maxScrollDepth?: number;
+  isFirstPage?: boolean;
+  referrerCategory?: string;
+  referrerDomain?: string;
+  aiPlatform?: string;
+  tabLabel?: string;
+  isDefault?: boolean;
+  rating?: string;
   [key: string]: unknown;
 }
 
-async function queryDatabase(sql: string): Promise<Row[]> {
-  // Use the pg module for direct Postgres queries
-  const { default: pg } = await import('pg');
-  const client = new pg.Client({ connectionString: DATABASE_URL });
-  await client.connect();
-  try {
-    const result = await client.query(sql);
-    return result.rows;
-  } finally {
-    await client.end();
-  }
+interface Row {
+  payload: EventPayload;
 }
 
-async function gatherMetrics(): Promise<Record<string, Row[]>> {
+async function fetchEvents(eventTypes: string[]): Promise<EventPayload[]> {
   const since = new Date(Date.now() - DAYS_BACK * 86400000).toISOString();
-  const t = SUPABASE_TABLE;
+  const url = new URL(`${SUPABASE_URL}/rest/v1/${SUPABASE_TABLE}`);
+  url.searchParams.set('select', 'payload');
+  url.searchParams.set('payload->>eventType', `in.(${eventTypes.join(',')})`);
+  url.searchParams.set('payload->>_time', `gte.${since}`);
+  url.searchParams.set('limit', '50000');
 
-  const queries: Record<string, string> = {
-    highTrafficLowEngagement: `
-      select
-        payload->>'path' as path,
-        count(*) as visits,
-        avg((payload->>'activeTimeSeconds')::numeric) as "avgTime",
-        avg((payload->>'maxScrollDepth')::numeric) as "avgScroll"
-      from ${t}
-      where payload->>'eventType' = 'page_exit'
-        and (payload->>'_time')::timestamptz >= '${since}'::timestamptz
-      group by payload->>'path'
-      having count(*) > 10 and avg((payload->>'maxScrollDepth')::numeric) < 30
-      order by count(*) desc
-      limit 10
-    `,
-    confusionSignals: `
-      select
-        payload->>'path' as path,
-        count(*) filter (where payload->>'eventType' = 'page_view') as "pageViews",
-        count(*) filter (where payload->>'eventType' = 'search_opened') as searches
-      from ${t}
-      where (payload->>'_time')::timestamptz >= '${since}'::timestamptz
-      group by payload->>'path'
-      having count(*) filter (where payload->>'eventType' = 'page_view') > 10
-      order by count(*) filter (where payload->>'eventType' = 'search_opened')::numeric
-             / count(*) filter (where payload->>'eventType' = 'page_view')::numeric desc
-      limit 10
-    `,
-    heavyTocUsage: `
-      select
-        payload->>'path' as path,
-        count(*) filter (where payload->>'eventType' = 'toc_click') as "tocClicks",
-        count(*) filter (where payload->>'eventType' = 'page_view') as views
-      from ${t}
-      where (payload->>'_time')::timestamptz >= '${since}'::timestamptz
-      group by payload->>'path'
-      having count(*) filter (where payload->>'eventType' = 'page_view') > 10
-      order by count(*) filter (where payload->>'eventType' = 'toc_click')::numeric
-             / count(*) filter (where payload->>'eventType' = 'page_view')::numeric desc
-      limit 10
-    `,
-    highPerformers: `
-      select
-        payload->>'path' as path,
-        count(*) as visits,
-        avg((payload->>'maxScrollDepth')::numeric) as "avgScroll",
-        avg((payload->>'activeTimeSeconds')::numeric) as "avgTime"
-      from ${t}
-      where payload->>'eventType' = 'page_exit'
-        and (payload->>'_time')::timestamptz >= '${since}'::timestamptz
-      group by payload->>'path'
-      having count(*) > 10 and avg((payload->>'maxScrollDepth')::numeric) > 70
-      order by avg((payload->>'maxScrollDepth')::numeric) desc
-      limit 5
-    `,
-    bouncePages: `
-      select
-        payload->>'path' as path,
-        count(*) as visits,
-        avg((payload->>'activeTimeSeconds')::numeric) as "avgTime",
-        avg((payload->>'maxScrollDepth')::numeric) as "avgScroll"
-      from ${t}
-      where payload->>'eventType' = 'page_exit'
-        and (payload->>'_time')::timestamptz >= '${since}'::timestamptz
-      group by payload->>'path'
-      having count(*) > 5
-        and avg((payload->>'activeTimeSeconds')::numeric) < 10
-        and avg((payload->>'maxScrollDepth')::numeric) < 25
-      order by count(*) desc
-      limit 10
-    `,
-  };
+  const res = await fetch(url.toString(), {
+    headers: {
+      'apikey': SUPABASE_SECRET_KEY!,
+      'Authorization': `Bearer ${SUPABASE_SECRET_KEY}`,
+    },
+  });
 
-  const results: Record<string, Row[]> = {};
+  if (!res.ok) {
+    const text = await res.text();
+    throw new Error(`Supabase query failed (${res.status}): ${text}`);
+  }
 
-  const entries = Object.entries(queries);
-  const settled = await Promise.allSettled(
-    entries.map(([, sql]) => queryDatabase(sql))
-  );
+  const rows = await res.json() as Row[];
+  return rows.map(r => r.payload);
+}
 
-  for (let i = 0; i < entries.length; i++) {
-    const [key] = entries[i]!;
-    const result = settled[i]!;
-    if (result.status === 'fulfilled') {
-      results[key] = result.value;
-    } else {
-      console.warn(`Query "${key}" failed:`, result.reason);
-      results[key] = [];
-    }
+interface PageMetrics {
+  path: string;
+  visits: number;
+  avgTime: number;
+  avgScroll: number;
+}
+
+function aggregatePageExits(events: EventPayload[]): PageMetrics[] {
+  const byPath = new Map<string, { times: number[]; scrolls: number[] }>();
+
+  for (const e of events) {
+    if (e.eventType !== 'page_exit') continue;
+    const path = e.path;
+    if (!byPath.has(path)) byPath.set(path, { times: [], scrolls: [] });
+    const entry = byPath.get(path)!;
+    if (typeof e.activeTimeSeconds === 'number') entry.times.push(e.activeTimeSeconds);
+    if (typeof e.maxScrollDepth === 'number') entry.scrolls.push(e.maxScrollDepth);
+  }
+
+  const results: PageMetrics[] = [];
+  for (const [path, data] of byPath) {
+    const visits = data.times.length || data.scrolls.length;
+    const avgTime = data.times.length > 0
+      ? data.times.reduce((a, b) => a + b, 0) / data.times.length
+      : 0;
+    const avgScroll = data.scrolls.length > 0
+      ? data.scrolls.reduce((a, b) => a + b, 0) / data.scrolls.length
+      : 0;
+    results.push({ path, visits, avgTime: Math.round(avgTime * 10) / 10, avgScroll: Math.round(avgScroll * 10) / 10 });
   }
 
   return results;
 }
 
-async function generateRecommendations(metrics: Record<string, Row[]>): Promise<string> {
+async function gatherMetrics(): Promise<Record<string, unknown[]>> {
+  console.log('  Fetching page_exit events...');
+  const exitEvents = await fetchEvents(['page_exit']);
+
+  console.log('  Fetching page_view and search events...');
+  const viewSearchEvents = await fetchEvents(['page_view', 'search_opened']);
+
+  console.log('  Fetching toc_click events...');
+  const tocEvents = await fetchEvents(['toc_click']);
+
+  const pageMetrics = aggregatePageExits(exitEvents);
+
+  const highTrafficLowEngagement = pageMetrics
+    .filter(p => p.visits > 10 && p.avgScroll < 30)
+    .sort((a, b) => b.visits - a.visits)
+    .slice(0, 10);
+
+  const bouncePages = pageMetrics
+    .filter(p => p.visits > 5 && p.avgTime < 10 && p.avgScroll < 25)
+    .sort((a, b) => b.visits - a.visits)
+    .slice(0, 10);
+
+  const highPerformers = pageMetrics
+    .filter(p => p.visits > 10 && p.avgScroll > 70)
+    .sort((a, b) => b.avgScroll - a.avgScroll)
+    .slice(0, 5);
+
+  // Confusion signals: pages with high search rate after landing
+  const viewsByPath = new Map<string, number>();
+  const searchesByPath = new Map<string, number>();
+  for (const e of viewSearchEvents) {
+    if (e.eventType === 'page_view') {
+      viewsByPath.set(e.path, (viewsByPath.get(e.path) || 0) + 1);
+    } else if (e.eventType === 'search_opened') {
+      searchesByPath.set(e.path, (searchesByPath.get(e.path) || 0) + 1);
+    }
+  }
+  const confusionSignals = [...viewsByPath.entries()]
+    .filter(([, views]) => views > 10)
+    .map(([path, pageViews]) => ({
+      path,
+      pageViews,
+      searches: searchesByPath.get(path) || 0,
+    }))
+    .sort((a, b) => (b.searches / b.pageViews) - (a.searches / a.pageViews))
+    .slice(0, 10);
+
+  // Heavy TOC usage
+  const tocByPath = new Map<string, number>();
+  for (const e of tocEvents) {
+    tocByPath.set(e.path, (tocByPath.get(e.path) || 0) + 1);
+  }
+  const heavyTocUsage = [...viewsByPath.entries()]
+    .filter(([, views]) => views > 10)
+    .map(([path, views]) => ({
+      path,
+      tocClicks: tocByPath.get(path) || 0,
+      views,
+    }))
+    .sort((a, b) => (b.tocClicks / b.views) - (a.tocClicks / a.views))
+    .slice(0, 10);
+
+  return {
+    highTrafficLowEngagement,
+    confusionSignals,
+    heavyTocUsage,
+    highPerformers,
+    bouncePages,
+  };
+}
+
+async function generateRecommendations(metrics: Record<string, unknown[]>): Promise<string> {
   const prompt = `You are a documentation performance analyst. Based on the analytics data below (last ${DAYS_BACK} days), produce a short, prioritized report of what to fix in the documentation. Be specific about which pages need work and why.
 
 ## Data
