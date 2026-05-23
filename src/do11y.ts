@@ -21,12 +21,12 @@
  *
  * Configuration (in order of precedence):
  * 1. HTML <meta> tags:
- *    <meta name="do11y-token" content="tinybird-token">
- *    <meta name="do11y-datasource" content="do11y">
- *    <meta name="do11y-host" content="api.tinybird.co">
+ *    <meta name="do11y-url" content="https://YOUR_PROJECT.supabase.co">
+ *    <meta name="do11y-key" content="YOUR_ANON_KEY">
+ *    <meta name="do11y-table" content="do11y_events">
  *    <meta name="do11y-framework" content="mintlify">
  * 2. window.Do11yConfig object (set in a separate script before this file):
- *    window.Do11yConfig = { tinybirdToken: '...', framework: 'mintlify' };
+ *    window.Do11yConfig = { supabaseUrl: '...', supabaseKey: '...', framework: 'mintlify' };
  * 3. The config object below (defaults).
  *
  * Using meta tags or window.Do11yConfig is recommended so you can
@@ -58,13 +58,13 @@ export interface FrameworkSelectors {
   feedbackSelector: string;
 }
 
-export type Destination = 'tinybird' | 'http';
+export type Destination = 'supabase' | 'http';
 
 export interface Do11yConfig {
   destination: Destination;
-  tinybirdHost: string;
-  tinybirdToken: string;
-  tinybirdDatasource: string;
+  supabaseUrl: string;
+  supabaseKey: string;
+  supabaseTable: string;
   httpEndpoint: string;
   httpHeaders: Record<string, string>;
   debug: boolean;
@@ -142,10 +142,10 @@ window.__do11yInitialized = true;
 // Configuration
 // ============================================================
 const config: Do11yConfig = {
-  destination: 'tinybird',
-  tinybirdHost: 'api.tinybird.co',
-  tinybirdToken: '',
-  tinybirdDatasource: 'do11y',
+  destination: 'supabase',
+  supabaseUrl: '',
+  supabaseKey: '',
+  supabaseTable: 'do11y_events',
   httpEndpoint: '',
   httpHeaders: {},
   debug: false,
@@ -678,11 +678,16 @@ function scheduleFlush(): void {
   flushTimeout = setTimeout(flush, config.flushInterval);
 }
 
-const TINYBIRD_ALLOWED_HOSTS: ReadonlySet<string> = new Set([
-  'api.tinybird.co',
-  'api.us-east-1.aws.tinybird.co',
-  'api.eu-central-1.aws.tinybird.co',
-]);
+function validateSupabaseUrl(url: string): boolean {
+  try {
+    const parsed = new URL(url);
+    if (parsed.protocol !== 'https:') return false;
+    if (!parsed.hostname.endsWith('.supabase.co')) return false;
+    return true;
+  } catch {
+    return false;
+  }
+}
 
 function validateHttpEndpoint(url: string): boolean {
   try {
@@ -698,34 +703,31 @@ function validateHttpEndpoint(url: string): boolean {
 }
 
 function validateConfig(): boolean {
-  if (config.destination === 'tinybird') {
-    if (!config.tinybirdToken) {
+  if (config.destination === 'supabase') {
+    if (!config.supabaseUrl) {
       if (config.debug) {
-        console.warn('[Do11y] No Tinybird token configured');
+        console.warn('[Do11y] No Supabase URL configured');
       }
       return false;
     }
 
-    if (typeof config.tinybirdToken !== 'string' || config.tinybirdToken.length < 10) {
+    if (!validateSupabaseUrl(config.supabaseUrl)) {
       if (config.debug) {
-        console.warn('[Do11y] Invalid token format');
+        console.warn('[Do11y] Invalid Supabase URL. Must be https://<project>.supabase.co');
       }
       return false;
     }
 
-    if (!TINYBIRD_ALLOWED_HOSTS.has(config.tinybirdHost)) {
+    if (!config.supabaseKey || typeof config.supabaseKey !== 'string' || config.supabaseKey.length < 10) {
       if (config.debug) {
-        console.warn(
-          '[Do11y] Untrusted tinybirdHost "' + config.tinybirdHost + '". ' +
-          'Must be one of: ' + Array.from(TINYBIRD_ALLOWED_HOSTS).join(', ')
-        );
+        console.warn('[Do11y] Invalid or missing Supabase anon key');
       }
       return false;
     }
 
-    if (!/^[a-zA-Z0-9_-]+$/.test(config.tinybirdDatasource)) {
+    if (!/^[a-zA-Z0-9_-]+$/.test(config.supabaseTable)) {
       if (config.debug) {
-        console.warn('[Do11y] Invalid datasource name');
+        console.warn('[Do11y] Invalid table name');
       }
       return false;
     }
@@ -758,13 +760,17 @@ function validateConfig(): boolean {
 }
 
 function buildRequest(events: Do11yEvent[]): { url: string; headers: Record<string, string>; body: string } {
-  if (config.destination === 'tinybird') {
+  if (config.destination === 'supabase') {
+    const url = config.supabaseUrl.replace(/\/$/, '') + '/rest/v1/' + config.supabaseTable;
     return {
-      url: 'https://' + config.tinybirdHost + '/v0/events?name=' + encodeURIComponent(config.tinybirdDatasource),
+      url,
       headers: {
-        'Authorization': 'Bearer ' + config.tinybirdToken,
+        'apikey': config.supabaseKey,
+        'Authorization': 'Bearer ' + config.supabaseKey,
+        'Content-Type': 'application/json',
+        'Prefer': 'return=minimal',
       },
-      body: events.map((e) => JSON.stringify(e)).join('\n'),
+      body: JSON.stringify(events.map((e) => ({ payload: e }))),
     };
   }
 
@@ -1505,17 +1511,17 @@ function init(): void {
   const metaDestination = document.querySelector('meta[name="do11y-destination"]');
   if (metaDestination) {
     const dest = metaDestination.getAttribute('content');
-    if (dest === 'tinybird' || dest === 'http') config.destination = dest;
+    if (dest === 'supabase' || dest === 'http') config.destination = dest;
   }
 
-  const metaToken = document.querySelector('meta[name="do11y-token"]');
-  if (metaToken) config.tinybirdToken = metaToken.getAttribute('content') ?? config.tinybirdToken;
+  const metaUrl = document.querySelector('meta[name="do11y-url"]');
+  if (metaUrl) config.supabaseUrl = metaUrl.getAttribute('content') ?? config.supabaseUrl;
 
-  const metaDatasource = document.querySelector('meta[name="do11y-datasource"]');
-  if (metaDatasource) config.tinybirdDatasource = metaDatasource.getAttribute('content') ?? config.tinybirdDatasource;
+  const metaKey = document.querySelector('meta[name="do11y-key"]');
+  if (metaKey) config.supabaseKey = metaKey.getAttribute('content') ?? config.supabaseKey;
 
-  const metaHost = document.querySelector('meta[name="do11y-host"]');
-  if (metaHost) config.tinybirdHost = metaHost.getAttribute('content') ?? config.tinybirdHost;
+  const metaTable = document.querySelector('meta[name="do11y-table"]');
+  if (metaTable) config.supabaseTable = metaTable.getAttribute('content') ?? config.supabaseTable;
 
   const metaHttpEndpoint = document.querySelector('meta[name="do11y-http-endpoint"]');
   if (metaHttpEndpoint) config.httpEndpoint = metaHttpEndpoint.getAttribute('content') ?? config.httpEndpoint;
@@ -1541,7 +1547,7 @@ function init(): void {
   if (config.debug) {
     console.log('[Do11y] Initializing with config:', {
       destination: config.destination,
-      hasToken: config.destination === 'tinybird' ? !!config.tinybirdToken : !!config.httpEndpoint,
+      hasCredentials: config.destination === 'supabase' ? !!config.supabaseKey : !!config.httpEndpoint,
       framework: config.framework,
       allowedDomains: config.allowedDomains,
       respectDNT: config.respectDNT,
@@ -1554,11 +1560,11 @@ function init(): void {
     return;
   }
 
-  const hasDestination = config.destination === 'tinybird' ? !!config.tinybirdToken : !!config.httpEndpoint;
+  const hasDestination = config.destination === 'supabase' ? !!config.supabaseKey : !!config.httpEndpoint;
   if (!hasDestination) {
     if (config.debug) {
       console.warn('[Do11y] No destination configured. Events will not be sent.');
-      console.warn('[Do11y] Add <meta name="do11y-token" content="your-token"> to enable.');
+      console.warn('[Do11y] Add <meta name="do11y-url"> and <meta name="do11y-key"> to enable.');
     }
   }
 
@@ -1642,13 +1648,13 @@ if (!_alreadyLoaded) {
 window.Do11y = window.Do11y ?? {
   getConfig: () => ({
     destination: config.destination,
-    hasToken: config.destination === 'tinybird' ? !!config.tinybirdToken : !!config.httpEndpoint,
+    hasCredentials: config.destination === 'supabase' ? !!config.supabaseKey : !!config.httpEndpoint,
     isDisabled,
     allowedDomains: config.allowedDomains,
     respectDNT: config.respectDNT,
   }),
   flush,
-  isEnabled: () => !isDisabled && (config.destination === 'tinybird' ? !!config.tinybirdToken : !!config.httpEndpoint),
+  isEnabled: () => !isDisabled && (config.destination === 'supabase' ? !!config.supabaseKey : !!config.httpEndpoint),
   getQueueSize: () => eventQueue.length,
   version: VERSION,
 };

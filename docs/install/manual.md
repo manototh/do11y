@@ -19,14 +19,13 @@ Use manual setup for frameworks not listed in the supported frameworks, or for c
 Add the following to every page of your docs site:
 
 ```html
-<meta name="do11y-token" content="YOUR_TINYBIRD_TOKEN">
-<meta name="do11y-datasource" content="do11y">
-<meta name="do11y-host" content="api.tinybird.co">
+<meta name="do11y-url" content="https://YOUR_PROJECT.supabase.co">
+<meta name="do11y-key" content="YOUR_ANON_KEY">
 <meta name="do11y-framework" content="FRAMEWORK">
 <script src="https://cdn.jsdelivr.net/npm/do11y@latest/dist/do11y.min.js"></script>
 ```
 
-Replace the meta tag values with your [Tinybird credentials](/get-started) and your framework name. To pin a specific version, replace `latest` with a version tag like `0.1.0`.
+Replace the meta tag values with your [Supabase credentials](/get-started) and your framework name. To pin a specific version, replace `latest` with a version tag like `0.1.0`.
 
 Set `FRAMEWORK` to one of the [supported framework values](/configuration#framework), or `'custom'` to provide your own selectors.
 
@@ -37,9 +36,8 @@ Meta tags only cover the essential settings. To configure any [advanced options]
 ```html
 <script>
 window.Do11yConfig = {
-  tinybirdHost: 'api.tinybird.co',
-  tinybirdToken: 'p.your-ingest-token',
-  tinybirdDatasource: 'do11y',
+  supabaseUrl: 'https://YOUR_PROJECT.supabase.co',
+  supabaseKey: 'YOUR_ANON_KEY',
   framework: 'vitepress',
   scrollThresholds: [25, 50, 75, 100],
   trackFeedback: false,
@@ -62,9 +60,8 @@ If you can't use a CDN, host the script yourself.
 
 ```js
 window.Do11yConfig = {
-  tinybirdHost: 'api.tinybird.co',
-  tinybirdToken: 'YOUR_TINYBIRD_TOKEN',
-  tinybirdDatasource: 'do11y',
+  supabaseUrl: 'https://YOUR_PROJECT.supabase.co',
+  supabaseKey: 'YOUR_ANON_KEY',
   framework: 'FRAMEWORK',
 };
 ```

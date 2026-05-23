@@ -2,7 +2,7 @@
 
 > Originally derived from [github.com/axiomhq/do11y](https://github.com/axiomhq/do11y)
 
-Do11y is a documentation observability tool. It streams behavioral events from your docs site to [Tinybird](https://www.tinybird.co) (or any HTTP endpoint) in real time:
+Do11y is a documentation observability tool. It streams behavioral events from your docs site to [Supabase](https://supabase.com) (or any HTTP endpoint) in real time:
 
 - Page views
 - Scroll depth
@@ -40,8 +40,8 @@ For other frameworks, use manual setup with custom selectors.
 
 ## Prerequisites
 
-1. [Sign up for Tinybird](https://www.tinybird.co/signup) (free, no credit card).
-2. Create a token with `DATASOURCE:APPEND` scope.
+1. [Sign up for Supabase](https://supabase.com/dashboard) (free, no credit card).
+2. Create the `do11y_events` table (one SQL command in the dashboard).
 
 ## Quick start (Mintlify)
 
@@ -51,9 +51,8 @@ For other frameworks, use manual setup with custom selectors.
 
 ```js
 window.Do11yConfig = {
-  tinybirdHost: 'api.tinybird.co',
-  tinybirdToken: 'YOUR_TINYBIRD_TOKEN',
-  tinybirdDatasource: 'do11y',
+  supabaseUrl: 'https://YOUR_PROJECT.supabase.co',
+  supabaseKey: 'YOUR_ANON_KEY',
   framework: 'mintlify',
 };
 ```
@@ -62,9 +61,8 @@ window.Do11yConfig = {
 
 ```js
 headTags: [
-  { tagName: 'meta', attributes: { name: 'do11y-token', content: 'YOUR_TINYBIRD_TOKEN' } },
-  { tagName: 'meta', attributes: { name: 'do11y-datasource', content: 'do11y' } },
-  { tagName: 'meta', attributes: { name: 'do11y-host', content: 'api.tinybird.co' } },
+  { tagName: 'meta', attributes: { name: 'do11y-url', content: 'https://YOUR_PROJECT.supabase.co' } },
+  { tagName: 'meta', attributes: { name: 'do11y-key', content: 'YOUR_ANON_KEY' } },
   { tagName: 'meta', attributes: { name: 'do11y-framework', content: 'docusaurus' } },
 ],
 scripts: [{ src: 'https://cdn.jsdelivr.net/npm/do11y@latest/dist/do11y.min.js', defer: true }],
@@ -74,9 +72,8 @@ scripts: [{ src: 'https://cdn.jsdelivr.net/npm/do11y@latest/dist/do11y.min.js', 
 
 ```jsx
 <Head>
-  <meta name="do11y-token" content="YOUR_TINYBIRD_TOKEN" />
-  <meta name="do11y-datasource" content="do11y" />
-  <meta name="do11y-host" content="api.tinybird.co" />
+  <meta name="do11y-url" content="https://YOUR_PROJECT.supabase.co" />
+  <meta name="do11y-key" content="YOUR_ANON_KEY" />
   <meta name="do11y-framework" content="nextra" />
   <script src="https://cdn.jsdelivr.net/npm/do11y@latest/dist/do11y.min.js" defer />
 </Head>
@@ -86,9 +83,8 @@ scripts: [{ src: 'https://cdn.jsdelivr.net/npm/do11y@latest/dist/do11y.min.js', 
 
 ```js
 head: [
-  ['meta', { name: 'do11y-token', content: 'YOUR_TINYBIRD_TOKEN' }],
-  ['meta', { name: 'do11y-datasource', content: 'do11y' }],
-  ['meta', { name: 'do11y-host', content: 'api.tinybird.co' }],
+  ['meta', { name: 'do11y-url', content: 'https://YOUR_PROJECT.supabase.co' }],
+  ['meta', { name: 'do11y-key', content: 'YOUR_ANON_KEY' }],
   ['meta', { name: 'do11y-framework', content: 'vitepress' }],
   ['script', { src: 'https://cdn.jsdelivr.net/npm/do11y@latest/dist/do11y.min.js' }],
 ],
@@ -108,16 +104,15 @@ In `overrides/main.html`:
 ```html
 {% extends "base.html" %}
 {% block extrahead %}
-  <meta name="do11y-token" content="YOUR_TINYBIRD_TOKEN">
-  <meta name="do11y-datasource" content="do11y">
-  <meta name="do11y-host" content="api.tinybird.co">
+  <meta name="do11y-url" content="https://YOUR_PROJECT.supabase.co">
+  <meta name="do11y-key" content="YOUR_ANON_KEY">
   <meta name="do11y-framework" content="mkdocs-material">
 {% endblock %}
 ```
 
 ## Generic HTTP destination
 
-Send events to any HTTPS endpoint instead of Tinybird:
+Send events to any HTTPS endpoint instead of Supabase:
 
 ```js
 window.Do11yConfig = {
@@ -131,9 +126,8 @@ window.Do11yConfig = {
 ## Manual setup
 
 ```html
-<meta name="do11y-token" content="YOUR_TINYBIRD_TOKEN">
-<meta name="do11y-datasource" content="do11y">
-<meta name="do11y-host" content="api.tinybird.co">
+<meta name="do11y-url" content="https://YOUR_PROJECT.supabase.co">
+<meta name="do11y-key" content="YOUR_ANON_KEY">
 <meta name="do11y-framework" content="custom">
 <script src="https://cdn.jsdelivr.net/npm/do11y@latest/dist/do11y.min.js"></script>
 ```
@@ -146,10 +140,10 @@ All options can be set via `window.Do11yConfig` or meta tags. See the [configura
 
 | Option | Default | Description |
 |---|---|---|
-| `destination` | `'tinybird'` | `'tinybird'` or `'http'` |
-| `tinybirdHost` | `'api.tinybird.co'` | Tinybird API host |
-| `tinybirdToken` | `''` | Token with DATASOURCE:APPEND scope |
-| `tinybirdDatasource` | `'do11y'` | Tinybird datasource name |
+| `destination` | `'supabase'` | `'supabase'` or `'http'` |
+| `supabaseUrl` | `''` | Supabase project URL |
+| `supabaseKey` | `''` | Anon (publishable) key |
+| `supabaseTable` | `'do11y_events'` | Table name |
 | `httpEndpoint` | `''` | Full HTTPS URL (when destination is `'http'`) |
 | `httpHeaders` | `{}` | Custom headers for HTTP destination |
 
@@ -158,7 +152,7 @@ All options can be set via `window.Do11yConfig` or meta tags. See the [configura
 Get AI-powered recommendations about what to fix:
 
 ```bash
-TINYBIRD_TOKEN=your-read-token \
+DATABASE_URL=postgresql://... \
 OPENAI_API_KEY=sk-... \
 npx tsx scripts/insights.ts
 ```
@@ -168,7 +162,7 @@ Produces a prioritized report of pages to fix based on engagement metrics.
 ## JavaScript API
 
 ```javascript
-Do11y.getConfig()    // Current config (token redacted)
+Do11y.getConfig()    // Current config (key redacted)
 Do11y.isEnabled()    // Whether tracking is active
 Do11y.flush()        // Force-send queued events
 Do11y.getQueueSize() // Number of queued events

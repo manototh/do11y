@@ -2,7 +2,7 @@
  * Do11y configuration example.
  *
  * Copy this file alongside do11y.js in your docs site and rename it to
- * do11y-config.js. Set the values below to match your Tinybird setup.
+ * do11y-config.js. Set the values below to match your Supabase setup.
  *
  * This file must load before do11y.js. For frameworks that auto-include
  * all .js files (like Mintlify), alphabetical ordering handles this
@@ -12,19 +12,17 @@
  * See the README for the full list.
  */
 window.Do11yConfig = {
-  // Destination: 'tinybird' (default) or 'http'
-  destination: 'tinybird',
+  // Destination: 'supabase' (default) or 'http'
+  destination: 'supabase',
 
-  // Required: Tinybird API host.
-  //   US (default): 'api.tinybird.co'
-  //   EU:           'api.eu-central-1.aws.tinybird.co'
-  tinybirdHost: 'api.tinybird.co',
+  // Required: Supabase project URL.
+  supabaseUrl: 'https://YOUR_PROJECT.supabase.co',
 
-  // Required: Tinybird token with DATASOURCE:APPEND scope.
-  tinybirdToken: 'YOUR_TINYBIRD_TOKEN',
+  // Required: Supabase anon (publishable) key.
+  supabaseKey: 'YOUR_ANON_KEY',
 
-  // Required: Tinybird datasource name.
-  tinybirdDatasource: 'do11y',
+  // Optional: Table name (default: 'do11y_events').
+  supabaseTable: 'do11y_events',
 
   // Documentation framework. Supported values:
   // 'mintlify', 'docusaurus', 'nextra', 'gitbook', 'mkdocs-material',

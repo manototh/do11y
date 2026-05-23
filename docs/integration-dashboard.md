@@ -1,26 +1,60 @@
 ---
 title: Analyzing your data
-description: How to query and analyze Do11y event data stored in Tinybird.
+description: How to query and analyze Do11y event data stored in Supabase.
 head:
   - - meta
     - property: og:title
       content: Analyzing your data — Do11y
   - - meta
     - property: og:description
-      content: How to query and analyze Do11y event data stored in Tinybird.
+      content: How to query and analyze Do11y event data stored in Supabase.
 ---
 
 # Analyzing your data
 
-Once Do11y is sending events to Tinybird, you can query your data using SQL through the Tinybird UI, API, or the Do11y [insights script](/insights).
+Once Do11y is sending events to Supabase, you can query your data using SQL through the Supabase dashboard, the PostgREST API, or the Do11y [insights script](/insights).
 
-## Tinybird UI
+## Supabase SQL Editor
 
-Open the Tinybird dashboard and navigate to your datasource. You can run SQL queries directly in the UI to explore your data.
+Open your project in the Supabase dashboard and go to the **SQL Editor**. Events are stored as JSONB in the `payload` column of the `do11y_events` table:
 
-## Tinybird API Endpoints (Pipes)
+```sql
+select
+  payload->>'path' as path,
+  count(*) as views
+from do11y_events
+where payload->>'eventType' = 'page_view'
+group by 1
+order by views desc
+limit 20;
+```
 
-For recurring analysis, create Tinybird Pipes that turn SQL queries into REST API endpoints. This is useful for building custom dashboards or feeding data into other tools.
+## Create a view for easier queries
+
+For frequent analysis, create a view that flattens common fields:
+
+```sql
+create view do11y as
+select
+  id,
+  created_at,
+  (payload->>'_time')::timestamptz as event_time,
+  payload->>'eventType' as event_type,
+  payload->>'path' as path,
+  payload->>'sessionId' as session_id,
+  (payload->>'sessionPageCount')::int as session_page_count,
+  payload->>'viewportCategory' as viewport_category,
+  payload->>'browserFamily' as browser_family,
+  payload->>'deviceType' as device_type,
+  payload
+from do11y_events;
+```
+
+Then query with standard column access:
+
+```sql
+select path, count(*) as views from do11y where event_type = 'page_view' group by 1;
+```
 
 ## AI-powered insights
 

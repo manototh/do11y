@@ -1,6 +1,6 @@
 # Do11y
 
-> Do11y is a documentation observability tool. It turns documentation usage into structured event data by streaming behavioral events (page views, scroll depth, link clicks, search queries, code-block copies, section reading time, tab switches, TOC clicks, feedback, and expand/collapse interactions) from your docs site to Tinybird in real time.
+> Do11y is a documentation observability tool. It turns documentation usage into structured event data by streaming behavioral events (page views, scroll depth, link clicks, search queries, code-block copies, section reading time, tab switches, TOC clicks, feedback, and expand/collapse interactions) from your docs site to Supabase in real time.
 
 Do11y is agent-native: it detects AI platform referrers (ChatGPT, Perplexity, Claude, Gemini, Copilot, DeepSeek, and others) so you can understand how agents and humans engage with your content differently.
 
@@ -11,7 +11,7 @@ Privacy: no cookies, no PII, no device fingerprinting, no cross-site tracking. U
 ## Docs
 
 - [Introduction](https://docservable.com/introduction): What Do11y tracks, the privacy model, and supported frameworks.
-- [Get started](https://docservable.com/get-started): Create a Tinybird account and configure Do11y.
+- [Get started](https://docservable.com/get-started): Create a Supabase project and configure Do11y.
 - [Manual setup](https://docservable.com/install/manual): CDN and self-hosting instructions for any framework.
 - [Configuration](https://docservable.com/configuration): All configuration options including destination, behavioral options, framework values, and custom selectors.
 - [SQL queries](https://docservable.com/queries): Ready-to-run SQL queries for traffic, engagement, navigation, content performance, and more.
@@ -22,4 +22,4 @@ Privacy: no cookies, no PII, no device fingerprinting, no cross-site tracking. U
 
 - [GitHub](https://github.com/manototh/docservable): Source code, releases, and issue tracker.
 - [npm](https://www.npmjs.com/package/do11y): Package published as do11y.
-- [Tinybird](https://www.tinybird.co): The analytics platform that stores Do11y event data.
+- [Supabase](https://supabase.com): The platform that stores Do11y event data (PostgreSQL).

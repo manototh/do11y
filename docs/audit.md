@@ -12,34 +12,21 @@ head:
 
 # Audit docs with AI agent
 
-The [**Analyze Do11y data** skill](https://github.com/manototh/docservable/blob/main/.cursor/skills/analyze-do11y-data/SKILL.md) turns your Do11y datasource into a prioritized list of documentation improvements. It runs in an AI agent and queries your Tinybird datasource directly, checks for instrumentation gaps, and produces a structured audit report.
+The [**Analyze Do11y data** skill](https://github.com/manototh/docservable/blob/main/.cursor/skills/analyze-do11y-data/SKILL.md) turns your Do11y data into a prioritized list of documentation improvements. It runs in an AI agent and queries your Supabase database directly, checks for instrumentation gaps, and produces a structured audit report.
 
 ## Prerequisites
 
-Before running the skill, get these credentials from Tinybird using [Get started](/get-started):
-
-- **Datasource:** Tinybird datasource where Do11y sends events
-- **Host:** Tinybird API host (e.g. `api.tinybird.co`)
-
-## Create a read token
-
-Create a Tinybird token with read access to the datasource. This is different from the append-only token used for ingestion.
-
-1. In Tinybird, go to **Tokens**.
-2. Click **Create Token**.
-3. Give it a name like `do11y-read`.
-4. Under scopes, select **DATASOURCE:READ** and choose your datasource.
-5. Copy the token.
+Before running the skill, get your Supabase database connection string from **Settings > Database** in the Supabase dashboard.
 
 ## Run the audit
 
 Copy the [**Analyze Do11y data** skill](https://github.com/manototh/docservable/blob/main/.cursor/skills/analyze-do11y-data/SKILL.md) into the AI agent and ask it to analyze your docs:
 
-> Analyze my Do11y data. Datasource: `do11y`, token: `TOKEN`, host: `api.tinybird.co`.
+> Analyze my Do11y data. Database URL: `postgresql://...`, table: `do11y_events`.
 
 Additionally, define the time range for the audit.
 
-The agent picks up the skill automatically. It queries your datasource, checks for common instrumentation gaps, and returns a report.
+The agent picks up the skill automatically. It queries your database, checks for common instrumentation gaps, and returns a report.
 
 ## What the report covers
 

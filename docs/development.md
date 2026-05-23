@@ -20,7 +20,7 @@ The `tests` folder contains multiple layers of testing. Each catches a different
 |---|---|
 | Framework updated a CSS class name (selector drift) | `test-live-sites.ts` |
 | Do11y broken on a specific framework's local dev server | `test-integrations.ts` |
-| Events not reaching Tinybird from a real production site | `test-e2e-live.ts` |
+| Events not reaching Supabase from a real production site | `test-e2e-live.ts` |
 
 ### Selector tests against live sites
 
@@ -45,7 +45,7 @@ Sites covered:
 
 ### E2E live-site tests
 
-**`tests/test-e2e-live.ts`** is the only test that proves events reach Tinybird from a real site. It injects `do11y.js` into live public documentation sites via Puppeteer's `evaluateOnNewDocument`, drives a realistic user journey, sends events to Tinybird, and then queries Tinybird to validate that the expected event types arrived.
+**`tests/test-e2e-live.ts`** is the only test that proves events reach Supabase from a real site. It injects `do11y.js` into live public documentation sites via Puppeteer's `evaluateOnNewDocument`, drives a realistic user journey, sends events to Supabase, and then queries the database to validate that the expected event types arrived.
 
 ```bash
 cd tests
@@ -56,12 +56,10 @@ npx puppeteer browsers install chrome
 Copy `tests/.env.example` to `tests/.env` and add your credentials:
 
 ```
-TINYBIRD_HOST=api.tinybird.co
-TINYBIRD_TOKEN=your-token
-TINYBIRD_DATASOURCE=do11y
+SUPABASE_URL=https://your-project.supabase.co
+SUPABASE_KEY=your-anon-key
+SUPABASE_TABLE=do11y_integration_test
 ```
-
-The token requires both **DATASOURCE:APPEND** and **DATASOURCE:READ** scopes.
 
 Run the full suite:
 
@@ -83,7 +81,7 @@ SKIP_BUILD=1 npm run test-e2e-live
 
 ### Query validation
 
-**`tests/test-queries.ts`** validates that all SQL queries in the queries docs are syntactically correct by executing them against the Tinybird SQL API.
+**`tests/test-queries.ts`** validates that all SQL queries in the queries docs are syntactically correct by executing them against the Supabase database.
 
 ```bash
 cd tests
@@ -92,7 +90,7 @@ npm run test-queries
 
 ### Integration tests
 
-**`tests/test-integrations.ts`** installs each supported framework, injects `do11y.js`, starts a local dev server, drives user interactions via Puppeteer, and then queries the Tinybird API to verify that events arrived correctly.
+**`tests/test-integrations.ts`** installs each supported framework, injects `do11y.js`, starts a local dev server, drives user interactions via Puppeteer, and then queries the Supabase database to verify that events arrived correctly.
 
 ```bash
 cd tests
@@ -103,9 +101,9 @@ npx puppeteer browsers install chrome
 Copy `tests/.env.example` to `tests/.env` and add your credentials:
 
 ```
-TINYBIRD_HOST=api.tinybird.co
-TINYBIRD_TOKEN=your-token
-TINYBIRD_DATASOURCE=do11y
+SUPABASE_URL=https://your-project.supabase.co
+SUPABASE_KEY=your-anon-key
+SUPABASE_TABLE=do11y_integration_test
 ```
 
 Run the full suite:

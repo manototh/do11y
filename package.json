@@ -19,7 +19,7 @@
     "check": "tsc --noEmit"
   },
   "keywords": [
-    "tinybird",
+    "supabase",
     "analytics",
     "documentation",
     "observability"

@@ -22,18 +22,17 @@ Mintlify doesn't support loading scripts from a CDN via config, so Do11y must be
 
 3. Rename `do11y-config.example.js` to `do11y-config.js`.
 
-4. In `do11y-config.js`, replace the placeholder values with your Tinybird credentials:
+4. In `do11y-config.js`, replace the placeholder values with your Supabase credentials:
 
 ```js
 window.Do11yConfig = {
-  tinybirdHost: 'api.tinybird.co',
-  tinybirdToken: 'YOUR_TINYBIRD_TOKEN',
-  tinybirdDatasource: 'do11y',
+  supabaseUrl: 'https://YOUR_PROJECT.supabase.co',
+  supabaseKey: 'YOUR_ANON_KEY',
   framework: 'mintlify',
 };
 ```
 
-Replace the token with your [Tinybird credentials](/get-started).
+Replace the values with your [Supabase credentials](/get-started).
 
 5. Optional: [Set up the automatic sync](/install/manual#automatic-sync-via-github-action) to keep `do11y.min.js` up to date automatically.
 

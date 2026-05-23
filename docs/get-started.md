@@ -1,85 +1,59 @@
 ---
 title: Get started
-description: Set up a Tinybird account and datasource before installing Do11y.
+description: Set up a Supabase project and table before installing Do11y.
 head:
   - - meta
     - property: og:title
       content: Get started — Do11y
   - - meta
     - property: og:description
-      content: Set up a Tinybird account and datasource before installing Do11y.
+      content: Set up a Supabase project and table before installing Do11y.
 ---
 
 # Get started
 
 Set up Do11y in two steps:
 
-1. [Create a Tinybird account and datasource](#create-tinybird-account)
+1. [Create a Supabase project](#create-a-supabase-project)
 2. [Add Do11y to your documentation site](#add-do11y-to-your-documentation-site)
 
-## Create Tinybird account
+## Create a Supabase project
 
-[Sign up for Tinybird](https://www.tinybird.co/signup) with GitHub or Google. No credit card required. The free tier includes 10 GB of storage with no time-based retention limits, enough for years of event data from most documentation sites.
+[Sign up for Supabase](https://supabase.com/dashboard) with GitHub or Google. No credit card required. The free tier includes 500 MB of database storage with no time-based retention limits.
 
-## Create a datasource
+A project is created automatically when you sign up. Note your **Project URL** and **anon key** from **Settings > API Keys** (or the home screen of your project).
 
-Tinybird auto-creates a datasource on first ingest via the Events API if one doesn't exist. You can name it anything. The default in Do11y is `do11y`.
+## Create the events table
 
-If you want to pre-create it with a schema, use the Tinybird CLI or UI:
+Open the **SQL Editor** in the Supabase dashboard and run this:
 
 ```sql
-CREATE DATASOURCE do11y (
-  _time DateTime,
-  eventType String,
-  do11y_version String,
-  sessionId String,
-  sessionPageCount UInt32,
-  path String,
-  hash Nullable(String),
-  search Nullable(String),
-  title Nullable(String),
-  viewportCategory String,
-  browserFamily String,
-  deviceType String,
-  language String,
-  timezoneOffset Float32
-) ENGINE = MergeTree() ORDER BY (_time, eventType, path)
+create table do11y_events (
+  id bigint generated always as identity primary key,
+  created_at timestamptz not null default now(),
+  payload jsonb not null
+);
+
+alter table do11y_events enable row level security;
+
+create policy "Allow anonymous inserts"
+  on do11y_events for insert
+  to anon
+  with check (true);
 ```
 
-This is optional. If you skip it, Tinybird infers the schema from the first batch of events.
-
-## Create a token
-
-Create a token scoped to append data to your datasource:
-
-1. In the Tinybird UI, go to **Tokens**.
-2. Click **Create Token**.
-3. Give it a name like `do11y-ingest`.
-4. Under scopes, select **DATASOURCE:APPEND** and choose your datasource.
-5. Copy the token.
-
-<details>
-<summary>Are append-only tokens safe to embed in client-side scripts?</summary>
-
-Append-only tokens can write data but cannot read it, which makes them safe to embed in client-side scripts. If someone finds your token in the page source, they can write events to your Do11y datasource but cannot read your data or access other resources. The worst-case outcome is noise in a single analytics datasource.
-</details>
-
-## Choose your region
-
-| Region | Host |
-|---|---|
-| US (default) | `api.tinybird.co` |
-| EU | `api.eu-central-1.aws.tinybird.co` |
+This creates a table that accepts event data from Do11y and allows anonymous inserts via the public anon key. The anon key cannot read data, only write it.
 
 ## Your credentials
 
-You now have the three values Do11y needs:
+You now have the two values Do11y needs:
 
 | Value | Example | Config option |
 |---|---|---|
-| Host | `api.tinybird.co` | `tinybirdHost` |
-| Datasource | `do11y` | `tinybirdDatasource` |
-| Token | `p.eyJ...` | `tinybirdToken` |
+| Project URL | `https://abc123.supabase.co` | `supabaseUrl` |
+| Anon key | `eyJhbG...` | `supabaseKey` |
+
+The table name defaults to `do11y_events`. Change it with the `supabaseTable` option if you used a different name.
 
 ## Add Do11y to your documentation site
 

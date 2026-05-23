@@ -2,30 +2,29 @@
 // Originally derived from https://github.com/axiomhq/do11y
 /**
  * Do11y Insights — generate actionable documentation recommendations from
- * behavioral analytics stored in Tinybird.
+ * behavioral analytics stored in Supabase (PostgreSQL).
  *
  * Usage:
- *   TINYBIRD_TOKEN=... TINYBIRD_HOST=api.tinybird.co TINYBIRD_DATASOURCE=do11y \
+ *   DATABASE_URL=postgresql://... \
  *   OPENAI_API_KEY=... npx tsx scripts/insights.ts
  *
  * Environment variables:
- *   TINYBIRD_TOKEN      — Tinybird token with read access to the datasource
- *   TINYBIRD_HOST       — Tinybird API host (default: api.tinybird.co)
- *   TINYBIRD_DATASOURCE — Datasource name (default: do11y)
+ *   DATABASE_URL        — Supabase Postgres connection string (from Settings > Database)
+ *   SUPABASE_TABLE      — Table name (default: do11y_events)
  *   OPENAI_API_KEY      — OpenAI API key for generating recommendations
  *   OPENAI_MODEL        — Model to use (default: gpt-4o)
  *   DAYS_BACK           — Number of days to analyze (default: 30)
  */
 
-const TINYBIRD_TOKEN = process.env.TINYBIRD_TOKEN;
-const TINYBIRD_HOST = process.env.TINYBIRD_HOST || 'api.tinybird.co';
-const TINYBIRD_DATASOURCE = process.env.TINYBIRD_DATASOURCE || 'do11y';
+const DATABASE_URL = process.env.DATABASE_URL;
+const SUPABASE_TABLE = process.env.SUPABASE_TABLE || 'do11y_events';
 const OPENAI_API_KEY = process.env.OPENAI_API_KEY;
 const OPENAI_MODEL = process.env.OPENAI_MODEL || 'gpt-4o';
 const DAYS_BACK = parseInt(process.env.DAYS_BACK || '30', 10);
 
-if (!TINYBIRD_TOKEN) {
-  console.error('Error: TINYBIRD_TOKEN environment variable is required');
+if (!DATABASE_URL) {
+  console.error('Error: DATABASE_URL environment variable is required');
+  console.error('Find it in your Supabase dashboard under Settings > Database > Connection string');
   process.exit(1);
 }
 
@@ -34,92 +33,105 @@ if (!OPENAI_API_KEY) {
   process.exit(1);
 }
 
-interface TinybirdRow {
+interface Row {
   [key: string]: unknown;
 }
 
-interface TinybirdResponse {
-  data: TinybirdRow[];
-  rows: number;
-  statistics: { elapsed: number; rows_read: number; bytes_read: number };
-}
-
-async function queryTinybird(sql: string): Promise<TinybirdRow[]> {
-  const url = `https://${TINYBIRD_HOST}/v0/sql?q=${encodeURIComponent(sql)}`;
-  const res = await fetch(url, {
-    headers: { Authorization: `Bearer ${TINYBIRD_TOKEN}` },
-  });
-
-  if (!res.ok) {
-    const text = await res.text();
-    throw new Error(`Tinybird query failed (${res.status}): ${text}`);
+async function queryDatabase(sql: string): Promise<Row[]> {
+  // Use the pg module for direct Postgres queries
+  const { default: pg } = await import('pg');
+  const client = new pg.Client({ connectionString: DATABASE_URL });
+  await client.connect();
+  try {
+    const result = await client.query(sql);
+    return result.rows;
+  } finally {
+    await client.end();
   }
-
-  const json = (await res.json()) as TinybirdResponse;
-  return json.data;
 }
 
-async function gatherMetrics(): Promise<Record<string, TinybirdRow[]>> {
+async function gatherMetrics(): Promise<Record<string, Row[]>> {
   const since = new Date(Date.now() - DAYS_BACK * 86400000).toISOString();
-  const ds = TINYBIRD_DATASOURCE;
+  const t = SUPABASE_TABLE;
 
   const queries: Record<string, string> = {
     highTrafficLowEngagement: `
-      SELECT path, count() as visits, avg(activeTimeSeconds) as avgTime, avg(maxScrollDepth) as avgScroll
-      FROM ${ds}
-      WHERE eventType = 'page_exit' AND _time >= '${since}'
-      GROUP BY path
-      HAVING visits > 10 AND avgScroll < 30
-      ORDER BY visits DESC
-      LIMIT 10
+      select
+        payload->>'path' as path,
+        count(*) as visits,
+        avg((payload->>'activeTimeSeconds')::numeric) as "avgTime",
+        avg((payload->>'maxScrollDepth')::numeric) as "avgScroll"
+      from ${t}
+      where payload->>'eventType' = 'page_exit'
+        and (payload->>'_time')::timestamptz >= '${since}'::timestamptz
+      group by payload->>'path'
+      having count(*) > 10 and avg((payload->>'maxScrollDepth')::numeric) < 30
+      order by count(*) desc
+      limit 10
     `,
     confusionSignals: `
-      SELECT path,
-        countIf(eventType = 'page_view') as pageViews,
-        countIf(eventType = 'search_opened') as searches
-      FROM ${ds}
-      WHERE _time >= '${since}'
-      GROUP BY path
-      HAVING pageViews > 10
-      ORDER BY searches / pageViews DESC
-      LIMIT 10
+      select
+        payload->>'path' as path,
+        count(*) filter (where payload->>'eventType' = 'page_view') as "pageViews",
+        count(*) filter (where payload->>'eventType' = 'search_opened') as searches
+      from ${t}
+      where (payload->>'_time')::timestamptz >= '${since}'::timestamptz
+      group by payload->>'path'
+      having count(*) filter (where payload->>'eventType' = 'page_view') > 10
+      order by count(*) filter (where payload->>'eventType' = 'search_opened')::numeric
+             / count(*) filter (where payload->>'eventType' = 'page_view')::numeric desc
+      limit 10
     `,
     heavyTocUsage: `
-      SELECT path,
-        countIf(eventType = 'toc_click') as tocClicks,
-        countIf(eventType = 'page_view') as views
-      FROM ${ds}
-      WHERE _time >= '${since}'
-      GROUP BY path
-      HAVING views > 10
-      ORDER BY tocClicks / views DESC
-      LIMIT 10
+      select
+        payload->>'path' as path,
+        count(*) filter (where payload->>'eventType' = 'toc_click') as "tocClicks",
+        count(*) filter (where payload->>'eventType' = 'page_view') as views
+      from ${t}
+      where (payload->>'_time')::timestamptz >= '${since}'::timestamptz
+      group by payload->>'path'
+      having count(*) filter (where payload->>'eventType' = 'page_view') > 10
+      order by count(*) filter (where payload->>'eventType' = 'toc_click')::numeric
+             / count(*) filter (where payload->>'eventType' = 'page_view')::numeric desc
+      limit 10
     `,
     highPerformers: `
-      SELECT path, count() as visits, avg(maxScrollDepth) as avgScroll, avg(activeTimeSeconds) as avgTime
-      FROM ${ds}
-      WHERE eventType = 'page_exit' AND _time >= '${since}'
-      GROUP BY path
-      HAVING visits > 10 AND avgScroll > 70
-      ORDER BY avgScroll DESC
-      LIMIT 5
+      select
+        payload->>'path' as path,
+        count(*) as visits,
+        avg((payload->>'maxScrollDepth')::numeric) as "avgScroll",
+        avg((payload->>'activeTimeSeconds')::numeric) as "avgTime"
+      from ${t}
+      where payload->>'eventType' = 'page_exit'
+        and (payload->>'_time')::timestamptz >= '${since}'::timestamptz
+      group by payload->>'path'
+      having count(*) > 10 and avg((payload->>'maxScrollDepth')::numeric) > 70
+      order by avg((payload->>'maxScrollDepth')::numeric) desc
+      limit 5
     `,
     bouncePages: `
-      SELECT path, count() as visits, avg(activeTimeSeconds) as avgTime, avg(maxScrollDepth) as avgScroll
-      FROM ${ds}
-      WHERE eventType = 'page_exit' AND _time >= '${since}'
-      GROUP BY path
-      HAVING visits > 5 AND avgTime < 10 AND avgScroll < 25
-      ORDER BY visits DESC
-      LIMIT 10
+      select
+        payload->>'path' as path,
+        count(*) as visits,
+        avg((payload->>'activeTimeSeconds')::numeric) as "avgTime",
+        avg((payload->>'maxScrollDepth')::numeric) as "avgScroll"
+      from ${t}
+      where payload->>'eventType' = 'page_exit'
+        and (payload->>'_time')::timestamptz >= '${since}'::timestamptz
+      group by payload->>'path'
+      having count(*) > 5
+        and avg((payload->>'activeTimeSeconds')::numeric) < 10
+        and avg((payload->>'maxScrollDepth')::numeric) < 25
+      order by count(*) desc
+      limit 10
     `,
   };
 
-  const results: Record<string, TinybirdRow[]> = {};
+  const results: Record<string, Row[]> = {};
 
   const entries = Object.entries(queries);
   const settled = await Promise.allSettled(
-    entries.map(([, sql]) => queryTinybird(sql))
+    entries.map(([, sql]) => queryDatabase(sql))
   );
 
   for (let i = 0; i < entries.length; i++) {
@@ -136,7 +148,7 @@ async function gatherMetrics(): Promise<Record<string, TinybirdRow[]>> {
   return results;
 }
 
-async function generateRecommendations(metrics: Record<string, TinybirdRow[]>): Promise<string> {
+async function generateRecommendations(metrics: Record<string, Row[]>): Promise<string> {
   const prompt = `You are a documentation performance analyst. Based on the analytics data below (last ${DAYS_BACK} days), produce a short, prioritized report of what to fix in the documentation. Be specific about which pages need work and why.
 
 ## Data
@@ -189,12 +201,12 @@ Keep it concise. No preamble.`;
 }
 
 async function main() {
-  console.log(`Gathering metrics from Tinybird (last ${DAYS_BACK} days)...`);
+  console.log(`Gathering metrics from Supabase (last ${DAYS_BACK} days)...`);
   const metrics = await gatherMetrics();
 
   const totalRows = Object.values(metrics).reduce((sum, rows) => sum + rows.length, 0);
   if (totalRows === 0) {
-    console.log('No data found. Make sure Do11y is sending events to your Tinybird datasource.');
+    console.log('No data found. Make sure Do11y is sending events to your Supabase table.');
     process.exit(0);
   }
 

@@ -9,155 +9,166 @@ description: Query and interpret documentation analytics data collected by Do11y
 
 Ask for these credentials if not already provided:
 
-- **Datasource** — Tinybird datasource name
-- **Token** — Tinybird read token
-- **Host** — Tinybird API host (default: `api.tinybird.co`)
+- **Database URL** — Supabase Postgres connection string (from Settings > Database)
+- **Table** — Table name (default: `do11y_events`)
 - **Time range** — default last 90 days
 
 ## Running queries
 
+Connect directly to the Supabase Postgres database using the connection string:
+
 ```bash
-curl -s "https://HOST/v0/sql?q=QUERY" \
-  -H "Authorization: Bearer TOKEN"
+psql "$DATABASE_URL" -c "SELECT ..."
 ```
 
-Results are returned as JSON with a `data` array of row objects.
+Or use a script with the `pg` package. Events are stored as JSONB in the `payload` column of the `do11y_events` table.
 
 ## Analysis workflow
 
-Run these queries in parallel for a full audit. All use the datasource name provided.
+Run these queries in parallel for a full audit.
 
 ### 1. Section-level traffic and engagement
 
 ```sql
-SELECT
-  extract(path, '^/docs/([^/]+)') as section,
-  count() as visits,
-  avg(activeTimeSeconds) as avgTime,
-  avg(maxScrollDepth) as avgScroll
-FROM DATASOURCE
-WHERE eventType = 'page_exit'
-GROUP BY section
-ORDER BY visits DESC
+select
+  split_part(payload->>'path', '/', 3) as section,
+  count(*) as visits,
+  avg((payload->>'activeTimeSeconds')::numeric) as avg_time,
+  avg((payload->>'maxScrollDepth')::numeric) as avg_scroll
+from TABLE
+where payload->>'eventType' = 'page_exit'
+group by 1
+order by visits desc
 ```
 
 ### 2. Top entry points
 
 ```sql
-SELECT path, count() as entries
-FROM DATASOURCE
-WHERE eventType = 'page_view' AND isFirstPage = true
-GROUP BY path
-ORDER BY entries DESC
-LIMIT 25
+select payload->>'path' as path, count(*) as entries
+from TABLE
+where payload->>'eventType' = 'page_view' and (payload->>'isFirstPage')::boolean = true
+group by 1
+order by entries desc
+limit 25
 ```
 
 ### 3. High search rate — confusion signal
 
 ```sql
-SELECT path,
-  countIf(eventType = 'page_view') as pageViews,
-  countIf(eventType = 'search_opened') as searches,
-  round(100.0 * countIf(eventType = 'search_opened') / countIf(eventType = 'page_view'), 1) as searchRate
-FROM DATASOURCE
-GROUP BY path
-HAVING pageViews > 10
-ORDER BY searchRate DESC
-LIMIT 20
+select
+  payload->>'path' as path,
+  count(*) filter (where payload->>'eventType' = 'page_view') as page_views,
+  count(*) filter (where payload->>'eventType' = 'search_opened') as searches,
+  round(100.0 * count(*) filter (where payload->>'eventType' = 'search_opened')
+    / count(*) filter (where payload->>'eventType' = 'page_view'), 1) as search_rate
+from TABLE
+group by 1
+having count(*) filter (where payload->>'eventType' = 'page_view') > 10
+order by search_rate desc
+limit 20
 ```
 
 ### 4. Bounce detection
 
 ```sql
-SELECT path,
-  avg(activeTimeSeconds) as avgTime,
-  avg(maxScrollDepth) as avgScroll,
-  count() as visits
-FROM DATASOURCE
-WHERE eventType = 'page_exit'
-GROUP BY path
-HAVING visits > 5 AND avgTime < 10 AND avgScroll < 25
-ORDER BY visits DESC
+select
+  payload->>'path' as path,
+  avg((payload->>'activeTimeSeconds')::numeric) as avg_time,
+  avg((payload->>'maxScrollDepth')::numeric) as avg_scroll,
+  count(*) as visits
+from TABLE
+where payload->>'eventType' = 'page_exit'
+group by 1
+having count(*) > 5
+  and avg((payload->>'activeTimeSeconds')::numeric) < 10
+  and avg((payload->>'maxScrollDepth')::numeric) < 25
+order by visits desc
 ```
 
 ### 5. High-traffic, low-engagement pages
 
 ```sql
-SELECT path,
-  count() as visits,
-  avg(maxScrollDepth) as avgScroll,
-  avg(activeTimeSeconds) as avgTime
-FROM DATASOURCE
-WHERE eventType = 'page_exit'
-GROUP BY path
-HAVING visits > 20 AND avgScroll < 30
-ORDER BY visits DESC
+select
+  payload->>'path' as path,
+  count(*) as visits,
+  avg((payload->>'maxScrollDepth')::numeric) as avg_scroll,
+  avg((payload->>'activeTimeSeconds')::numeric) as avg_time
+from TABLE
+where payload->>'eventType' = 'page_exit'
+group by 1
+having count(*) > 20 and avg((payload->>'maxScrollDepth')::numeric) < 30
+order by visits desc
 ```
 
 ### 6. Scroll completion rate
 
 ```sql
-SELECT path,
-  count() as total,
-  countIf(maxScrollDepth >= 90) as completed,
-  round(100.0 * countIf(maxScrollDepth >= 90) / count(), 1) as completionRate
-FROM DATASOURCE
-WHERE eventType = 'page_exit'
-GROUP BY path
-HAVING total > 10
-ORDER BY completionRate DESC
-LIMIT 20
+select
+  payload->>'path' as path,
+  count(*) as total,
+  count(*) filter (where (payload->>'maxScrollDepth')::numeric >= 90) as completed,
+  round(100.0 * count(*) filter (where (payload->>'maxScrollDepth')::numeric >= 90)
+    / count(*), 1) as completion_rate
+from TABLE
+where payload->>'eventType' = 'page_exit'
+group by 1
+having count(*) > 10
+order by completion_rate desc
+limit 20
 ```
 
 ### 7. TOC heavy usage — page length / organization signal
 
 ```sql
-SELECT path,
-  countIf(eventType = 'toc_click') as tocClicks,
-  countIf(eventType = 'page_view') as views,
-  round(100.0 * countIf(eventType = 'toc_click') / countIf(eventType = 'page_view'), 1) as tocRate
-FROM DATASOURCE
-WHERE eventType IN ('toc_click', 'page_view')
-GROUP BY path
-HAVING views > 10
-ORDER BY tocRate DESC
-LIMIT 20
+select
+  payload->>'path' as path,
+  count(*) filter (where payload->>'eventType' = 'toc_click') as toc_clicks,
+  count(*) filter (where payload->>'eventType' = 'page_view') as views,
+  round(100.0 * count(*) filter (where payload->>'eventType' = 'toc_click')
+    / count(*) filter (where payload->>'eventType' = 'page_view'), 1) as toc_rate
+from TABLE
+where payload->>'eventType' in ('toc_click', 'page_view')
+group by 1
+having count(*) filter (where payload->>'eventType' = 'page_view') > 10
+order by toc_rate desc
+limit 20
 ```
 
 ### 8. Tab switch preferences
 
 ```sql
-SELECT tabLabel, count() as switches
-FROM DATASOURCE
-WHERE eventType = 'tab_switch' AND isDefault = false
-GROUP BY tabLabel
-ORDER BY switches DESC
-LIMIT 20
+select payload->>'tabLabel' as tab_label, count(*) as switches
+from TABLE
+where payload->>'eventType' = 'tab_switch' and (payload->>'isDefault')::boolean = false
+group by 1
+order by switches desc
+limit 20
 ```
 
 ### 9. Feedback by page
 
 ```sql
-SELECT path,
-  count() as total,
-  countIf(rating = 'yes') as helpful,
-  countIf(rating = 'no') as notHelpful,
-  round(countIf(rating = 'yes') * 100.0 / count(), 1) as helpfulPct
-FROM DATASOURCE
-WHERE eventType = 'feedback'
-GROUP BY path
-HAVING total >= 3
-ORDER BY helpfulPct ASC
+select
+  payload->>'path' as path,
+  count(*) as total,
+  count(*) filter (where payload->>'rating' = 'yes') as helpful,
+  count(*) filter (where payload->>'rating' = 'no') as not_helpful,
+  round(count(*) filter (where payload->>'rating' = 'yes') * 100.0 / count(*), 1) as helpful_pct
+from TABLE
+where payload->>'eventType' = 'feedback'
+group by 1
+having count(*) >= 3
+order by helpful_pct asc
 ```
 
 ### 10. Traffic sources
 
 ```sql
-SELECT referrerCategory, count() as sessions
-FROM DATASOURCE
-WHERE eventType = 'page_view' AND isFirstPage = true
-GROUP BY referrerCategory
-ORDER BY sessions DESC
+select payload->>'referrerCategory' as referrer_category, count(*) as sessions
+from TABLE
+where payload->>'eventType' = 'page_view' and (payload->>'isFirstPage')::boolean = true
+group by 1
+order by sessions desc
 ```
 
 ## Instrumentation health checks

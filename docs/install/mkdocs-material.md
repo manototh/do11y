@@ -33,14 +33,13 @@ Create `overrides/main.html` to inject the configuration meta tags:
 ```html
 {% extends "base.html" %}
 {% block extrahead %}
-  <meta name="do11y-token" content="YOUR_TINYBIRD_TOKEN">
-  <meta name="do11y-datasource" content="do11y">
-  <meta name="do11y-host" content="api.tinybird.co">
+  <meta name="do11y-url" content="https://YOUR_PROJECT.supabase.co">
+  <meta name="do11y-key" content="YOUR_ANON_KEY">
   <meta name="do11y-framework" content="mkdocs-material">
 {% endblock %}
 ```
 
-Replace the token with your [Tinybird credentials](/get-started).
+Replace the values with your [Supabase credentials](/get-started).
 
 See the [MkDocs Material docs](https://squidfunk.github.io/mkdocs-material/customization/#extending-the-theme) for more on theme overrides.
 
@@ -51,9 +50,8 @@ To use options beyond the basic credentials, add an inline script in `overrides/
 ```html
 {% extends "base.html" %}
 {% block extrahead %}
-  <meta name="do11y-token" content="YOUR_TINYBIRD_TOKEN">
-  <meta name="do11y-datasource" content="do11y">
-  <meta name="do11y-host" content="api.tinybird.co">
+  <meta name="do11y-url" content="https://YOUR_PROJECT.supabase.co">
+  <meta name="do11y-key" content="YOUR_ANON_KEY">
   <meta name="do11y-framework" content="mkdocs-material">
   <script>
     window.Do11yConfig = { scrollThresholds: [25, 50, 75, 100] };

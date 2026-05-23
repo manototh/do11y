@@ -16,19 +16,19 @@ Set all options via `window.Do11yConfig` using an inline script or a separate co
 
 ## Destination
 
-Do11y supports two destinations for event data: Tinybird (default) and generic HTTP.
+Do11y supports two destinations for event data: Supabase (default) and generic HTTP.
 
 | Option | Default | Description |
 |---|---|---|
-| `destination` | `'tinybird'` | Where to send events. `'tinybird'` or `'http'`. |
+| `destination` | `'supabase'` | Where to send events. `'supabase'` or `'http'`. |
 
-### Tinybird
+### Supabase
 
 | Option | Default | Description |
 |---|---|---|
-| `tinybirdHost` | `'api.tinybird.co'` | Tinybird API host. Use `'api.eu-central-1.aws.tinybird.co'` for EU. |
-| `tinybirdToken` | `''` | Token with `DATASOURCE:APPEND` scope. |
-| `tinybirdDatasource` | `'do11y'` | Name of the Tinybird datasource. |
+| `supabaseUrl` | `''` | Your Supabase project URL (e.g. `https://abc123.supabase.co`). |
+| `supabaseKey` | `''` | Anon (publishable) key from your project's API settings. |
+| `supabaseTable` | `'do11y_events'` | Name of the table to insert events into. |
 
 ### HTTP
 
@@ -105,9 +105,8 @@ Example:
 
 ```js
 window.Do11yConfig = {
-  tinybirdHost: 'api.tinybird.co',
-  tinybirdToken: 'p.your-ingest-token',
-  tinybirdDatasource: 'do11y',
+  supabaseUrl: 'https://abc123.supabase.co',
+  supabaseKey: 'eyJhbG...',
   framework: 'custom',
   searchSelector: '#search-input',
   copyButtonSelector: '.copy-btn',
