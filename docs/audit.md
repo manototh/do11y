@@ -12,7 +12,7 @@ head:
 
 # Audit docs with AI agent
 
-The [**Analyze Do11y data** skill](https://github.com/manototh/docservable/blob/main/.cursor/skills/analyze-do11y-data/SKILL.md) turns your Do11y data into a prioritized list of documentation improvements. It runs in an AI agent and queries your Supabase database directly, checks for instrumentation gaps, and produces a structured audit report.
+The [**Analyze Do11y data** skill](https://github.com/manototh/do11y/blob/main/.cursor/skills/analyze-do11y-data/SKILL.md) turns your Do11y data into a prioritized list of documentation improvements. It runs in an AI agent and queries your Supabase database directly, checks for instrumentation gaps, and produces a structured audit report.
 
 ## Prerequisites
 
@@ -20,7 +20,7 @@ Before running the skill, get your Supabase database connection string from **Se
 
 ## Run the audit
 
-Copy the [**Analyze Do11y data** skill](https://github.com/manototh/docservable/blob/main/.cursor/skills/analyze-do11y-data/SKILL.md) into the AI agent and ask it to analyze your docs:
+Copy the [**Analyze Do11y data** skill](https://github.com/manototh/do11y/blob/main/.cursor/skills/analyze-do11y-data/SKILL.md) into the AI agent and ask it to analyze your docs:
 
 > Analyze my Do11y data. Database URL: `postgresql://...`, table: `do11y_events`.
 

@@ -29,7 +29,7 @@ jobs:
       - name: Get latest do11y release
         id: latest
         run: |
-          VERSION=$(curl -sf https://api.github.com/repos/manototh/docservable/releases/latest | jq -r '.tag_name')
+          VERSION=$(curl -sf https://api.github.com/repos/manototh/do11y/releases/latest | jq -r '.tag_name')
           echo "version=${VERSION}" >> "$GITHUB_OUTPUT"
 
       - name: Get current do11y version
@@ -55,7 +55,7 @@ jobs:
         if: steps.check.outputs.needed == 'true'
         uses: actions/checkout@v4
         with:
-          repository: manototh/docservable
+          repository: manototh/do11y
           ref: ${{ steps.latest.outputs.version }}
           path: _do11y
 
@@ -96,5 +96,5 @@ jobs:
           else
             gh pr create \
               --title "Update do11y to ${VERSION}" \
-              --body "Automated update from [do11y ${VERSION}](https://github.com/manototh/docservable/releases/tag/${VERSION})."
+              --body "Automated update from [do11y ${VERSION}](https://github.com/manototh/do11y/releases/tag/${VERSION})."
           fi

@@ -16,7 +16,7 @@ Mintlify doesn't support loading scripts from a CDN via config, so Do11y must be
 
 ## Steps
 
-1. Download the latest release from [GitHub](https://github.com/manototh/docservable/releases/latest) and extract the `do11y-<version>.zip` file.
+1. Download the latest release from [GitHub](https://github.com/manototh/do11y/releases/latest) and extract the `do11y-<version>.zip` file.
 
 2. Copy `dist/do11y.min.js` and `examples/do11y-config.example.js` to the same folder in your docs repo (for example, `scripts/`). Alphabetical ordering ensures the config file loads before the main script.
 

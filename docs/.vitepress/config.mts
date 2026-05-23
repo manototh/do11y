@@ -109,12 +109,12 @@ export default defineConfig({
     ],
 
     editLink: {
-      pattern: 'https://github.com/manototh/docservable/edit/main/docs/:path',
+      pattern: 'https://github.com/manototh/do11y/edit/main/docs/:path',
       text: 'Edit this page on GitHub',
     },
 
     socialLinks: [
-      { icon: 'github', link: 'https://github.com/manototh/docservable' }
+      { icon: 'github', link: 'https://github.com/manototh/do11y' }
     ],
 
     footer: {

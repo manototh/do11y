@@ -53,7 +53,7 @@ When both are present, meta tags take precedence over `window.Do11yConfig`, whic
 
 If you can't use a CDN, host the script yourself.
 
-1. Download the latest release from [GitHub](https://github.com/manototh/docservable/releases/latest) and extract the zip.
+1. Download the latest release from [GitHub](https://github.com/manototh/do11y/releases/latest) and extract the zip.
 2. Copy `dist/do11y.min.js` and `examples/do11y-config.example.js` to your docs project (for example, `scripts/`).
 3. Rename `do11y-config.example.js` to `do11y-config.js`.
 4. In `do11y-config.js`, replace the placeholder values with your credentials:

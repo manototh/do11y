@@ -20,6 +20,6 @@ Privacy: no cookies, no PII, no device fingerprinting, no cross-site tracking. U
 
 ## Optional
 
-- [GitHub](https://github.com/manototh/docservable): Source code, releases, and issue tracker.
+- [GitHub](https://github.com/manototh/do11y): Source code, releases, and issue tracker.
 - [npm](https://www.npmjs.com/package/do11y): Package published as do11y.
 - [Supabase](https://supabase.com): The platform that stores Do11y event data (PostgreSQL).

@@ -45,7 +45,7 @@ For other frameworks, use manual setup with custom selectors.
 
 ## Quick start (Mintlify)
 
-1. Download the latest release from [GitHub releases](https://github.com/manototh/docservable/releases/latest).
+1. Download the latest release from [GitHub releases](https://github.com/manototh/do11y/releases/latest).
 2. Copy `dist/do11y.min.js` and `examples/do11y-config.example.js` to your docs repo.
 3. Rename to `do11y-config.js` and fill in your credentials:
 
