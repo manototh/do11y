@@ -29,9 +29,6 @@ export default async function RootLayout({ children }) {
       suppressHydrationWarning
     >
       <Head>
-        <meta name="do11y-url" content="https://YOUR_PROJECT.supabase.co" />
-        <meta name="do11y-key" content="YOUR_PUBLISHABLE_KEY" />
-        <meta name="do11y-table" content="do11y_events" />
         <meta name="do11y-framework" content="nextra" />
         <script src="/do11y.js" defer />
       </Head>

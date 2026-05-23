@@ -58,6 +58,7 @@ Copy `tests/.env.example` to `tests/.env` and add your credentials:
 ```
 SUPABASE_URL=https://your-project.supabase.co
 SUPABASE_KEY=sb_publishable_your_key
+SUPABASE_SECRET_KEY=sb_secret_your_secret_key
 SUPABASE_TABLE=do11y_integration_test
 ```
 
@@ -103,6 +104,7 @@ Copy `tests/.env.example` to `tests/.env` and add your credentials:
 ```
 SUPABASE_URL=https://your-project.supabase.co
 SUPABASE_KEY=sb_publishable_your_key
+SUPABASE_SECRET_KEY=sb_secret_your_secret_key
 SUPABASE_TABLE=do11y_integration_test
 ```
 
