@@ -1,6 +1,6 @@
 (function() {
 	//#region src/do11y.ts
-	const VERSION = "0.0.6";
+	const VERSION = "0.1.0";
 	const _alreadyLoaded = !!window.__do11yInitialized;
 	window.__do11yInitialized = true;
 	const config = {

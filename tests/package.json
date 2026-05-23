@@ -10,10 +10,12 @@
   },
   "dependencies": {
     "dotenv": "^16.4.5",
+    "pg": "^8.13.0",
     "puppeteer": "^24.0.0"
   },
   "devDependencies": {
     "@types/node": "latest",
+    "@types/pg": "^8.11.0",
     "tsx": "latest",
     "typescript": "latest"
   }

@@ -1,7 +1,7 @@
 /**
  * Do11y integration test runner.
  *
- * Loads AXIOM_DOMAIN, AXIOM_TOKEN, AXIOM_DATASET from .env in this directory.
+ * Loads SUPABASE_URL, SUPABASE_KEY, SUPABASE_SECRET_KEY, SUPABASE_TABLE from .env in this directory.
  * Run: npm test (or npx tsx test-integrations.ts from this directory)
  *
  * For each supported framework, this script:
@@ -9,13 +9,14 @@
  *   2. Scaffolds a minimal documentation site with do11y.js injected
  *   3. Starts the framework's dev server
  *   4. Drives Puppeteer through a set of user interactions
- *   5. Waits for events to flush to Axiom
- *   6. Queries the Axiom API to validate that the expected events arrived
+ *   5. Waits for events to flush to Supabase
+ *   6. Queries the Supabase REST API to validate that the expected events arrived
  *
  * Required (set in .env in this directory):
- *   AXIOM_DOMAIN      — Axiom domain
- *   AXIOM_TOKEN       — API token with ingest + query permissions
- *   AXIOM_DATASET     — Dataset name
+ *   SUPABASE_URL        — Supabase project URL
+ *   SUPABASE_KEY        — Publishable key (for client-side inserts via PostgREST)
+ *   SUPABASE_SECRET_KEY — Secret key (for server-side reads via PostgREST)
+ *   SUPABASE_TABLE      — Table name
  *
  * Optional (can override in .env or shell):
  *   FRAMEWORKS      — Comma-separated list of frameworks to test (default: all)
@@ -32,9 +33,10 @@ import fs from 'fs';
 import http from 'http';
 import type { Browser, Page } from 'puppeteer';
 
-const AXIOM_DOMAIN = process.env.AXIOM_DOMAIN!;
-const AXIOM_TOKEN = process.env.AXIOM_TOKEN!;
-const AXIOM_DATASET = process.env.AXIOM_DATASET!;
+const SUPABASE_URL = process.env.SUPABASE_URL!;
+const SUPABASE_KEY = process.env.SUPABASE_KEY!;
+const SUPABASE_SECRET_KEY = process.env.SUPABASE_SECRET_KEY!;
+const SUPABASE_TABLE = process.env.SUPABASE_TABLE || 'do11y_events';
 const SKIP_INSTALL = process.env.SKIP_INSTALL === '1';
 const FORCE_INSTALL = process.env.SKIP_INSTALL === '0';
 const SKIP_BUILD = process.env.SKIP_BUILD === '1';
@@ -70,10 +72,13 @@ interface TestResult {
   interactionError?: string;
 }
 
-interface AxiomEvent {
-  eventType?: string;
-  testFramework?: string;
-  [key: string]: unknown;
+interface SupabaseRow {
+  payload: {
+    eventType?: string;
+    testFramework?: string;
+    testRunId?: string;
+    [key: string]: unknown;
+  };
 }
 
 interface EventExpectation {
@@ -149,35 +154,33 @@ function fail(msg: string): void { console.log(`\x1b[31m[runner]\x1b[0m ${msg}`)
 function patchDo11y(destPath: string, framework: string, testRunId: string): void {
   const src = fs.readFileSync(DO11Y_SRC, 'utf8');
 
-  // Prepend a window.Do11yConfig block so credentials never need to be
-  // string-replaced inside the built artifact (resilient to minification).
   const configBlock = `window.Do11yConfig = {
-  axiomHost: '${AXIOM_DOMAIN.trim()}',
-  axiomDataset: '${AXIOM_DATASET.trim()}',
-  axiomToken: '${AXIOM_TOKEN.trim()}',
+  supabaseUrl: '${SUPABASE_URL.trim()}',
+  supabaseKey: '${SUPABASE_KEY.trim()}',
+  supabaseTable: '${SUPABASE_TABLE.trim()}',
   debug: true,
   allowedDomains: null,
-  // Lower section-visibility threshold so headings visible for ≥1s are recorded.
-  // The test sleeps 2s after page load, which comfortably exceeds this.
   sectionVisibleThreshold: 1,
 };\n`;
 
-  // Intercept fetch to inject testRunId and testFramework into every ingest
-  // request. This avoids patching compiled source and works regardless of how
-  // rolldown names or formats the event-object literal.
+  // Intercept fetch to inject testRunId and testFramework into every event
+  // payload sent to the Supabase REST API.
   const interceptBlock = `(function () {
   var _fetch = window.fetch.bind(window);
   window.fetch = function (url, opts) {
-    if (typeof url === 'string' && url.includes('/v1/ingest/') && opts && opts.body) {
+    if (typeof url === 'string' && url.includes('/rest/v1/') && opts && opts.body) {
       try {
-        var events = JSON.parse(opts.body);
-        events = events.map(function (e) {
-          return Object.assign({}, e, {
-            testRunId: '${testRunId}',
-            testFramework: '${framework}',
+        var rows = JSON.parse(opts.body);
+        if (Array.isArray(rows)) {
+          rows = rows.map(function (r) {
+            if (r.payload) {
+              r.payload.testRunId = '${testRunId}';
+              r.payload.testFramework = '${framework}';
+            }
+            return r;
           });
-        });
-        opts = Object.assign({}, opts, { body: JSON.stringify(events) });
+          opts = Object.assign({}, opts, { body: JSON.stringify(rows) });
+        }
       } catch (_e) { /* ignore */ }
     }
     return _fetch(url, opts);
@@ -236,7 +239,6 @@ function installDeps(fw: Framework): void {
       execSync('npm install', { cwd: fw.dir, stdio: 'pipe' });
     }
   } else if (fw.type === 'pip') {
-    // Always check for the binary; pip packages aren't in node_modules
     const extraPath = getPythonUserBins().join(':');
     const checkEnv = { ...process.env, PATH: extraPath + ':' + (process.env.PATH ?? '') };
     try {
@@ -253,8 +255,6 @@ function installDeps(fw: Framework): void {
 }
 
 function getPythonUserBins(): string[] {
-  // pip and python3 may resolve to different Python versions (e.g. Xcode 3.9
-  // vs Homebrew 3.12), so collect all known user-site bin directories.
   const dirs = new Set<string>();
   for (const cmd of ['python3 -m site --user-base', 'python -m site --user-base']) {
     try {
@@ -262,7 +262,6 @@ function getPythonUserBins(): string[] {
       if (base) dirs.add(path.join(base, 'bin'));
     } catch { /* ignore */ }
   }
-  // Also scan ~/Library/Python/*/bin on macOS
   const pyLibDir = path.join(process.env.HOME ?? '', 'Library', 'Python');
   try {
     for (const ver of fs.readdirSync(pyLibDir)) {
@@ -299,30 +298,21 @@ function killProc(proc: ChildProcess): void {
 
 async function runInteractions(browser: Browser, baseUrl: string, fw: Framework): Promise<void> {
   const page = await browser.newPage();
-  // 1440px wide ensures VitePress (≥1280px) and other frameworks render the
-  // aside TOC panel; also benefits any framework with a responsive layout.
   await page.setViewport({ width: 1440, height: 900 });
 
   // 1. Page view on start page
   log('  → page_view (start page)');
   await page.goto(`${baseUrl}${fw.startPage}`, { waitUntil: 'networkidle2', timeout: 30000 });
-  // Sleep 2s so headings in the initial viewport accumulate ≥1s of visibility
-  // (matches the sectionVisibleThreshold: 1 set in the test Do11yConfig).
   await sleep(2000);
 
-  // 2. Click a TOC link *before* scrolling so the page is at the top, the TOC
-  //    panel is freshly rendered, and the anchor links are reachable.
+  // 2. Click a TOC link
   log('  → toc_click');
-  // Find the TOC link via evaluate, mark it, then click via Puppeteer's native
-  // page.click() — the same approach that fixed search_opened. Synthetic
-  // el.click() from evaluate is less reliable for triggering do11y's
-  // capture-phase document listener.
   const TOC_SELECTORS = [
-    '#table-of-contents',            // Mintlify (id-based, not class-based)
+    '#table-of-contents',
     '[data-testid="table-of-contents"]',
-    '.table-of-contents',            // Docusaurus
-    '.VPDocAsideOutline',            // VitePress
-    '.md-sidebar--secondary .md-nav', // MkDocs Material
+    '.table-of-contents',
+    '.VPDocAsideOutline',
+    '.md-sidebar--secondary .md-nav',
     '[class*="toc"]',
     '[class*="outline"]',
     '[class*="TableOfContents"]',
@@ -348,15 +338,12 @@ async function runInteractions(browser: Browser, baseUrl: string, fw: Framework)
   } catch { /* ignore */ }
   await sleep(500);
 
-  // 3. Scroll to bottom (triggers scroll_depth; also sends headings through
-  //    the IntersectionObserver exit callback → section_visible events)
+  // 3. Scroll to bottom
   log('  → scroll_depth');
   await autoScroll(page);
   await sleep(1000);
 
-  // 4. Click search (triggers search_opened).
-  //    Uses Puppeteer's native page.click() which dispatches real pointer events,
-  //    more reliably triggering do11y's capture-phase listener than el.click().
+  // 4. Click search
   log('  → search_opened');
   const SEARCH_SEL =
     '#search-bar-entry, .DocSearch-Button, .nextra-search input, ' +
@@ -367,11 +354,10 @@ async function runInteractions(browser: Browser, baseUrl: string, fw: Framework)
     await page.click(SEARCH_SEL);
   } catch { warn('  ⚠ No search element found, skipping'); }
   await sleep(500);
-  // Close any open dialog/overlay
   await page.keyboard.press('Escape');
   await sleep(300);
 
-  // 5. Click copy button (triggers code_copied)
+  // 5. Click copy button
   log('  → code_copied');
   try {
     const copyClicked = await page.evaluate(() => {
@@ -388,7 +374,7 @@ async function runInteractions(browser: Browser, baseUrl: string, fw: Framework)
   } catch { /* ignore */ }
   await sleep(500);
 
-  // 6. Expand a <details> element (triggers expand_collapse)
+  // 6. Expand a <details> element
   log('  → expand_collapse');
   try {
     const expanded = await page.evaluate(() => {
@@ -403,7 +389,7 @@ async function runInteractions(browser: Browser, baseUrl: string, fw: Framework)
   } catch { /* ignore */ }
   await sleep(500);
 
-  // 7. Click feedback button (triggers feedback)
+  // 7. Click feedback button
   log('  → feedback');
   try {
     const feedbackClicked = await page.evaluate(() => {
@@ -420,21 +406,14 @@ async function runInteractions(browser: Browser, baseUrl: string, fw: Framework)
   } catch { /* ignore */ }
   await sleep(500);
 
-  // 8. Click internal link to guide page (triggers link_click + page_view)
+  // 8. Click internal link to guide page
   log('  → link_click (internal) + page_view (guide)');
   try {
-    // Find the link and click it via Puppeteer's mouse (fires DOM click event
-    // before SPA routers can intercept, ensuring do11y captures it)
-    // Build selector covering absolute and relative path variants
     const gp = fw.guidePage;
     const relPath = gp.startsWith('/') ? gp.slice(1) : gp;
     const linkSel = [gp, `${gp}.html`, `${gp}/`, relPath, `${relPath}.html`, `${relPath}/`, `${relPath}.md`]
       .map((h) => `a[href="${h}"]`).join(', ');
-    // Use a generous timeout: Next.js dev server compiles routes on demand,
-    // so in CI the guide page route may not be ready within 5 s.
     await page.waitForSelector(linkSel, { timeout: 10000 });
-    // Scroll the link into view first (needed for VitePress/Docusaurus where
-    // the link may be below the fold)
     await page.evaluate((sel: string) => {
       const el = document.querySelector(sel);
       if (el) el.scrollIntoView({ block: 'center' });
@@ -449,15 +428,9 @@ async function runInteractions(browser: Browser, baseUrl: string, fw: Framework)
   }
   await sleep(1500);
 
-  // 9. Trigger page_exit.
-  // page.goto('about:blank') does not reliably fire beforeunload in headless
-  // Chrome on Linux (CI). page.close({ runBeforeUnload: true }) is the
-  // Puppeteer-idiomatic way to guarantee the beforeunload event fires, which
-  // triggers emitPageExit() → flushVisibleSections() → cleanup() → flushSync().
+  // 9. Trigger page_exit
   log('  → page_exit');
   await page.close({ runBeforeUnload: true });
-  // Allow the keepalive fetch dispatched by flushSync() to finish before the
-  // test runner proceeds to shut down servers and query Axiom.
   await sleep(2000);
 }
 
@@ -467,8 +440,6 @@ async function autoScroll(page: Page): Promise<void> {
       const distance = 200;
       const delay = 80;
 
-      // Some frameworks use container-based scrolling.
-      // Find the scrollable container so we scroll it instead of the window.
       let container: Element | null = null;
       const contentEl = document.querySelector('[role="main"], main, article');
       if (contentEl) {
@@ -484,9 +455,6 @@ async function autoScroll(page: Page): Promise<void> {
         }
       }
 
-      // Inline scroll-position helpers — named arrow function assignments
-      // trigger esbuild's __name helper which is not available in the
-      // browser context when Puppeteer serialises this callback as a string.
       const timer = setInterval(() => {
         if (container) { (container as HTMLElement).scrollTop += distance; }
         else { window.scrollBy(0, distance); }
@@ -527,61 +495,27 @@ function ensureBuild(): void {
   log('Build complete\n');
 }
 
-// ─── Axiom query ────────────────────────────────────────────────────────────
+// ─── Supabase query ─────────────────────────────────────────────────────────
 
-async function queryAxiom(testRunId: string, startTime: Date): Promise<AxiomEvent[]> {
-  const apl = `['${AXIOM_DATASET}'] | where testRunId == '${testRunId}' | order by _time asc`;
-  const body = JSON.stringify({
-    apl,
-    startTime: startTime.toISOString(),
-    endTime: new Date().toISOString(),
-  });
+async function querySupabase(testRunId: string): Promise<SupabaseRow[]> {
+  const url = new URL(`${SUPABASE_URL}/rest/v1/${SUPABASE_TABLE}`);
+  url.searchParams.set('select', 'payload');
+  url.searchParams.set('payload->>testRunId', `eq.${testRunId}`);
+  url.searchParams.set('limit', '10000');
 
-  const url = `https://${AXIOM_DOMAIN}/v1/query/_apl?format=tabular`;
-  const res = await fetch(url, {
-    method: 'POST',
+  const res = await fetch(url.toString(), {
     headers: {
-      Authorization: `Bearer ${AXIOM_TOKEN}`,
-      'Content-Type': 'application/json',
+      'apikey': SUPABASE_SECRET_KEY,
+      'Authorization': `Bearer ${SUPABASE_SECRET_KEY}`,
     },
-    body,
   });
 
   if (!res.ok) {
     const text = await res.text();
-    throw new Error(`Axiom query failed (${res.status}): ${text}`);
+    throw new Error(`Supabase query failed (${res.status}): ${text}`);
   }
 
-  const text = await res.text();
-  let data: {
-    tables?: Array<{
-      fields?: Array<{ name: string }>;
-      columns?: unknown[][];
-    }>;
-    matches?: Array<{ _source?: AxiomEvent; data?: AxiomEvent }>;
-  };
-  try { data = JSON.parse(text); } catch { throw new Error(`Axiom returned non-JSON: ${text.slice(0, 500)}`); }
-
-  // Axiom tabular format: fields[] has column names, columns[] is column-oriented data
-  const table = data.tables?.[0];
-  if (table?.fields && table?.columns) {
-    const fieldNames = table.fields.map(f => f.name);
-    const numRows = table.columns[0]?.length ?? 0;
-    const rows: AxiomEvent[] = [];
-    for (let j = 0; j < numRows; j++) {
-      const obj: AxiomEvent = {};
-      fieldNames.forEach((name, i) => { obj[name] = table.columns![i]?.[j]; });
-      rows.push(obj);
-    }
-    return rows;
-  }
-
-  // Legacy format: data.matches[]
-  if (Array.isArray(data.matches)) {
-    return data.matches.map(m => m._source ?? m.data ?? m as AxiomEvent);
-  }
-
-  return [];
+  return await res.json() as SupabaseRow[];
 }
 
 // ─── Validation ─────────────────────────────────────────────────────────────
@@ -589,23 +523,24 @@ async function queryAxiom(testRunId: string, startTime: Date): Promise<AxiomEven
 const EXPECTED_EVENTS: Record<string, EventExpectation> = {
   page_view: { min: 2 },
   scroll_depth: { min: 1 },
-  search_opened: { min: 0 },        // best-effort — not all frameworks have a search element
+  search_opened: { min: 0 },
   code_copied: { min: 1 },
   link_click: { min: 1 },
   page_exit: { min: 1 },
   expand_collapse: { min: 1 },
   toc_click: { min: 1 },
-  feedback: { min: 0 },             // best-effort — requires a feedback widget in DOM
-  section_visible: { min: 1 },      // sectionVisibleThreshold: 1 + 2s sleep guarantees this
+  feedback: { min: 0 },
+  section_visible: { min: 1 },
 };
 
 function validateEvents(
   framework: string,
-  events: AxiomEvent[]
+  rows: SupabaseRow[]
 ): { pass: number; fail: number; lines: string[]; total: number } {
   const byType: Record<string, number> = {};
-  for (const e of events) {
-    if (e.eventType) byType[e.eventType] = (byType[e.eventType] ?? 0) + 1;
+  for (const row of rows) {
+    const eventType = row.payload?.eventType;
+    if (eventType) byType[eventType] = (byType[eventType] ?? 0) + 1;
   }
 
   let pass = 0;
@@ -621,27 +556,23 @@ function validateEvents(
     lines.push(`    ${icon} ${type.padEnd(18)} ${count} event(s) (expected ≥${min})`);
   }
 
-  return { pass, fail: failCount, lines, total: events.length };
+  return { pass, fail: failCount, lines, total: rows.length };
 }
 
 // ─── Main ───────────────────────────────────────────────────────────────────
 
 (async () => {
-  // Validate env
-  if (!AXIOM_DOMAIN || !AXIOM_TOKEN || !AXIOM_DATASET) {
-    fail('Missing required env vars: AXIOM_DOMAIN, AXIOM_TOKEN, AXIOM_DATASET');
+  if (!SUPABASE_URL || !SUPABASE_KEY || !SUPABASE_SECRET_KEY) {
+    fail('Missing required env vars: SUPABASE_URL, SUPABASE_KEY, SUPABASE_SECRET_KEY');
     process.exit(1);
   }
 
-  // Build dist/do11y.js from TypeScript source before anything else
   ensureBuild();
 
   const testRunId = `run-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
-  const startTime = new Date();
   log(`Test run: ${testRunId}`);
-  log(`Dataset:  ${AXIOM_DATASET}`);
+  log(`Table:    ${SUPABASE_TABLE}`);
 
-  // Filter frameworks if FRAMEWORKS env is set
   let frameworkNames = Object.keys(FRAMEWORKS);
   if (process.env.FRAMEWORKS) {
     const requested = process.env.FRAMEWORKS.split(',').map(s => s.trim());
@@ -669,7 +600,6 @@ function validateEvents(
 
     // 0. Kill anything already on this port
     try { execSync(`lsof -ti :${fw.port} | xargs kill -9`, { stdio: 'pipe' }); } catch { /* ok */ }
-    // Clean stale build caches that cause 500 errors on cold start
     const fwDir = fw.dir ?? fw.staticDir;
     if (fwDir) {
       for (const cache of ['.next', '.vitepress/cache', '.vitepress/dist', '_book']) {
@@ -678,7 +608,7 @@ function validateEvents(
       }
     }
 
-    // 0b. Build step for static sites that require it (e.g. HonKit)
+    // 0b. Build step for static sites that require it
     if (fw.buildCmd && fw.dir) {
       try {
         if (!SKIP_INSTALL && (FORCE_INSTALL || !fs.existsSync(path.join(fw.dir, 'node_modules')))) {
@@ -749,21 +679,21 @@ function validateEvents(
   for (const p of processes) killProc(p);
   await browser.close();
 
-  // 6. Wait for Axiom to ingest
-  log('Waiting 15s for Axiom ingest…');
-  await sleep(15000);
+  // 6. Wait for Supabase to ingest
+  log('Waiting 5s for Supabase ingest…');
+  await sleep(5000);
 
   // 7. Query and validate
   console.log(`\n${'='.repeat(60)}`);
-  log('QUERYING AXIOM');
+  log('QUERYING SUPABASE');
   console.log(`${'='.repeat(60)}`);
 
-  let allEvents: AxiomEvent[];
+  let allRows: SupabaseRow[];
   try {
-    allEvents = await queryAxiom(testRunId, startTime);
-    log(`Total events received: ${allEvents.length}\n`);
+    allRows = await querySupabase(testRunId);
+    log(`Total events received: ${allRows.length}\n`);
   } catch (err) {
-    fail(`Axiom query failed: ${(err as Error).message}`);
+    fail(`Supabase query failed: ${(err as Error).message}`);
     process.exit(1);
   }
 
@@ -780,16 +710,16 @@ function validateEvents(
       continue;
     }
 
-    const fwEvents = allEvents.filter(e => e.testFramework === name);
-    console.log(`│  ${fwEvents.length} events ingested`);
+    const fwRows = allRows.filter(row => row.payload?.testFramework === name);
+    console.log(`│  ${fwRows.length} events ingested`);
 
-    if (fwEvents.length === 0) {
+    if (fwRows.length === 0) {
       console.log(`│  ❌ No events found — do11y may not have loaded or flushed`);
       grandFail += Object.keys(EXPECTED_EVENTS).length;
       continue;
     }
 
-    const v = validateEvents(name, fwEvents);
+    const v = validateEvents(name, fwRows);
     for (const line of v.lines) console.log(`│  ${line}`);
     grandPass += v.pass;
     grandFail += v.fail;

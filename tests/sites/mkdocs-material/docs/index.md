@@ -43,7 +43,7 @@ The SDK supports Python 3.9+ on Linux, macOS, and Windows.
 ## Navigation
 
 - [Guide page](guide.md) — internal link for click tracking
-- [Axiom website](https://axiom.co) — external link for outbound tracking
+- [Supabase website](https://supabase.com) — external link for outbound tracking
 
 ## More content
 

@@ -106,6 +106,26 @@ SUPABASE_KEY=sb_publishable_your_key
 SUPABASE_TABLE=do11y_integration_test
 ```
 
+Create a dedicated test table in the Supabase SQL Editor:
+
+```sql
+create table do11y_integration_test (
+  id bigint generated always as identity primary key,
+  created_at timestamptz not null default now(),
+  payload jsonb not null
+);
+
+alter table do11y_integration_test enable row level security;
+
+grant insert on do11y_integration_test to anon;
+grant select on do11y_integration_test to service_role;
+
+create policy "Allow anonymous inserts"
+  on do11y_integration_test for insert
+  to anon
+  with check (true);
+```
+
 Run the full suite:
 
 ```bash
