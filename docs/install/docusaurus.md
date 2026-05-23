@@ -19,7 +19,7 @@ Add the following to the `headTags` and `scripts` fields in `docusaurus.config.j
 ```js
 headTags: [
   { tagName: 'meta', attributes: { name: 'do11y-url', content: 'https://YOUR_PROJECT.supabase.co' } },
-  { tagName: 'meta', attributes: { name: 'do11y-key', content: 'YOUR_ANON_KEY' } },
+  { tagName: 'meta', attributes: { name: 'do11y-key', content: 'YOUR_PUBLISHABLE_KEY' } },
   { tagName: 'meta', attributes: { name: 'do11y-framework', content: 'docusaurus' } },
 ],
 scripts: [
@@ -36,7 +36,7 @@ To use options beyond the basic credentials (scroll thresholds, tracking toggles
 ```js
 headTags: [
   { tagName: 'meta', attributes: { name: 'do11y-url', content: 'https://YOUR_PROJECT.supabase.co' } },
-  { tagName: 'meta', attributes: { name: 'do11y-key', content: 'YOUR_ANON_KEY' } },
+  { tagName: 'meta', attributes: { name: 'do11y-key', content: 'YOUR_PUBLISHABLE_KEY' } },
   { tagName: 'meta', attributes: { name: 'do11y-framework', content: 'docusaurus' } },
   {
     tagName: 'script',

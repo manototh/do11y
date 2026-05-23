@@ -27,7 +27,7 @@ Mintlify doesn't support loading scripts from a CDN via config, so Do11y must be
 ```js
 window.Do11yConfig = {
   supabaseUrl: 'https://YOUR_PROJECT.supabase.co',
-  supabaseKey: 'YOUR_ANON_KEY',
+  supabaseKey: 'YOUR_PUBLISHABLE_KEY',
   framework: 'mintlify',
 };
 ```

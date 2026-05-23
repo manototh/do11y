@@ -18,8 +18,8 @@ window.Do11yConfig = {
   // Required: Supabase project URL.
   supabaseUrl: 'https://YOUR_PROJECT.supabase.co',
 
-  // Required: Supabase anon (publishable) key.
-  supabaseKey: 'YOUR_ANON_KEY',
+  // Required: Supabase publishable key (starts with sb_publishable_).
+  supabaseKey: 'sb_publishable_YOUR_KEY',
 
   // Optional: Table name (default: 'do11y_events').
   supabaseTable: 'do11y_events',

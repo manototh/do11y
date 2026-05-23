@@ -42,6 +42,7 @@ For other frameworks, use manual setup with custom selectors.
 
 1. [Sign up for Supabase](https://supabase.com/dashboard) (free, no credit card).
 2. Create the `do11y_events` table (one SQL command in the dashboard).
+3. Copy your project URL and publishable key from Settings > API Keys.
 
 ## Quick start (Mintlify)
 
@@ -52,7 +53,7 @@ For other frameworks, use manual setup with custom selectors.
 ```js
 window.Do11yConfig = {
   supabaseUrl: 'https://YOUR_PROJECT.supabase.co',
-  supabaseKey: 'YOUR_ANON_KEY',
+  supabaseKey: 'YOUR_PUBLISHABLE_KEY',
   framework: 'mintlify',
 };
 ```
@@ -62,7 +63,7 @@ window.Do11yConfig = {
 ```js
 headTags: [
   { tagName: 'meta', attributes: { name: 'do11y-url', content: 'https://YOUR_PROJECT.supabase.co' } },
-  { tagName: 'meta', attributes: { name: 'do11y-key', content: 'YOUR_ANON_KEY' } },
+  { tagName: 'meta', attributes: { name: 'do11y-key', content: 'YOUR_PUBLISHABLE_KEY' } },
   { tagName: 'meta', attributes: { name: 'do11y-framework', content: 'docusaurus' } },
 ],
 scripts: [{ src: 'https://cdn.jsdelivr.net/npm/do11y@latest/dist/do11y.min.js', defer: true }],
@@ -73,7 +74,7 @@ scripts: [{ src: 'https://cdn.jsdelivr.net/npm/do11y@latest/dist/do11y.min.js', 
 ```jsx
 <Head>
   <meta name="do11y-url" content="https://YOUR_PROJECT.supabase.co" />
-  <meta name="do11y-key" content="YOUR_ANON_KEY" />
+  <meta name="do11y-key" content="YOUR_PUBLISHABLE_KEY" />
   <meta name="do11y-framework" content="nextra" />
   <script src="https://cdn.jsdelivr.net/npm/do11y@latest/dist/do11y.min.js" defer />
 </Head>
@@ -84,7 +85,7 @@ scripts: [{ src: 'https://cdn.jsdelivr.net/npm/do11y@latest/dist/do11y.min.js', 
 ```js
 head: [
   ['meta', { name: 'do11y-url', content: 'https://YOUR_PROJECT.supabase.co' }],
-  ['meta', { name: 'do11y-key', content: 'YOUR_ANON_KEY' }],
+  ['meta', { name: 'do11y-key', content: 'YOUR_PUBLISHABLE_KEY' }],
   ['meta', { name: 'do11y-framework', content: 'vitepress' }],
   ['script', { src: 'https://cdn.jsdelivr.net/npm/do11y@latest/dist/do11y.min.js' }],
 ],
@@ -105,7 +106,7 @@ In `overrides/main.html`:
 {% extends "base.html" %}
 {% block extrahead %}
   <meta name="do11y-url" content="https://YOUR_PROJECT.supabase.co">
-  <meta name="do11y-key" content="YOUR_ANON_KEY">
+  <meta name="do11y-key" content="YOUR_PUBLISHABLE_KEY">
   <meta name="do11y-framework" content="mkdocs-material">
 {% endblock %}
 ```
@@ -127,7 +128,7 @@ window.Do11yConfig = {
 
 ```html
 <meta name="do11y-url" content="https://YOUR_PROJECT.supabase.co">
-<meta name="do11y-key" content="YOUR_ANON_KEY">
+<meta name="do11y-key" content="YOUR_PUBLISHABLE_KEY">
 <meta name="do11y-framework" content="custom">
 <script src="https://cdn.jsdelivr.net/npm/do11y@latest/dist/do11y.min.js"></script>
 ```
@@ -142,7 +143,7 @@ All options can be set via `window.Do11yConfig` or meta tags. See the [configura
 |---|---|---|
 | `destination` | `'supabase'` | `'supabase'` or `'http'` |
 | `supabaseUrl` | `''` | Supabase project URL |
-| `supabaseKey` | `''` | Anon (publishable) key |
+| `supabaseKey` | `''` | Publishable key (`sb_publishable_...`) |
 | `supabaseTable` | `'do11y_events'` | Table name |
 | `httpEndpoint` | `''` | Full HTTPS URL (when destination is `'http'`) |
 | `httpHeaders` | `{}` | Custom headers for HTTP destination |

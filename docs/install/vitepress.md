@@ -19,7 +19,7 @@ Add the following to the `head` array in `.vitepress/config.js` or `.vitepress/c
 ```js
 head: [
   ['meta', { name: 'do11y-url', content: 'https://YOUR_PROJECT.supabase.co' }],
-  ['meta', { name: 'do11y-key', content: 'YOUR_ANON_KEY' }],
+  ['meta', { name: 'do11y-key', content: 'YOUR_PUBLISHABLE_KEY' }],
   ['meta', { name: 'do11y-framework', content: 'vitepress' }],
   ['script', { src: 'https://cdn.jsdelivr.net/npm/do11y@latest/dist/do11y.min.js' }],
 ],
@@ -34,7 +34,7 @@ To use options beyond the basic credentials, add an inline script entry before t
 ```js
 head: [
   ['meta', { name: 'do11y-url', content: 'https://YOUR_PROJECT.supabase.co' }],
-  ['meta', { name: 'do11y-key', content: 'YOUR_ANON_KEY' }],
+  ['meta', { name: 'do11y-key', content: 'YOUR_PUBLISHABLE_KEY' }],
   ['meta', { name: 'do11y-framework', content: 'vitepress' }],
   ['script', {}, `window.Do11yConfig = { scrollThresholds: [25, 50, 75, 100] };`],
   ['script', { src: 'https://cdn.jsdelivr.net/npm/do11y@latest/dist/do11y.min.js' }],

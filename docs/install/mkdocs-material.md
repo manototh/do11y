@@ -34,7 +34,7 @@ Create `overrides/main.html` to inject the configuration meta tags:
 {% extends "base.html" %}
 {% block extrahead %}
   <meta name="do11y-url" content="https://YOUR_PROJECT.supabase.co">
-  <meta name="do11y-key" content="YOUR_ANON_KEY">
+  <meta name="do11y-key" content="YOUR_PUBLISHABLE_KEY">
   <meta name="do11y-framework" content="mkdocs-material">
 {% endblock %}
 ```
@@ -51,7 +51,7 @@ To use options beyond the basic credentials, add an inline script in `overrides/
 {% extends "base.html" %}
 {% block extrahead %}
   <meta name="do11y-url" content="https://YOUR_PROJECT.supabase.co">
-  <meta name="do11y-key" content="YOUR_ANON_KEY">
+  <meta name="do11y-key" content="YOUR_PUBLISHABLE_KEY">
   <meta name="do11y-framework" content="mkdocs-material">
   <script>
     window.Do11yConfig = { scrollThresholds: [25, 50, 75, 100] };

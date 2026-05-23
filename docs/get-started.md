@@ -21,7 +21,7 @@ Set up Do11y in two steps:
 
 [Sign up for Supabase](https://supabase.com/dashboard) with GitHub or Google. No credit card required. The free tier includes 500 MB of database storage with no time-based retention limits.
 
-A project is created automatically when you sign up. Note your **Project URL** and **anon key** from **Settings > API Keys** (or the home screen of your project).
+A project is created automatically when you sign up. Note your **Project URL** and **publishable key** from **Settings > API Keys**.
 
 ## Create the events table
 
@@ -42,16 +42,16 @@ create policy "Allow anonymous inserts"
   with check (true);
 ```
 
-This creates a table that accepts event data from Do11y and allows anonymous inserts via the public anon key. The anon key cannot read data, only write it.
+This creates a table that accepts event data from Do11y and allows anonymous inserts via the publishable key. The publishable key cannot read data, only write it.
 
 ## Your credentials
 
-You now have the two values Do11y needs:
+You now have the two values Do11y needs. Find them in the Supabase dashboard under **Settings > API Keys**:
 
-| Value | Example | Config option |
+| Value | Where to find it | Config option |
 |---|---|---|
-| Project URL | `https://abc123.supabase.co` | `supabaseUrl` |
-| Anon key | `eyJhbG...` | `supabaseKey` |
+| Project URL | Settings > API Keys > "Project URL" | `supabaseUrl` |
+| Publishable key | Settings > API Keys > publishable key (`sb_publishable_...`) | `supabaseKey` |
 
 The table name defaults to `do11y_events`. Change it with the `supabaseTable` option if you used a different name.
 

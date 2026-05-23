@@ -27,7 +27,7 @@ Do11y supports two destinations for event data: Supabase (default) and generic H
 | Option | Default | Description |
 |---|---|---|
 | `supabaseUrl` | `''` | Your Supabase project URL (e.g. `https://abc123.supabase.co`). |
-| `supabaseKey` | `''` | Anon (publishable) key from your project's API settings. |
+| `supabaseKey` | `''` | Publishable key (`sb_publishable_...`) from your project's API settings. |
 | `supabaseTable` | `'do11y_events'` | Name of the table to insert events into. |
 
 ### HTTP
@@ -106,7 +106,7 @@ Example:
 ```js
 window.Do11yConfig = {
   supabaseUrl: 'https://abc123.supabase.co',
-  supabaseKey: 'eyJhbG...',
+  supabaseKey: 'sb_publishable_...',
   framework: 'custom',
   searchSelector: '#search-input',
   copyButtonSelector: '.copy-btn',

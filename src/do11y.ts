@@ -22,11 +22,11 @@
  * Configuration (in order of precedence):
  * 1. HTML <meta> tags:
  *    <meta name="do11y-url" content="https://YOUR_PROJECT.supabase.co">
- *    <meta name="do11y-key" content="YOUR_ANON_KEY">
+ *    <meta name="do11y-key" content="sb_publishable_...">
  *    <meta name="do11y-table" content="do11y_events">
  *    <meta name="do11y-framework" content="mintlify">
  * 2. window.Do11yConfig object (set in a separate script before this file):
- *    window.Do11yConfig = { supabaseUrl: '...', supabaseKey: '...', framework: 'mintlify' };
+ *    window.Do11yConfig = { supabaseUrl: '...', supabaseKey: 'sb_publishable_...', framework: 'mintlify' };
  * 3. The config object below (defaults).
  *
  * Using meta tags or window.Do11yConfig is recommended so you can
@@ -720,7 +720,7 @@ function validateConfig(): boolean {
 
     if (!config.supabaseKey || typeof config.supabaseKey !== 'string' || config.supabaseKey.length < 10) {
       if (config.debug) {
-        console.warn('[Do11y] Invalid or missing Supabase anon key');
+        console.warn('[Do11y] Invalid or missing Supabase publishable key');
       }
       return false;
     }

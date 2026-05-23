@@ -20,7 +20,7 @@ Add the following to every page of your docs site:
 
 ```html
 <meta name="do11y-url" content="https://YOUR_PROJECT.supabase.co">
-<meta name="do11y-key" content="YOUR_ANON_KEY">
+<meta name="do11y-key" content="YOUR_PUBLISHABLE_KEY">
 <meta name="do11y-framework" content="FRAMEWORK">
 <script src="https://cdn.jsdelivr.net/npm/do11y@latest/dist/do11y.min.js"></script>
 ```
@@ -37,7 +37,7 @@ Meta tags only cover the essential settings. To configure any [advanced options]
 <script>
 window.Do11yConfig = {
   supabaseUrl: 'https://YOUR_PROJECT.supabase.co',
-  supabaseKey: 'YOUR_ANON_KEY',
+  supabaseKey: 'YOUR_PUBLISHABLE_KEY',
   framework: 'vitepress',
   scrollThresholds: [25, 50, 75, 100],
   trackFeedback: false,
@@ -61,7 +61,7 @@ If you can't use a CDN, host the script yourself.
 ```js
 window.Do11yConfig = {
   supabaseUrl: 'https://YOUR_PROJECT.supabase.co',
-  supabaseKey: 'YOUR_ANON_KEY',
+  supabaseKey: 'YOUR_PUBLISHABLE_KEY',
   framework: 'FRAMEWORK',
 };
 ```
