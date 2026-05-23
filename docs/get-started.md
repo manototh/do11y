@@ -36,6 +36,8 @@ create table do11y_events (
 
 alter table do11y_events enable row level security;
 
+grant insert on do11y_events to anon;
+
 create policy "Allow anonymous inserts"
   on do11y_events for insert
   to anon
