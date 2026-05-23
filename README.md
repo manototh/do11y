@@ -38,138 +38,17 @@ You don't need a GDPR consent banner.
 
 For other frameworks, use manual setup with custom selectors.
 
-## Prerequisites
+## Setup
 
-1. [Sign up for Supabase](https://supabase.com/dashboard) (free, no credit card).
-2. Create the `do11y_events` table (one SQL command in the dashboard).
-3. Copy your project URL and publishable key from Settings > API Keys.
-
-## Quick start (Mintlify)
-
-1. Download the latest release from [GitHub releases](https://github.com/manototh/do11y/releases/latest).
-2. Copy `dist/do11y.min.js` and `examples/do11y-config.example.js` to your docs repo.
-3. Rename to `do11y-config.js` and fill in your credentials:
-
-```js
-window.Do11yConfig = {
-  supabaseUrl: 'https://YOUR_PROJECT.supabase.co',
-  supabaseKey: 'YOUR_PUBLISHABLE_KEY',
-  framework: 'mintlify',
-};
-```
-
-## CDN install (Docusaurus)
-
-```js
-headTags: [
-  { tagName: 'meta', attributes: { name: 'do11y-url', content: 'https://YOUR_PROJECT.supabase.co' } },
-  { tagName: 'meta', attributes: { name: 'do11y-key', content: 'YOUR_PUBLISHABLE_KEY' } },
-  { tagName: 'meta', attributes: { name: 'do11y-framework', content: 'docusaurus' } },
-],
-scripts: [{ src: 'https://cdn.jsdelivr.net/npm/do11y@latest/dist/do11y.min.js', defer: true }],
-```
-
-## CDN install (Nextra)
-
-```jsx
-<Head>
-  <meta name="do11y-url" content="https://YOUR_PROJECT.supabase.co" />
-  <meta name="do11y-key" content="YOUR_PUBLISHABLE_KEY" />
-  <meta name="do11y-framework" content="nextra" />
-  <script src="https://cdn.jsdelivr.net/npm/do11y@latest/dist/do11y.min.js" defer />
-</Head>
-```
-
-## CDN install (VitePress)
-
-```js
-head: [
-  ['meta', { name: 'do11y-url', content: 'https://YOUR_PROJECT.supabase.co' }],
-  ['meta', { name: 'do11y-key', content: 'YOUR_PUBLISHABLE_KEY' }],
-  ['meta', { name: 'do11y-framework', content: 'vitepress' }],
-  ['script', { src: 'https://cdn.jsdelivr.net/npm/do11y@latest/dist/do11y.min.js' }],
-],
-```
-
-## CDN install (MkDocs Material)
-
-In `mkdocs.yml`:
-
-```yaml
-extra_javascript:
-  - https://cdn.jsdelivr.net/npm/do11y@latest/dist/do11y.min.js
-```
-
-In `overrides/main.html`:
-
-```html
-{% extends "base.html" %}
-{% block extrahead %}
-  <meta name="do11y-url" content="https://YOUR_PROJECT.supabase.co">
-  <meta name="do11y-key" content="YOUR_PUBLISHABLE_KEY">
-  <meta name="do11y-framework" content="mkdocs-material">
-{% endblock %}
-```
-
-## Generic HTTP destination
-
-Send events to any HTTPS endpoint instead of Supabase:
-
-```js
-window.Do11yConfig = {
-  destination: 'http',
-  httpEndpoint: 'https://your-backend.com/events',
-  httpHeaders: { 'Authorization': 'Bearer your-token' },
-  framework: 'docusaurus',
-};
-```
-
-## Manual setup
-
-```html
-<meta name="do11y-url" content="https://YOUR_PROJECT.supabase.co">
-<meta name="do11y-key" content="YOUR_PUBLISHABLE_KEY">
-<meta name="do11y-framework" content="custom">
-<script src="https://cdn.jsdelivr.net/npm/do11y@latest/dist/do11y.min.js"></script>
-```
+Follow the [get started guide](https://docservable.com/get-started) to set up Do11y.
 
 ## Configuration
 
-All options can be set via `window.Do11yConfig` or meta tags. See the [configuration docs](https://docservable.com/configuration) for the full reference.
-
-### Destination
-
-| Option | Default | Description |
-|---|---|---|
-| `destination` | `'supabase'` | `'supabase'` or `'http'` |
-| `supabaseUrl` | `''` | Supabase project URL |
-| `supabaseKey` | `''` | Publishable key (`sb_publishable_...`) |
-| `supabaseTable` | `'do11y_events'` | Table name |
-| `httpEndpoint` | `''` | Full HTTPS URL (when destination is `'http'`) |
-| `httpHeaders` | `{}` | Custom headers for HTTP destination |
+You can set all options via `window.Do11yConfig` or meta tags. See the [configuration docs](https://docservable.com/configuration) for the full reference.
 
 ## Insights
 
-Get AI-powered recommendations about what to fix:
-
-```bash
-SUPABASE_URL=https://your-project.supabase.co \
-SUPABASE_SECRET_KEY=sb_secret_... \
-OPENAI_API_KEY=sk-... \
-npx tsx scripts/insights.ts
-```
-
-Produces a prioritized report of pages to fix based on engagement metrics.
-
-## JavaScript API
-
-```javascript
-Do11y.getConfig()    // Current config (key redacted)
-Do11y.isEnabled()    // Whether tracking is active
-Do11y.flush()        // Force-send queued events
-Do11y.getQueueSize() // Number of queued events
-Do11y.version        // Script version
-```
+Get AI-powered recommendations about what to fix. See the [insights docs](https://docservable.com/insights) for more information.
 
 ## License
 

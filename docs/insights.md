@@ -14,7 +14,7 @@ head:
 
 Do11y includes an insights script that analyzes your documentation analytics and produces actionable recommendations about what to fix. It queries your Supabase database and feeds the aggregated metrics to an LLM that generates a prioritized report.
 
-## Quick start
+## Quickstart
 
 ```bash
 SUPABASE_URL=https://your-project.supabase.co \
@@ -23,7 +23,7 @@ OPENAI_API_KEY=sk-... \
 npx tsx scripts/insights.ts
 ```
 
-Find `SUPABASE_SECRET_KEY` in the Supabase dashboard under **Settings > API Keys** (the secret key starting with `sb_secret_`). This key can read data and should never be exposed client-side.
+Find `SUPABASE_SECRET_KEY` in the Supabase dashboard under **Project settings > API Keys > Secret keys**. This key can read data. Never expose it client-side.
 
 The script outputs a markdown report with:
 
