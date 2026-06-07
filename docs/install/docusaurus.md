@@ -18,8 +18,8 @@ Add the following to the `headTags` and `scripts` fields in `docusaurus.config.j
 
 ```js
 headTags: [
-  { tagName: 'meta', attributes: { name: 'do11y-url', content: 'https://YOUR_PROJECT.supabase.co' } },
-  { tagName: 'meta', attributes: { name: 'do11y-key', content: 'YOUR_PUBLISHABLE_KEY' } },
+  { tagName: 'meta', attributes: { name: 'do11y-url', content: 'SUPABASE_PROJECT_URL' } },
+  { tagName: 'meta', attributes: { name: 'do11y-key', content: 'SUPABASE_PUBLISHABLE_KEY' } },
   { tagName: 'meta', attributes: { name: 'do11y-framework', content: 'docusaurus' } },
 ],
 scripts: [
@@ -27,7 +27,7 @@ scripts: [
 ],
 ```
 
-Replace the values with your [Supabase credentials](/get-started).
+Replace `SUPABASE_PROJECT_URL` and `SUPABASE_PUBLISHABLE_KEY` with your [Supabase credentials](/get-started).
 
 ## Advanced configuration
 
@@ -35,8 +35,8 @@ To use options beyond the basic credentials (scroll thresholds, tracking toggles
 
 ```js
 headTags: [
-  { tagName: 'meta', attributes: { name: 'do11y-url', content: 'https://YOUR_PROJECT.supabase.co' } },
-  { tagName: 'meta', attributes: { name: 'do11y-key', content: 'YOUR_PUBLISHABLE_KEY' } },
+  { tagName: 'meta', attributes: { name: 'do11y-url', content: 'SUPABASE_PROJECT_URL' } },
+  { tagName: 'meta', attributes: { name: 'do11y-key', content: 'SUPABASE_PUBLISHABLE_KEY' } },
   { tagName: 'meta', attributes: { name: 'do11y-framework', content: 'docusaurus' } },
   {
     tagName: 'script',

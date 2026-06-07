@@ -18,14 +18,14 @@ Add the following to the `head` array in `.vitepress/config.js` or `.vitepress/c
 
 ```js
 head: [
-  ['meta', { name: 'do11y-url', content: 'https://YOUR_PROJECT.supabase.co' }],
-  ['meta', { name: 'do11y-key', content: 'YOUR_PUBLISHABLE_KEY' }],
+  ['meta', { name: 'do11y-url', content: 'SUPABASE_PROJECT_URL' }],
+  ['meta', { name: 'do11y-key', content: 'SUPABASE_PUBLISHABLE_KEY' }],
   ['meta', { name: 'do11y-framework', content: 'vitepress' }],
   ['script', { src: 'https://cdn.jsdelivr.net/npm/do11y@latest/dist/do11y.min.js' }],
 ],
 ```
 
-Replace the values with your [Supabase credentials](/get-started).
+Replace `SUPABASE_PROJECT_URL` and `SUPABASE_PUBLISHABLE_KEY` with your [Supabase credentials](/get-started).
 
 ## Advanced configuration
 
@@ -33,8 +33,8 @@ To use options beyond the basic credentials, add an inline script entry before t
 
 ```js
 head: [
-  ['meta', { name: 'do11y-url', content: 'https://YOUR_PROJECT.supabase.co' }],
-  ['meta', { name: 'do11y-key', content: 'YOUR_PUBLISHABLE_KEY' }],
+  ['meta', { name: 'do11y-url', content: 'SUPABASE_PROJECT_URL' }],
+  ['meta', { name: 'do11y-key', content: 'SUPABASE_PUBLISHABLE_KEY' }],
   ['meta', { name: 'do11y-framework', content: 'vitepress' }],
   ['script', {}, `window.Do11yConfig = { scrollThresholds: [25, 50, 75, 100] };`],
   ['script', { src: 'https://cdn.jsdelivr.net/npm/do11y@latest/dist/do11y.min.js' }],

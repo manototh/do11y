@@ -33,13 +33,13 @@ Create `overrides/main.html` to inject the configuration meta tags:
 ```html
 {% extends "base.html" %}
 {% block extrahead %}
-  <meta name="do11y-url" content="https://YOUR_PROJECT.supabase.co">
-  <meta name="do11y-key" content="YOUR_PUBLISHABLE_KEY">
+  <meta name="do11y-url" content="SUPABASE_PROJECT_URL">
+  <meta name="do11y-key" content="SUPABASE_PUBLISHABLE_KEY">
   <meta name="do11y-framework" content="mkdocs-material">
 {% endblock %}
 ```
 
-Replace the values with your [Supabase credentials](/get-started).
+Replace `SUPABASE_PROJECT_URL` and `SUPABASE_PUBLISHABLE_KEY` with your [Supabase credentials](/get-started).
 
 See the [MkDocs Material docs](https://squidfunk.github.io/mkdocs-material/customization/#extending-the-theme) for more on theme overrides.
 
@@ -50,16 +50,15 @@ To use options beyond the basic credentials, add an inline script in `overrides/
 ```html
 {% extends "base.html" %}
 {% block extrahead %}
-  <meta name="do11y-url" content="https://YOUR_PROJECT.supabase.co">
-  <meta name="do11y-key" content="YOUR_PUBLISHABLE_KEY">
+  <meta name="do11y-url" content="SUPABASE_PROJECT_URL">
+  <meta name="do11y-key" content="SUPABASE_PUBLISHABLE_KEY">
   <meta name="do11y-framework" content="mkdocs-material">
   <script>
     window.Do11yConfig = { scrollThresholds: [25, 50, 75, 100] };
-  </script>
-{% endblock %}
+  </script>{% endblock %}
 ```
 
-See the [configuration reference](/configuration) for all available options.
+Replace `SUPABASE_PROJECT_URL` and `SUPABASE_PUBLISHABLE_KEY` with your [Supabase credentials](/get-started).
 
 ## Next steps
 

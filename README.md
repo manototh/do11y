@@ -15,20 +15,27 @@ Do11y is a documentation observability tool. It streams behavioral events from y
 - Feedback widget usage
 - Expand/collapse interactions
 
+Do11y is built for humans and machines alike. It emits observability data designed to be easy to use for human users, while also being easy to query and analyze for machines.
+
 Do11y is agent-native: it detects AI platform referrers (ChatGPT, Perplexity, Claude, Gemini, and others) so you can understand how agents and humans engage with your content differently.
 
 The runtime artifact is a single dependency-free JavaScript file. The source is TypeScript (`src/do11y.ts`). [rolldown](https://rolldown.rs) produces the built output.
 
 ## Privacy
 
-- No cookies. Uses `sessionStorage`, which the browser clears when it closes.
+Do11y collects anonymous usage data:
+
+- No cookies. Do11y uses `sessionStorage`, which the browser clears when it closes.
 - No personally identifiable information (PII).
 - No device fingerprinting.
 - No cross-site tracking.
 
-You don't need a GDPR consent banner.
+Because Do11y uses no cookies and collects no personal data, it doesn't trigger consent requirements under GDPR's cookie rules or CCPA's personal information provisions. You usually don't need a GDPR consent banner for using Do11y. If your organization has specific compliance obligations, verify with your legal team.
+
 
 ## Supported frameworks
+
+Do11y supports the latest versions of the following frameworks:
 
 - Mintlify
 - Docusaurus
@@ -52,4 +59,4 @@ Get AI-powered recommendations about what to fix. See the [insights docs](https:
 
 ## License
 
-MIT
+[MIT](LICENSE)

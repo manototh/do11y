@@ -18,8 +18,8 @@ Add the following to the `<Head>` component in `pages/_app.jsx` or `pages/_app.t
 
 ```jsx
 <Head>
-  <meta name="do11y-url" content="https://YOUR_PROJECT.supabase.co" />
-  <meta name="do11y-key" content="YOUR_PUBLISHABLE_KEY" />
+  <meta name="do11y-url" content="SUPABASE_PROJECT_URL" />
+  <meta name="do11y-key" content="SUPABASE_PUBLISHABLE_KEY" />
   <meta name="do11y-framework" content="nextra" />
   <script src="https://cdn.jsdelivr.net/npm/do11y@latest/dist/do11y.min.js" defer />
 </Head>
@@ -31,14 +31,14 @@ Add the following to `app/layout.jsx` or `app/layout.tsx`:
 
 ```jsx
 <Head>
-  <meta name="do11y-url" content="https://YOUR_PROJECT.supabase.co" />
-  <meta name="do11y-key" content="YOUR_PUBLISHABLE_KEY" />
+  <meta name="do11y-url" content="SUPABASE_PROJECT_URL" />
+  <meta name="do11y-key" content="SUPABASE_PUBLISHABLE_KEY" />
   <meta name="do11y-framework" content="nextra" />
   <script src="https://cdn.jsdelivr.net/npm/do11y@latest/dist/do11y.min.js" defer />
 </Head>
 ```
 
-Replace the values with your [Supabase credentials](/get-started).
+Replace `SUPABASE_PROJECT_URL` and `SUPABASE_PUBLISHABLE_KEY` with your [Supabase credentials](/get-started).
 
 ## Advanced configuration
 
@@ -46,8 +46,8 @@ To use options beyond the basic credentials, add an inline script before the mai
 
 ```jsx
 <Head>
-  <meta name="do11y-url" content="https://YOUR_PROJECT.supabase.co" />
-  <meta name="do11y-key" content="YOUR_PUBLISHABLE_KEY" />
+  <meta name="do11y-url" content="SUPABASE_PROJECT_URL" />
+  <meta name="do11y-key" content="SUPABASE_PUBLISHABLE_KEY" />
   <meta name="do11y-framework" content="nextra" />
   <script
     dangerouslySetInnerHTML={{
