@@ -10,12 +10,15 @@
  * Run: npx tsx test-queries.ts
  *
  * Required (set in .env):
- *   SUPABASE_URL        — Supabase project URL
- *   SUPABASE_SECRET_KEY — Secret key (sb_secret_...) for querying via PostgREST
- *   DATABASE_URL        — Direct Postgres connection string (for running raw SQL)
+ *   SUPABASE_URL            — Supabase project URL
+ *   SUPABASE_ACCESS_TOKEN   — Personal access token for the Management API
+ *   SUPABASE_TABLE          — Table to query (default: do11y_events)
  *
- * The DATABASE_URL is needed because PostgREST doesn't support raw SQL queries.
- * Find it in Supabase dashboard: Settings > Database > Connection string (URI).
+ * PostgREST does not run raw SQL. This test uses the Supabase Management API
+ * instead of a direct Postgres connection string.
+ *
+ * Create a token at https://supabase.com/dashboard/account/tokens
+ * or run `supabase login` and store the token in ~/.supabase/access-token.
  */
 
 import dotenv from 'dotenv';
@@ -23,14 +26,43 @@ import path from 'path';
 dotenv.config({ path: path.join(__dirname, '.env') });
 
 import fs from 'fs';
-import pg from 'pg';
+import os from 'os';
 
-const DATABASE_URL = process.env.DATABASE_URL;
+const SUPABASE_URL = process.env.SUPABASE_URL;
+const SUPABASE_TABLE = process.env.SUPABASE_TABLE || 'do11y_events';
+const SUPABASE_ACCESS_TOKEN = resolveAccessToken();
 
-if (!DATABASE_URL) {
-  console.error('Missing DATABASE_URL in .env');
-  console.error('Find it in Supabase dashboard: Settings > Database > Connection string');
+if (!SUPABASE_URL) {
+  console.error('Missing SUPABASE_URL in .env');
   process.exit(1);
+}
+
+if (!SUPABASE_ACCESS_TOKEN) {
+  console.error('Missing SUPABASE_ACCESS_TOKEN in .env');
+  console.error('Create one at https://supabase.com/dashboard/account/tokens');
+  console.error('Or run `supabase login` to store a token locally.');
+  process.exit(1);
+}
+
+function resolveAccessToken(): string | undefined {
+  if (process.env.SUPABASE_ACCESS_TOKEN) {
+    return process.env.SUPABASE_ACCESS_TOKEN;
+  }
+
+  const tokenPath = path.join(os.homedir(), '.supabase', 'access-token');
+  if (fs.existsSync(tokenPath)) {
+    return fs.readFileSync(tokenPath, 'utf-8').trim();
+  }
+
+  return undefined;
+}
+
+function getProjectRef(url: string): string {
+  const match = url.match(/^https:\/\/([^.]+)\.supabase\.co\/?$/);
+  if (!match) {
+    throw new Error(`Invalid SUPABASE_URL: ${url}`);
+  }
+  return match[1]!;
 }
 
 // ─── Types ───────────────────────────────────────────────────────────────────
@@ -462,7 +494,7 @@ function extractQueries(markdown: string): Query[] {
       }
     }
 
-    const query = match[1].trim();
+    const query = match[1]!.trim();
     queries.push({
       section: currentSection,
       subsection: currentSubsection,
@@ -476,23 +508,52 @@ function extractQueries(markdown: string): Query[] {
   return queries;
 }
 
-// ─── PostgreSQL query ───────────────────────────────────────────────────────
+// ─── Supabase Management API query ──────────────────────────────────────────
 
-async function runQuery(client: pg.Client, sql: string): Promise<QueryResult> {
-  const result = await client.query(sql);
-  const columns = result.fields.map(f => f.name);
+function prepareQuery(sql: string): string {
+  return sql.replace(/\bdo11y_events\b/g, SUPABASE_TABLE);
+}
 
-  const rows: Row[] = result.rows.map(row => {
+function coerceValue(val: unknown): unknown {
+  if (typeof val === 'string' && /^\d+$/.test(val)) {
+    return parseInt(val, 10);
+  }
+  if (typeof val === 'string' && /^\d+\.\d+$/.test(val)) {
+    return parseFloat(val);
+  }
+  return val;
+}
+
+async function runQuery(sql: string): Promise<QueryResult> {
+  const projectRef = getProjectRef(SUPABASE_URL!);
+  const res = await fetch(`https://api.supabase.com/v1/projects/${projectRef}/database/query`, {
+    method: 'POST',
+    headers: {
+      'Authorization': `Bearer ${SUPABASE_ACCESS_TOKEN}`,
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify({
+      query: prepareQuery(sql),
+      read_only: true,
+    }),
+  });
+
+  if (!res.ok) {
+    const text = await res.text();
+    throw new Error(`Supabase query failed (${res.status}): ${text}`);
+  }
+
+  const body = await res.json();
+  if (!Array.isArray(body)) {
+    throw new Error(`Unexpected Supabase response: ${JSON.stringify(body)}`);
+  }
+
+  const rawRows = body as Row[];
+  const columns = rawRows.length > 0 ? Object.keys(rawRows[0]!) : [];
+  const rows = rawRows.map(row => {
     const typed: Row = {};
     for (const col of columns) {
-      const val = row[col];
-      if (typeof val === 'string' && /^\d+$/.test(val)) {
-        typed[col] = parseInt(val, 10);
-      } else if (typeof val === 'string' && /^\d+\.\d+$/.test(val)) {
-        typed[col] = parseFloat(val);
-      } else {
-        typed[col] = val;
-      }
+      typed[col] = coerceValue(row[col]);
     }
     return typed;
   });
@@ -534,7 +595,8 @@ function validateResult(queryName: string, result: QueryResult): string[] | null
 async function main(): Promise<void> {
   console.log('Do11y queries.md Test Runner');
   console.log('='.repeat(60));
-  console.log(`Database: ${DATABASE_URL!.replace(/:[^:@]+@/, ':***@')}`);
+  console.log(`Project: ${getProjectRef(SUPABASE_URL!)}`);
+  console.log(`Table: ${SUPABASE_TABLE}`);
   console.log('='.repeat(60));
   console.log();
 
@@ -549,9 +611,6 @@ async function main(): Promise<void> {
 
   console.log(`Found ${queries.length} queries to test\n`);
 
-  const client = new pg.Client({ connectionString: DATABASE_URL });
-  await client.connect();
-
   let passed = 0;
   let failed = 0;
   const failures: Failure[] = [];
@@ -563,7 +622,7 @@ async function main(): Promise<void> {
     process.stdout.write(`${prefix} ${name}... `);
 
     try {
-      const result = await runQuery(client, q.query);
+      const result = await runQuery(q.query);
 
       const validationErrors = validateResult(name, result);
 
@@ -597,8 +656,6 @@ async function main(): Promise<void> {
 
     await new Promise(r => setTimeout(r, 50));
   }
-
-  await client.end();
 
   console.log();
   console.log('='.repeat(60));
