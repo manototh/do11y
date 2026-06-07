@@ -23,7 +23,7 @@ headTags: [
   { tagName: 'meta', attributes: { name: 'do11y-framework', content: 'docusaurus' } },
 ],
 scripts: [
-  { src: 'https://cdn.jsdelivr.net/npm/do11y@latest/dist/do11y.min.js', defer: true },
+  { src: 'https://cdn.jsdelivr.net/npm/@manototh/do11y@latest/dist/do11y.min.js', defer: true },
 ],
 ```
 
@@ -45,7 +45,7 @@ headTags: [
   },
 ],
 scripts: [
-  { src: 'https://cdn.jsdelivr.net/npm/do11y@latest/dist/do11y.min.js', defer: true },
+  { src: 'https://cdn.jsdelivr.net/npm/@manototh/do11y@latest/dist/do11y.min.js', defer: true },
 ],
 ```
 

@@ -22,7 +22,7 @@ Add the following to every page of your docs site:
 <meta name="do11y-url" content="SUPABASE_PROJECT_URL">
 <meta name="do11y-key" content="SUPABASE_PUBLISHABLE_KEY">
 <meta name="do11y-framework" content="FRAMEWORK">
-<script src="https://cdn.jsdelivr.net/npm/do11y@latest/dist/do11y.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/@manototh/do11y@latest/dist/do11y.min.js"></script>
 ```
 
 Replace the meta tag values with your [Supabase credentials](/get-started) and your framework name. To pin a specific version, replace `latest` with a version tag like `0.1.0`.
@@ -44,7 +44,7 @@ window.Do11yConfig = {
   sectionVisibleThreshold: 5,
 };
 </script>
-<script src="https://cdn.jsdelivr.net/npm/do11y@latest/dist/do11y.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/@manototh/do11y@latest/dist/do11y.min.js"></script>
 ```
 
 When both are present, meta tags take precedence over `window.Do11yConfig`, which takes precedence over the defaults.

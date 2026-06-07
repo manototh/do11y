@@ -24,7 +24,7 @@ export default defineConfig({
     ['meta', { name: 'do11y-url', content: 'https://jhyelfdzatnuebggtnwj.supabase.co' }],
     ['meta', { name: 'do11y-key', content: 'sb_publishable_HEBOG0yBbyznVe589OarEA_I_4msl3d' }],
     ['meta', { name: 'do11y-framework', content: 'vitepress' }],
-    ['script', { src: 'https://cdn.jsdelivr.net/npm/do11y@latest/dist/do11y.min.js' }],
+    ['script', { src: 'https://cdn.jsdelivr.net/npm/@manototh/do11y@latest/dist/do11y.min.js' }],
   ],
   themeConfig: {
     siteTitle: 'Do11y Documentation',

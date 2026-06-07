@@ -23,7 +23,7 @@ theme:
   name: material
   custom_dir: overrides
 extra_javascript:
-  - https://cdn.jsdelivr.net/npm/do11y@latest/dist/do11y.min.js
+  - https://cdn.jsdelivr.net/npm/@manototh/do11y@latest/dist/do11y.min.js
 ```
 
 ### 2. Create the overrides template

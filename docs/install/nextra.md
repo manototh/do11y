@@ -21,7 +21,7 @@ Add the following to the `<Head>` component in `pages/_app.jsx` or `pages/_app.t
   <meta name="do11y-url" content="SUPABASE_PROJECT_URL" />
   <meta name="do11y-key" content="SUPABASE_PUBLISHABLE_KEY" />
   <meta name="do11y-framework" content="nextra" />
-  <script src="https://cdn.jsdelivr.net/npm/do11y@latest/dist/do11y.min.js" defer />
+  <script src="https://cdn.jsdelivr.net/npm/@manototh/do11y@latest/dist/do11y.min.js" defer />
 </Head>
 ```
 
@@ -34,7 +34,7 @@ Add the following to `app/layout.jsx` or `app/layout.tsx`:
   <meta name="do11y-url" content="SUPABASE_PROJECT_URL" />
   <meta name="do11y-key" content="SUPABASE_PUBLISHABLE_KEY" />
   <meta name="do11y-framework" content="nextra" />
-  <script src="https://cdn.jsdelivr.net/npm/do11y@latest/dist/do11y.min.js" defer />
+  <script src="https://cdn.jsdelivr.net/npm/@manototh/do11y@latest/dist/do11y.min.js" defer />
 </Head>
 ```
 
@@ -54,7 +54,7 @@ To use options beyond the basic credentials, add an inline script before the mai
       __html: `window.Do11yConfig = { scrollThresholds: [25, 50, 75, 100] };`,
     }}
   />
-  <script src="https://cdn.jsdelivr.net/npm/do11y@latest/dist/do11y.min.js" defer />
+  <script src="https://cdn.jsdelivr.net/npm/@manototh/do11y@latest/dist/do11y.min.js" defer />
 </Head>
 ```
 
