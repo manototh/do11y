@@ -26,20 +26,20 @@ Do11y supports two destinations for event data: Supabase (default) and generic H
 
 | Option | Default | Description |
 |---|---|---|
-| `supabaseUrl` | `''` | Your Supabase project URL (e.g. `https://abc123.supabase.co`). |
-| `supabaseKey` | `''` | Publishable key (`sb_publishable_...`) from your project's API settings. |
+| `supabaseUrl` | `''` | Your Supabase project URL. For example: `https://abc123.supabase.co` |
+| `supabaseKey` | `''` | Publishable key. For example: `sb_publishable_1234567890` |
 | `supabaseTable` | `'do11y_events'` | Name of the table to insert events into. |
 
-### HTTP
+### Generic HTTP
 
-Send events to any HTTPS endpoint. Useful for custom backends, webhook relays, or other analytics platforms.
+Send events to any HTTPS endpoint. This is useful for custom backends, webhook relays, or other analytics platforms.
 
 | Option | Default | Description |
 |---|---|---|
 | `httpEndpoint` | `''` | Full URL to POST events to. Must be HTTPS. |
-| `httpHeaders` | `{}` | Custom headers to include (e.g. authorization). |
+| `httpHeaders` | `{}` | Custom headers to include (for example, authorization). |
 
-When using HTTP, events are sent as a JSON array in the POST body. The `Content-Type: application/json` header is set automatically.
+When using HTTP, Do11y sends events as a JSON array in the POST body and automatically sets the `Content-Type: application/json` header.
 
 ## Behavior
 
@@ -105,8 +105,8 @@ Example:
 
 ```js
 window.Do11yConfig = {
-  supabaseUrl: 'https://abc123.supabase.co',
-  supabaseKey: 'sb_publishable_...',
+  supabaseUrl: 'SUPABASE_PROJECT_URL',
+  supabaseKey: 'SUPABASE_PUBLISHABLE_KEY',
   framework: 'custom',
   searchSelector: '#search-input',
   copyButtonSelector: '.copy-btn',

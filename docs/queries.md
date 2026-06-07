@@ -14,7 +14,7 @@ head:
 
 Example SQL queries for analyzing the data Do11y stores in Supabase. Events live in the `do11y_events` table with a `payload jsonb` column. You can run these via the Supabase SQL Editor or any PostgreSQL client.
 
-PostgreSQL's JSONB operators extract fields from the payload: `payload->>'field'` returns text, and you cast to the appropriate type when needed (e.g. `::numeric`, `::boolean`, `::timestamptz`).
+PostgreSQL's JSONB operators extract fields from the payload: `payload->>'field'` returns text, and you cast to the appropriate type when needed (for example, `::numeric`, `::boolean`, `::timestamptz`).
 
 ## Traffic and discovery
 
