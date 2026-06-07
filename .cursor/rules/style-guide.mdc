@@ -43,7 +43,7 @@ Use imperative form for user actions.
 
 ## Conditionals
 - Place conditional clause **before** main clause
-- Use first conditional for expected behavior: *If you leave this field empty, Axiom uses the default name.*
+- Use first conditional for expected behavior: *If you leave this field empty, Company uses the default name.*
 - Acceptable exception for necessary conditions: *This option only has an effect if you also enable X.*
 
 ## Jargon & Idioms
@@ -60,9 +60,9 @@ Use imperative form for user actions.
 
 | Element | Good | Bad |
 |---------|------|-----|
-| Heading | Send event data to Axiom | Send Event Data to Axiom |
+| Heading | Send event data to Company | Send Event Data to Company |
 | Button | Sign up | Sign Up |
-| After colon | You and Axiom: The perfect pair | You and Axiom: the perfect pair |
+| After colon | You and Company: The perfect pair | You and Company: the perfect pair |
 
 **Brands:** Avoid scare caps (✓ Ebay ✗ eBay). Exception: iPhone.
 
@@ -96,7 +96,7 @@ Use singular "they": *A user enters their login credentials.*
 
 ## Punctuation
 - **Oxford comma:** ✓ before, during, and after ✗ before, during and after
-- Comma after introductory phrase: *Based on this information, Axiom calculates...*
+- Comma after introductory phrase: *Based on this information, Company calculates...*
 - Comma in conditionals when clause comes first
 
 ## Spelling
@@ -106,7 +106,7 @@ Use singular "they": *A user enters their login credentials.*
 
 ## Vocabulary
 - No "please"
-- No first-person plural: ✓ "Axiom recommends" ✗ "We recommend"
+- No first-person plural: ✓ "Company recommends" ✗ "We recommend"
 - "data" is singular: *Your data is safe.*
 - Use "for example" not "for instance"
 - Use "and" not "&" (except proper names)

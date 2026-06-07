@@ -180,6 +180,8 @@ git push origin v0.1.0
 gh release create v0.1.0
 ```
 
+Alternatively, create the release at [github.com/manototh/do11y/releases/new](https://github.com/manototh/do11y/releases/new).
+
 6. Publish to npm:
 
 ```bash

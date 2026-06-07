@@ -1614,6 +1614,9 @@ function init(): void {
     }
   });
 
+    // Freeze the resolved config so that third-party scripts loaded after
+  // this point cannot mutate axiomHost, axiomToken, or any other field
+  // through window.Do11yConfig or direct property assignment.
   Object.freeze(config);
 
   if (config.debug) console.log('[Do11y] Initialized successfully');
@@ -1645,6 +1648,11 @@ if (!_alreadyLoaded) {
   }
 }
 
+// Expose API for debugging and integration
+// cleanup() and debug() are intentionally NOT exposed on window.AxiomDo11y.
+// Exposing cleanup() would allow any third-party script to silently stop
+// tracking. Exposing debug() would allow any script to enable verbose
+// console output revealing the endpoint, dataset, and queued event data.
 window.Do11y = window.Do11y ?? {
   getConfig: () => ({
     destination: config.destination,
