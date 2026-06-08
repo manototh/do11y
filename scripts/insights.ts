@@ -17,7 +17,7 @@
  *   SUPABASE_TABLE       — Table name (default: do11y_events)
  *   OPENAI_API_KEY       — OpenAI API key for generating recommendations
  *   OPENAI_MODEL         — Model to use (default: gpt-4o)
- *   DAYS_BACK            — Number of days to analyze (default: 30)
+ *   DAYS_BACK            — Number of days to analyze (default: 90)
  */
 
 const SUPABASE_URL = process.env.SUPABASE_URL;
@@ -25,7 +25,7 @@ const SUPABASE_SECRET_KEY = process.env.SUPABASE_SECRET_KEY;
 const SUPABASE_TABLE = process.env.SUPABASE_TABLE || 'do11y_events';
 const OPENAI_API_KEY = process.env.OPENAI_API_KEY;
 const OPENAI_MODEL = process.env.OPENAI_MODEL || 'gpt-4o';
-const DAYS_BACK = parseInt(process.env.DAYS_BACK || '30', 10);
+const DAYS_BACK = parseInt(process.env.DAYS_BACK || '90', 10);
 
 if (!SUPABASE_URL) {
   console.error('Error: SUPABASE_URL environment variable is required');

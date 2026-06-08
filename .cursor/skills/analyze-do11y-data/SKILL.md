@@ -5,40 +5,102 @@ description: Query and interpret documentation analytics data collected by Do11y
 
 # Analyze Do11y data
 
+## Agent workflow
+
+Follow these steps in order. Do not skip to ad-hoc curl or inline scripts.
+
+1. **Get credentials** from the user message.
+2. **Run the audit script** (one command, one fetch, all metrics):
+
+```bash
+export SUPABASE_URL="https://YOUR_PROJECT.supabase.co"
+export SUPABASE_SECRET_KEY="sb_secret_..."
+export SUPABASE_TABLE="do11y_events"   # optional, this is the default
+export DAYS_BACK=90                    # optional, default 90
+
+npx tsx scripts/analyze.ts
+```
+
+3. **Parse the JSON output** and write the report using [Report structure](#report-structure) below.
+4. **Optional:** run `scripts/insights.ts` for AI-generated narrative recommendations. Requires `OPENAI_API_KEY`.
 ## Setup
 
 Ask for these credentials if not already provided:
 
-- **Supabase URL** — Supabase project URL (e.g. `https://abc123.supabase.co`)
-- **Supabase secret key** — Secret key (`sb_secret_...`) for reading data. Find it under **Project settings > API Keys > Secret keys**.
-- **Supabase table** — Table name (default: `do11y_events`)
-- **Time range** — default last 90 days
+| Credential | Environment variable | Default |
+|---|---|---|
+| Supabase URL | `SUPABASE_URL` | — |
+| Supabase secret key | `SUPABASE_SECRET_KEY` | — |
+| Supabase table | `SUPABASE_TABLE` | `do11y_events` |
+| Time range | `DAYS_BACK` | `90` |
 
-## Running queries
+Find the secret key under **Project settings > API Keys > Secret keys**.
 
-Query events through the Supabase REST API using the credentials from Setup. Map them to environment variables:
+## How to query
 
-| Credential | Environment variable |
+PostgREST does not run raw SQL. `scripts/analyze.ts` fetches all events in one REST call and aggregates in memory. The SQL blocks below document what the script computes.
+
+Events are stored as JSONB in the `payload` column. Relevant fields:
+
+| Field | Used for |
 |---|---|
-| Supabase URL | `SUPABASE_URL` |
-| Supabase secret key | `SUPABASE_SECRET_KEY` |
-| Supabase table | `SUPABASE_TABLE` |
+| `eventType` | Filter by event kind (`page_view`, `page_exit`, etc.) |
+| `path` | Page-level grouping |
+| `_time` | Time range filter |
+| `activeTimeSeconds`, `maxScrollDepth` | Engagement on `page_exit` |
+| `isFirstPage`, `referrerCategory` | Entry points and traffic sources |
+| `testFramework`, `testRunId` | Integration test detection |
 
-Fetch rows with curl or `fetch`:
+## Pitfalls
+
+| Do not | Do instead |
+|---|---|
+| Inline env vars with curl in one line (`SUPABASE_URL=... curl "${SUPABASE_URL}..."`) | `export` variables first, then run curl or the script |
+| `npx tsx -e 'await fetch(...)'` | Use `scripts/analyze.ts` (top-level await fails in `-e` mode) |
+| Write a temporary analysis script | Use `scripts/analyze.ts` |
+| Multiple REST calls per event type | One fetch in `scripts/analyze.ts`, aggregate locally |
+| Raw SQL via REST | Fetch via PostgREST filters, aggregate in the script |
+
+### Smoke-test connectivity
+
+Only if the audit script fails, verify credentials with export + curl:
 
 ```bash
-curl "${SUPABASE_URL}/rest/v1/${SUPABASE_TABLE}?select=payload&payload->>eventType=eq.page_exit&limit=1000" \
+export SUPABASE_URL="https://YOUR_PROJECT.supabase.co"
+export SUPABASE_SECRET_KEY="sb_secret_..."
+export SUPABASE_TABLE="do11y_events"
+
+curl -s "${SUPABASE_URL}/rest/v1/${SUPABASE_TABLE}?select=payload&limit=3" \
   -H "apikey: ${SUPABASE_SECRET_KEY}" \
   -H "Authorization: Bearer ${SUPABASE_SECRET_KEY}"
 ```
 
-PostgREST does not run raw SQL. For the audit queries below, fetch filtered events via REST (for example `payload->>eventType`, `payload->>_time`) and aggregate in a script. See `scripts/insights.ts` for a working pattern.
+Row count (optional sanity check):
 
-Replace `TABLE` in the SQL examples with the Supabase table name from Setup. Events are stored as JSONB in the `payload` column.
+```bash
+curl -sI "${SUPABASE_URL}/rest/v1/${SUPABASE_TABLE}?select=id&limit=1" \
+  -H "apikey: ${SUPABASE_SECRET_KEY}" \
+  -H "Authorization: Bearer ${SUPABASE_SECRET_KEY}" \
+  -H "Prefer: count=exact" | grep -i content-range
+```
 
-## Analysis workflow
+## Audit script output
 
-Run these queries in parallel for a full audit.
+`scripts/analyze.ts` prints a single JSON object. Key sections map to the report:
+
+| JSON key | Report section |
+|---|---|
+| `instrumentation` | Instrumentation gaps |
+| `top_entry_points`, `section_traffic`, `traffic_sources`, `sessions` | Traffic overview |
+| `bounce_candidates`, `high_traffic_low_engagement`, `page_exits` | Engagement problems |
+| `high_search_rate`, `heavy_toc_usage` | Confusion signals |
+| `scroll_completion`, `page_exits` (high scroll) | High-performing content |
+| `page_exits` (path variants, zero-scroll paths) | Routing issues |
+| `per_framework` | Framework-specific instrumentation gaps (test tables) |
+
+## SQL reference
+
+Replace `TABLE` with the Supabase table name. Implemented by `scripts/analyze.ts`.
 
 ### 1. Section-level traffic and engagement
 
@@ -174,6 +236,8 @@ having count(*) >= 3
 order by helpful_pct asc
 ```
 
+Also check `instrumentation.feedback_ratings` in the script output.
+
 ### 10. Traffic sources
 
 ```sql
@@ -186,7 +250,7 @@ order by sessions desc
 
 ## Instrumentation health checks
 
-After running the audit queries, check for these common gaps:
+Read from `instrumentation` in the script output, or check manually:
 
 | Check | How to spot it | Likely cause |
 |---|---|---|
