@@ -185,8 +185,8 @@ const config: Do11yConfig = {
 const FRAMEWORK_PRESETS: Record<string, FrameworkSelectors> = {
   mintlify: {
     searchSelector: '#search-bar-entry, #search-bar-entry-mobile, [class*="search"]',
-    copyButtonSelector: '[class*="copy"], button[aria-label*="copy" i]',
-    codeBlockSelector: 'pre, [class*="code"]',
+    copyButtonSelector: '[data-testid="copy-code-button"], button[aria-label*="code block" i]',
+    codeBlockSelector: 'pre, .code-block, [class*="code-block"]',
     navigationSelector: 'nav, [role="navigation"], #navbar, #sidebar, [class*="nav"], [class*="sidebar"]',
     footerSelector: 'footer, [role="contentinfo"], [class*="footer"]',
     contentSelector: 'main, article, [role="main"], [class*="content"]',
@@ -207,8 +207,8 @@ const FRAMEWORK_PRESETS: Record<string, FrameworkSelectors> = {
   },
   nextra: {
     searchSelector: '.nextra-search input, input[placeholder*="search" i], button[aria-label*="search" i]',
-    copyButtonSelector: 'button[class*="copy"], button[aria-label*="copy" i], button[title*="copy" i]',
-    codeBlockSelector: 'pre, [class*="code"]',
+    copyButtonSelector: 'button[title="Copy code"], button[aria-label*="copy code" i]',
+    codeBlockSelector: 'pre, .nextra-code, [class*="nextra-code"]',
     navigationSelector: 'nav, [role="navigation"], [class*="nav"], [class*="sidebar"]',
     footerSelector: 'footer, [role="contentinfo"], [class*="footer"]',
     contentSelector: 'main, article, [role="main"], [class*="content"]',
@@ -230,7 +230,7 @@ const FRAMEWORK_PRESETS: Record<string, FrameworkSelectors> = {
   'mkdocs-material': {
     searchSelector: '.md-search__input',
     copyButtonSelector: '.md-clipboard, .md-code__button[title="Copy to clipboard"]',
-    codeBlockSelector: 'pre, code, [class*="code"]',
+    codeBlockSelector: 'pre, div[class*="language-"], div.highlight',
     navigationSelector: 'nav, [role="navigation"], .md-nav, .md-sidebar',
     footerSelector: 'footer, [role="contentinfo"], .md-footer',
     contentSelector: 'main, article, [role="main"], .md-content',
@@ -361,18 +361,90 @@ function getElementClassName(el: Element): string {
 }
 
 function languageFromClassName(className: string): string | null {
-  const match = className.match(/(?:^|\s)language-([\w-]+)(?:\s|$)/);
-  return match ? match[1]! : null;
+  const prism = className.match(/(?:^|\s)language-([\w-]+)(?:\s|$)/);
+  if (prism) return prism[1]!;
+  const hljs = className.match(/(?:^|\s)hljs-([\w-]+)(?:\s|$)/);
+  return hljs ? hljs[1]! : null;
 }
 
-/**
- * Read the code block language from the element and its ancestors.
- * Frameworks often put `language-*` on a wrapper div (VitePress, Prism)
- * rather than on the pre/code element itself.
- */
-function extractCodeLanguage(start: Element | null): string {
-  if (!start) return 'unknown';
+const FILENAME_EXTENSION_LANGUAGES: Record<string, string> = {
+  bash: 'bash',
+  css: 'css',
+  html: 'html',
+  js: 'javascript',
+  jsx: 'jsx',
+  json: 'json',
+  md: 'markdown',
+  mdx: 'mdx',
+  py: 'python',
+  sh: 'bash',
+  sql: 'sql',
+  ts: 'typescript',
+  tsx: 'tsx',
+  yaml: 'yaml',
+  yml: 'yaml',
+};
 
+function languageFromFilename(filename: string): string | null {
+  const base = filename.trim().split('/').pop() ?? '';
+  const dot = base.lastIndexOf('.');
+  if (dot <= 0) return null;
+  const ext = base.slice(dot + 1).toLowerCase();
+  return FILENAME_EXTENSION_LANGUAGES[ext] ?? ext;
+}
+
+function elementFromClipboardTarget(el: Element | null): Element | null {
+  if (!el) return null;
+  const selector = el.getAttribute('data-clipboard-target');
+  if (!selector) return null;
+  try {
+    return document.querySelector(selector);
+  } catch {
+    return null;
+  }
+}
+
+function languageFromTabPanel(start: Element | null): string | null {
+  const panel = start?.closest('[role="tabpanel"]');
+  if (!panel) return null;
+  const tabId = panel.getAttribute('aria-labelledby');
+  if (!tabId) return null;
+  const tab = document.getElementById(tabId);
+  const label = tab?.textContent?.trim().toLowerCase();
+  return label || null;
+}
+
+function languageFromCodeBlockHeader(container: Element | null): string | null {
+  if (!container) return null;
+  const filenameEl = container.querySelector('[data-filename], figcaption, [class*="filename"]');
+  const filename =
+    filenameEl?.getAttribute('data-filename') ??
+    filenameEl?.textContent?.trim();
+  if (!filename) return null;
+  return languageFromFilename(filename);
+}
+
+function inferLanguageFromCodeText(text: string): string | null {
+  const sample = text.trim();
+  if (!sample) return null;
+
+  if (/^#!\//.test(sample) || /^(npm|pnpm|yarn|npx|bun)\s/.test(sample)) return 'bash';
+  if (/^<\?xml\b/i.test(sample)) return 'xml';
+  if (/^<[a-zA-Z]/.test(sample)) return 'html';
+  if (/^[\[{]/.test(sample)) return 'json';
+
+  const lines = sample.split('\n').map((line) => line.trim()).filter(Boolean);
+  const yamlLike = lines.filter((line) => /^[\w.-]+:\s*.+/.test(line)).length;
+  if (yamlLike >= 2 && !/[{};]/.test(sample)) return 'yaml';
+
+  if (/\b(import|export|const|let|function|=>)\b/.test(sample)) {
+    return /:\s*(string|number|boolean|void|never)\b/.test(sample) ? 'typescript' : 'javascript';
+  }
+
+  return null;
+}
+
+function walkForLanguage(start: Element | null): string | null {
   let el: Element | null = start;
   for (let depth = 0; el && depth < 12; depth++, el = el.parentElement) {
     for (const attr of ['language', 'data-language', 'data-lang', 'data-code-lang']) {
@@ -389,7 +461,74 @@ function extractCodeLanguage(start: Element | null): string {
     if (langText) return langText;
   }
 
+  return null;
+}
+
+function getCodeElement(start: Element | null): Element | null {
+  if (!start) return null;
+  if (start.tagName === 'CODE') return start;
+  if (start.tagName === 'PRE') return start.querySelector('code');
+  return start.querySelector('code[class*="language-"]') ?? start.querySelector('code');
+}
+
+/**
+ * Read the code block language from the element and its ancestors.
+ * Frameworks often put `language-*` on a wrapper div (VitePress, Prism)
+ * rather than on the pre/code element itself.
+ */
+function extractCodeLanguage(start: Element | null): string {
+  if (!start) return 'unknown';
+
+  const roots = [start];
+  const clipboardTarget = elementFromClipboardTarget(start);
+  if (clipboardTarget) roots.push(clipboardTarget);
+
+  for (const root of roots) {
+    const fromWalk = walkForLanguage(root);
+    if (fromWalk) return fromWalk;
+  }
+
+  const fromTab = languageFromTabPanel(start);
+  if (fromTab) return fromTab;
+
+  const container =
+    start.closest('.nextra-code, .code-block, [class*="language-"], pre') ?? start;
+  const fromFilename = languageFromCodeBlockHeader(container);
+  if (fromFilename) return fromFilename;
+
+  const codeEl = getCodeElement(clipboardTarget ?? start);
+  const inferred = inferLanguageFromCodeText(codeEl?.textContent ?? '');
+  if (inferred) return inferred;
+
   return 'unknown';
+}
+
+function resolveCodeBlockFromCopyButton(copyButton: Element): Element | null {
+  const clipboardTarget = elementFromClipboardTarget(copyButton);
+  if (clipboardTarget) {
+    return clipboardTarget.closest('pre') ?? clipboardTarget;
+  }
+
+  const languageWrapper = copyButton.closest('[class*="language-"]');
+  if (languageWrapper && languageWrapper !== copyButton) return languageWrapper;
+
+  const mintlifyBlock = copyButton.closest('.code-block, [class*="code-block"]');
+  if (mintlifyBlock && mintlifyBlock !== copyButton) return mintlifyBlock;
+
+  const nextraBlock = copyButton.closest('.nextra-code');
+  if (nextraBlock && nextraBlock.tagName !== 'CODE') return nextraBlock;
+
+  const pre = copyButton.closest('pre');
+  if (pre) return pre;
+
+  const generic = copyButton.closest(config.codeBlockSelector!);
+  if (generic && generic !== copyButton && generic.tagName !== 'BUTTON') return generic;
+
+  return (
+    copyButton.closest('div, section, figure')?.querySelector('pre') ??
+    copyButton.parentElement?.querySelector('pre') ??
+    null
+  );
 }
 
 function resolveTocHash(href: string): string | null {
@@ -1286,19 +1425,8 @@ function setupCopyTracking(): void {
   document.addEventListener('click', (e) => {
     const copyButton = (e.target as Element).closest(config.copyButtonSelector!);
     if (copyButton) {
-      const codeBlock: Element | null =
-        copyButton.closest('[class*="language-"]') ??
-        copyButton.closest(config.codeBlockSelector!) ??
-        copyButton.closest('div, section')?.querySelector('pre') ??
-        copyButton.parentElement?.querySelector('pre') ??
-        null;
-
-      const codeEl: Element | null = codeBlock
-        ? (codeBlock.tagName === 'PRE'
-          ? codeBlock.querySelector('code')
-          : codeBlock.querySelector('code[class*="language-"]') ?? codeBlock.querySelector('code'))
-        : null;
-
+      const codeBlock = resolveCodeBlockFromCopyButton(copyButton);
+      const codeEl = getCodeElement(codeBlock);
       const language = extractCodeLanguage(codeEl ?? codeBlock ?? copyButton);
 
       queueEvent('code_copied', {
