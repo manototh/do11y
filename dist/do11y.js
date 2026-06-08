@@ -102,13 +102,13 @@
 		},
 		vitepress: {
 			searchSelector: ".VPNavBarSearch button, .VPNavBarSearchButton, #local-search",
-			copyButtonSelector: ".vp-code-copy, button.copy[title*=\"Copy\"]",
-			codeBlockSelector: "pre, [class*=\"code\"]",
+			copyButtonSelector: "button.copy, .vp-code-copy, button.copy[title*=\"Copy\"]",
+			codeBlockSelector: "div[class*=\"language-\"], pre, [class*=\"code\"]",
 			navigationSelector: "nav, [role=\"navigation\"], .VPNav, .VPSidebar, [class*=\"nav\"], [class*=\"sidebar\"]",
 			footerSelector: "footer, [role=\"contentinfo\"], .VPFooter, [class*=\"footer\"]",
 			contentSelector: "main, article, [role=\"main\"], .VPContent, [class*=\"content\"]",
 			tabContainerSelector: ".vp-code-group .tabs, [role=\"tablist\"]",
-			tocSelector: ".VPDocAsideOutline, [class*=\"toc\"]",
+			tocSelector: ".VPDocAsideOutline, .VPLocalNavOutlineDropdown, a.outline-link",
 			feedbackSelector: "[class*=\"feedback\"], [class*=\"helpful\"]"
 		}
 	};
@@ -174,6 +174,62 @@
 			if (config.debug) console.warn("[Do11y] Invalid CSS selector rejected:", selector);
 			return null;
 		}
+	}
+	/** Paths that are not documentation pages (for example tracking pixels). */
+	const ENGAGEMENT_EXCLUDED_PATH_PREFIXES = ["/pixel/"];
+	function isEngagementExcludedPath(path) {
+		const p = path ?? window.location.pathname;
+		return ENGAGEMENT_EXCLUDED_PATH_PREFIXES.some((prefix) => p.startsWith(prefix));
+	}
+	function getElementClassName(el) {
+		if (typeof el.className === "string") return el.className;
+		const svgClass = el.className;
+		if (svgClass && typeof svgClass.baseVal === "string") return svgClass.baseVal;
+		return "";
+	}
+	function languageFromClassName(className) {
+		const match = className.match(/(?:^|\s)language-([\w-]+)(?:\s|$)/);
+		return match ? match[1] : null;
+	}
+	/**
+	* Read the code block language from the element and its ancestors.
+	* Frameworks often put `language-*` on a wrapper div (VitePress, Prism)
+	* rather than on the pre/code element itself.
+	*/
+	function extractCodeLanguage(start) {
+		if (!start) return "unknown";
+		let el = start;
+		for (let depth = 0; el && depth < 12; depth++, el = el.parentElement) {
+			for (const attr of [
+				"language",
+				"data-language",
+				"data-lang",
+				"data-code-lang"
+			]) {
+				const value = el.getAttribute(attr);
+				if (value) return value;
+			}
+			const fromClass = languageFromClassName(getElementClassName(el));
+			if (fromClass) return fromClass;
+			const langText = el.querySelector(":scope > span.lang")?.textContent?.trim();
+			if (langText) return langText;
+		}
+		return "unknown";
+	}
+	function resolveTocHash(href) {
+		if (href.startsWith("#")) return href;
+		const hashIndex = href.indexOf("#");
+		if (hashIndex === -1) return null;
+		const pathPart = href.slice(0, hashIndex);
+		if (!pathPart || pathPart === window.location.pathname || pathPart === `${window.location.pathname}${window.location.search}`) return href.slice(hashIndex);
+		return null;
+	}
+	function resolveTocContainer(link) {
+		const selector = validateSelector(config.tocSelector) ?? ".table-of-contents, .VPDocAsideOutline, .VPLocalNavOutlineDropdown, [class*=\"toc\"], [class*=\"TableOfContents\"], [class*=\"page-outline\"]";
+		let container = link.closest(selector);
+		if (!container) return null;
+		if (container === link || container.tagName === "A") container = link.closest(".VPDocAsideOutline, .VPLocalNavOutlineDropdown, nav, aside") ?? container.parentElement;
+		return container;
 	}
 	function sanitizeText(text, maxLength) {
 		if (!text || typeof text !== "string") return null;
@@ -713,6 +769,7 @@
 	* the content without scrolling.
 	*/
 	function checkScrollDepth() {
+		if (isEngagementExcludedPath()) return;
 		let scrollTop;
 		let totalHeight;
 		let viewportHeight;
@@ -754,6 +811,7 @@
 	let totalActiveTime = 0;
 	let isPageVisible = true;
 	function emitPageExit() {
+		if (isEngagementExcludedPath()) return;
 		if (isPageVisible) totalActiveTime += Date.now() - lastActivityTime;
 		const totalTime = Date.now() - pageLoadTime;
 		const engagementRatio = totalTime > 0 ? totalActiveTime / totalTime : 0;
@@ -809,10 +867,9 @@
 		document.addEventListener("click", (e) => {
 			const copyButton = e.target.closest(config.copyButtonSelector);
 			if (copyButton) {
-				const codeBlock = copyButton.closest(config.codeBlockSelector) ?? copyButton.closest("div, section")?.querySelector("pre") ?? copyButton.parentElement?.querySelector("pre") ?? null;
-				const codeEl = codeBlock ? codeBlock.tagName === "PRE" ? codeBlock.querySelector("code") : codeBlock.querySelector("code[class*=\"language-\"]") ?? codeBlock.querySelector("code") : null;
+				const codeBlock = copyButton.closest("[class*=\"language-\"]") ?? copyButton.closest(config.codeBlockSelector) ?? copyButton.closest("div, section")?.querySelector("pre") ?? copyButton.parentElement?.querySelector("pre") ?? null;
 				queueEvent("code_copied", {
-					language: codeBlock?.getAttribute("language") ?? codeBlock?.getAttribute("data-language") ?? codeBlock?.getAttribute("data-lang") ?? codeBlock?.className.match(/language-(\w+)/)?.[1] ?? codeEl?.getAttribute("language") ?? codeEl?.getAttribute("data-language") ?? codeEl?.getAttribute("data-lang") ?? codeEl?.className.match(/language-(\w+)/)?.[1] ?? "unknown",
+					language: extractCodeLanguage((codeBlock ? codeBlock.tagName === "PRE" ? codeBlock.querySelector("code") : codeBlock.querySelector("code[class*=\"language-\"]") ?? codeBlock.querySelector("code") : null) ?? codeBlock ?? copyButton),
 					codeSection: sanitizeText(getNearestHeading(codeBlock ?? copyButton), 100),
 					codeBlockIndex: getCodeBlockIndex(codeBlock)
 				});
@@ -903,18 +960,19 @@
 		document.addEventListener("click", (e) => {
 			const link = e.target.closest("a");
 			if (!link) return;
-			const tocContainer = link.closest(validateSelector(config.tocSelector) ?? ".table-of-contents, [class*=\"toc\"], [class*=\"outline\"], [class*=\"TableOfContents\"], [class*=\"page-outline\"]");
+			const tocContainer = resolveTocContainer(link);
 			if (!tocContainer) return;
 			const href = link.getAttribute("href");
-			if (!href || !href.startsWith("#")) return;
+			const hash = href ? resolveTocHash(href) : null;
+			if (!hash) return;
 			const headingText = sanitizeText(link.textContent, 100);
 			let headingLevel = null;
 			try {
-				const targetId = href.slice(1);
+				const targetId = hash.slice(1);
 				const targetEl = document.getElementById(targetId);
 				if (targetEl && /^H[1-6]$/.test(targetEl.tagName)) headingLevel = parseInt(targetEl.tagName.charAt(1), 10);
 			} catch {}
-			const tocLinks = tocContainer.querySelectorAll("a[href^=\"#\"]");
+			const tocLinks = tocContainer.querySelectorAll("a[href*=\"#\"]");
 			let tocPosition = 1;
 			for (let i = 0; i < tocLinks.length; i++) if (tocLinks[i] === link) {
 				tocPosition = i + 1;

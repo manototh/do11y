@@ -207,11 +207,12 @@ async function runInteractions(
     '[data-testid="table-of-contents"]',
     '.table-of-contents',
     '.VPDocAsideOutline',
+    '.VPLocalNavOutlineDropdown',
     '.md-sidebar--secondary .md-nav',
     '[class*="toc"]',
-    '[class*="outline"]',
     '[class*="TableOfContents"]',
     'aside.toc',
+    'a.outline-link',
   ];
   try {
     const found = await page.evaluate((sels: string[]) => {

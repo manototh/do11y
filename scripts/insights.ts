@@ -95,12 +95,17 @@ interface PageMetrics {
   avgScroll: number;
 }
 
+function isEngagementExcludedPath(path: string): boolean {
+  return path.startsWith('/pixel/');
+}
+
 function aggregatePageExits(events: EventPayload[]): PageMetrics[] {
   const byPath = new Map<string, { times: number[]; scrolls: number[] }>();
 
   for (const e of events) {
     if (e.eventType !== 'page_exit') continue;
     const path = e.path;
+    if (isEngagementExcludedPath(path)) continue;
     if (!byPath.has(path)) byPath.set(path, { times: [], scrolls: [] });
     const entry = byPath.get(path)!;
     if (typeof e.activeTimeSeconds === 'number') entry.times.push(e.activeTimeSeconds);

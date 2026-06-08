@@ -56,6 +56,22 @@ function round(n: number, digits = 1): number {
   return Math.round(n * 10 ** digits) / 10 ** digits;
 }
 
+function isEngagementExcludedPath(path: string): boolean {
+  return path.startsWith('/pixel/');
+}
+
+/** Drop scroll/engagement events for non-doc paths such as tracking pixels. */
+function filterEngagementEvents(events: EventPayload[]): EventPayload[] {
+  return events.filter((e) => {
+    if (!isEngagementExcludedPath(e.path)) return true;
+    return (
+      e.eventType !== 'page_exit' &&
+      e.eventType !== 'scroll_depth' &&
+      e.eventType !== 'section_visible'
+    );
+  });
+}
+
 async function fetchRowCount(): Promise<number> {
   const url = `${SUPABASE_URL}/rest/v1/${SUPABASE_TABLE}?select=id&limit=1`;
   const res = await fetch(url, {
@@ -142,7 +158,7 @@ function pathViewsAndSearches(events: EventPayload[]) {
 
 async function main() {
   const totalRows = await fetchRowCount();
-  const events = await fetchAllEvents();
+  const events = filterEngagementEvents(await fetchAllEvents());
   const times = events.map((e) => e._time).sort();
 
   const exits = exitsByPath(events);

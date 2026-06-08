@@ -312,11 +312,12 @@ async function runInteractions(browser: Browser, baseUrl: string, fw: Framework)
     '[data-testid="table-of-contents"]',
     '.table-of-contents',
     '.VPDocAsideOutline',
+    '.VPLocalNavOutlineDropdown',
     '.md-sidebar--secondary .md-nav',
     '[class*="toc"]',
-    '[class*="outline"]',
     '[class*="TableOfContents"]',
     'aside.toc',
+    'a.outline-link',
   ];
   try {
     const found = await page.evaluate((sels: string[]) => {
@@ -427,6 +428,28 @@ async function runInteractions(browser: Browser, baseUrl: string, fw: Framework)
     await page.goto(`${baseUrl}${fw.guidePage}`, { waitUntil: 'networkidle2', timeout: 15000 });
   }
   await sleep(1500);
+
+  // 8b. Click a TOC link on the guide page (validates per-page outline tracking)
+  log('  → toc_click (guide page)');
+  try {
+    const found = await page.evaluate((sels: string[]) => {
+      for (const sel of sels) {
+        const toc = document.querySelector(sel);
+        if (!toc) continue;
+        const link = toc.querySelector('a[href^="#"], a.outline-link[href*="#"]');
+        if (!link) continue;
+        link.setAttribute('data-do11y-test-toc-guide', '1');
+        return true;
+      }
+      return false;
+    }, TOC_SELECTORS);
+    if (found) {
+      await page.click('[data-do11y-test-toc-guide]');
+    } else {
+      warn('  ⚠ No TOC element found on guide page, skipping');
+    }
+  } catch { /* ignore */ }
+  await sleep(500);
 
   // 9. Trigger page_exit
   log('  → page_exit');
