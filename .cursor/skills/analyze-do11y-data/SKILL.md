@@ -9,19 +9,32 @@ description: Query and interpret documentation analytics data collected by Do11y
 
 Ask for these credentials if not already provided:
 
-- **Database URL** — Supabase Postgres connection string (from Settings > Database)
-- **Table** — Table name (default: `do11y_events`)
+- **Supabase URL** — Supabase project URL (e.g. `https://abc123.supabase.co`)
+- **Supabase secret key** — Secret key (`sb_secret_...`) for reading data. Find it under **Project settings > API Keys > Secret keys**.
+- **Supabase table** — Table name (default: `do11y_events`)
 - **Time range** — default last 90 days
 
 ## Running queries
 
-Connect directly to the Supabase Postgres database using the connection string:
+Query events through the Supabase REST API using the credentials from Setup. Map them to environment variables:
+
+| Credential | Environment variable |
+|---|---|
+| Supabase URL | `SUPABASE_URL` |
+| Supabase secret key | `SUPABASE_SECRET_KEY` |
+| Supabase table | `SUPABASE_TABLE` |
+
+Fetch rows with curl or `fetch`:
 
 ```bash
-psql "$DATABASE_URL" -c "SELECT ..."
+curl "${SUPABASE_URL}/rest/v1/${SUPABASE_TABLE}?select=payload&payload->>eventType=eq.page_exit&limit=1000" \
+  -H "apikey: ${SUPABASE_SECRET_KEY}" \
+  -H "Authorization: Bearer ${SUPABASE_SECRET_KEY}"
 ```
 
-Or use a script with the `pg` package. Events are stored as JSONB in the `payload` column of the `do11y_events` table.
+PostgREST does not run raw SQL. For the audit queries below, fetch filtered events via REST (for example `payload->>eventType`, `payload->>_time`) and aggregate in a script. See `scripts/insights.ts` for a working pattern.
+
+Replace `TABLE` in the SQL examples with the Supabase table name from Setup. Events are stored as JSONB in the `payload` column.
 
 ## Analysis workflow
 
