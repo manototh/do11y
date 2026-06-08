@@ -401,7 +401,7 @@ order by clicks desc
 
 ### Link clicks by section
 
-Track specific CTAs (like "Run in Playground") by page and section.
+Track specific CTAs (like "Sign up") by page and section.
 
 ```sql
 select
@@ -410,7 +410,7 @@ select
     count(*) as clicks
 from do11y_events
 where payload->>'eventType' = 'link_click'
-  and payload->>'linkText' like '%Playground%'
+  and payload->>'linkText' like '%Sign up%'
 group by 1, 2
 order by clicks desc
 ```
