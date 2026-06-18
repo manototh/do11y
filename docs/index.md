@@ -28,5 +28,5 @@ features:
   - title: Rich behavioral events
     details: Page views, scroll depth, link clicks, search queries, code-block copies, section reading time, tab switches, TOC clicks, feedback, and expand/collapse interactions.
   - title: AI-powered insights
-    details: Run the insights script to get actionable recommendations about which pages to fix, based on engagement data. Connects to Promptless for automated documentation improvement PRs.
+    details: Get actionable recommendations about which pages to fix based on user behavior data.
 ---
