@@ -11,7 +11,7 @@ hero:
       link: /get-started
     - theme: alt
       text: Analyze
-      link: /integration-dashboard
+      link: /analyze
     - theme: alt
       text: Reference
       link: /reference

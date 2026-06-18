@@ -42,7 +42,7 @@ export default defineConfig({
       { text: 'Home', link: '/' },
       { text: 'Introduction', link: '/introduction' },
       { text: 'Install', link: '/get-started' },
-      { text: 'Analyze', link: '/integration-dashboard' },
+      { text: 'Analyze', link: '/analyze' },
       { text: 'Reference', link: '/reference' },
     ],
 
@@ -74,7 +74,7 @@ export default defineConfig({
         text: 'Analyze',
         collapsed: false,
         items: [
-          { text: 'Analyzing your data', link: '/integration-dashboard' },
+          { text: 'Analyzing your data', link: '/analyze' },
           { text: 'Insights', link: '/insights' },
           { text: 'Audit docs with AI agent', link: '/audit' },
           { text: 'Example queries', link: '/queries' },

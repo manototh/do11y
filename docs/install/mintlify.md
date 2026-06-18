@@ -38,6 +38,6 @@ Replace `SUPABASE_PROJECT_URL` and `SUPABASE_PUBLISHABLE_KEY` with your [Supabas
 
 ## Next steps
 
-- [Analyze data in the integration dashboard](/integration-dashboard)
+- [Analyze data in the integration dashboard](/analyze)
 - [Query your data](/queries)
 - [Advanced configuration](/configuration)
