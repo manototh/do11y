@@ -41,7 +41,3 @@ The agent organizes output into seven sections:
 1. **Prioritized actions:** Immediate content changes, short-term redirects, and instrumentation fixes.
 
 For individual SQL queries to explore your data on your own, see [Example queries](/queries).
-
-## Alternative: Insights script
-
-For a quick automated report without needing to run an agent interactively, use the [insights script](/insights). It queries the same metrics and generates recommendations using an LLM.

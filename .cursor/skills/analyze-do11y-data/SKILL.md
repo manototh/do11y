@@ -22,7 +22,7 @@ npx tsx scripts/analyze.ts
 ```
 
 3. **Parse the JSON output** and write the report using [Report structure](#report-structure) below.
-4. **Optional:** run `scripts/insights.ts` for AI-generated narrative recommendations. Requires `OPENAI_API_KEY`.
+
 ## Setup
 
 Ask for these credentials if not already provided:

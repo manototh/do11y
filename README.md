@@ -55,7 +55,7 @@ You can set all options via `window.Do11yConfig` or meta tags. See the [configur
 
 ## Insights
 
-Get AI-powered recommendations about what to fix. See the [insights docs](https://docservable.com/insights) for more information.
+Get [AI-powered recommendations](https://docservable.com/analyze) about what to fix.
 
 ## License
 

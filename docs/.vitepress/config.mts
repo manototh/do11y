@@ -74,8 +74,7 @@ export default defineConfig({
         text: 'Analyze',
         collapsed: false,
         items: [
-          { text: 'Analyzing your data', link: '/analyze' },
-          { text: 'Insights', link: '/insights' },
+          { text: 'Analyze your data', link: '/analyze' },
           { text: 'Audit docs with AI agent', link: '/audit' },
           { text: 'Example queries', link: '/queries' },
         ],

@@ -14,8 +14,8 @@ Privacy: no cookies, no PII, no device fingerprinting, no cross-site tracking. U
 - [Get started](https://docservable.com/get-started): Create a Supabase project and configure Do11y.
 - [Manual setup](https://docservable.com/install/manual): CDN and self-hosting instructions for any framework.
 - [Configuration](https://docservable.com/configuration): All configuration options including destination, behavioral options, framework values, and custom selectors.
+- [Audit](https://docservable.com/audit): AI-powered recommendations about what to fix in your documentation.
 - [SQL queries](https://docservable.com/queries): Ready-to-run SQL queries for traffic, engagement, navigation, content performance, and more.
-- [Insights](https://docservable.com/insights): AI-powered recommendations about what to fix in your documentation.
 - [Reference](https://docservable.com/reference): Events schema, AI traffic detection fields, JavaScript API, and known limitations.
 
 ## Optional

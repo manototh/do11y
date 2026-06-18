@@ -1,5 +1,5 @@
 ---
-title: Analyzing your data
+title: Analyze data
 description: How to query and analyze Do11y event data stored in Supabase.
 head:
   - - meta
@@ -10,9 +10,12 @@ head:
       content: How to query and analyze Do11y event data stored in Supabase.
 ---
 
-# Analyzing your data
+# Analyze data
 
-Once Do11y is sending events to Supabase, you can query your data using SQL through the Supabase dashboard, the PostgREST API, or the Do11y [insights script](/insights).
+Once Do11y is sending events to Supabase, query your data using one of these methods:
+- Use the Do11y [AI agent skill](/audit) for AI-powered audit and recommendations
+- Use SQL through the Supabase dashboard
+- Use the PostgREST API
 
 ## Supabase SQL Editor
 
@@ -56,10 +59,6 @@ Then query with standard column access:
 select path, count(*) as views from do11y where event_type = 'page_view' group by 1;
 ```
 
-## AI-powered insights
-
-The fastest way to get actionable recommendations is the [insights script](/insights). It queries your data and produces a prioritized report of what to fix.
-
 ## What the data tells you
 
 Each section of your analytics answers a different question about how users experience your docs.
@@ -94,5 +93,5 @@ Pages with the lowest helpful percentage and the most responses are the highest-
 
 ## Next steps
 
-- [Run the insights script for automated recommendations](/insights)
+- [Run the audit with an AI agent](/audit)
 - [Example SQL queries](/queries)

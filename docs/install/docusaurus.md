@@ -53,6 +53,6 @@ See the [configuration reference](/configuration) for all available options.
 
 ## Next steps
 
-- [Get insights from your data](/insights)
+- [Get insights from your data](/analyze)
 - [Query your data](/queries)
 - [Advanced configuration](/configuration)
