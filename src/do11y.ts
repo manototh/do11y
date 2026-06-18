@@ -131,7 +131,7 @@ declare global {
   }
 }
 
-const VERSION = '0.0.2';
+const VERSION = '0.0.3';
 
 // Prevent double-initialization in SPA frameworks (React strict mode,
 // Next.js/Nextra re-renders, etc.) where the script tag may be re-evaluated.
