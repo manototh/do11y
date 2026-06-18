@@ -1,78 +1,71 @@
 ---
 title: Get started
-description: Set up an Axiom account, dataset, and API token before installing Do11y.
+description: Set up a Supabase project and table before installing Do11y.
 head:
   - - meta
     - property: og:title
       content: Get started — Do11y
   - - meta
     - property: og:description
-      content: Set up an Axiom account, dataset, and API token before installing Do11y.
+      content: Set up a Supabase project and table before installing Do11y.
 ---
 
 # Get started
 
-Set up Do11y by following these steps in Axiom and your documentation site:
+Set up Do11y in two steps:
 
-1. Get Axiom credentials
-    - [Create Axiom account](#create-axiom-account)
-    - [Create dataset](#create-dataset)
-    - [Create API token](#create-api-token)
+1. [Set up a Supabase project](#set-up-a-supabase-project)
 1. [Add Do11y to your documentation site](#add-do11y-to-your-documentation-site)
 
-## Create Axiom account
+## Set up a Supabase project
 
-[Register a free Axiom account](https://app.axiom.co/register). The free tier is sufficient for the biggest documentation sites.
+1. [Sign up for Supabase](https://supabase.com/dashboard). You don't need a credit card. The free tier includes more than enough storage for most docs sites with no time-based retention limits.
 
-## Create dataset
+1. After you create your project, click **Copy** in the Project Overview page, and note your **Project URL** and **Publishable key**.
 
-Datasets are collections of related events. Do11y sends all behavioral events to the dataset you create in Axiom.
+1. Open the **SQL Editor** in the left sidebar, and then run the following:
 
-1. In Axiom, click ⚙️ **Settings > Datasets and views**.
-1. Click **New dataset**.
-1. Name the dataset, and leave the default settings for the other fields.
-1. Note the dataset name and the **Edge deployment** field.
-1. Click **Save dataset**.
+```sql
+create table do11y_events (
+  id bigint generated always as identity primary key,
+  created_at timestamptz not null default now(),
+  payload jsonb not null
+);
 
-## Determine Axiom domain
+alter table do11y_events enable row level security;
 
-Your Axiom domain is where Do11y sends events. It depends on the edge deployment of the dataset you have just created.
+grant insert on do11y_events to anon;
+grant select on do11y_events to service_role;
 
-| Edge deployment | Axiom domain |
-|---|---|
-| US East 1 (AWS) | `us-east-1.aws.edge.axiom.co` |
-| EU Central 1 (AWS) | `eu-central-1.aws.edge.axiom.co` |
+create policy "Allow anonymous inserts"
+  on do11y_events for insert
+  to anon
+  with check (true);
+```
 
-## Create API token
+This SQL script creates a table that accepts event data from Do11y and allows anonymous inserts via the publishable key. The publishable key cannot read data, only write it. The script also grants SELECT access on the table to the service role. This is needed for the insights script to work.
 
-Create an ingest-only token scoped to the dataset you have just created.
+The default table name is `do11y_events`. If you use a different name, add the `supabaseTable` parameter to your Do11y configuration.
 
-1. In Axiom, click ⚙️ **Settings > API Tokens**.
-1. Click **New API token**.
-1. Name your API token.
-1. In the **Dataset Access** section, select **Allow ingest access to specific datasets only** and select the dataset you have created for Do11y. Don't select any other datasets.
-1. Click **Create**.
-1. Copy the API token that appears and store it securely. It won’t be displayed again.
+### Alternative: Generic HTTP destination
 
-<details>
-<summary>Are ingest-only tokens safe to embed in client-side scripts?</summary>
+To send events to your own backend or a different analytics service, set `destination` to `'http'`:
 
-Ingest-only tokens can write data but cannot read it, which makes them safe to embed in client-side scripts. If someone finds your token in the page source, they can write events to your Do11y dataset but cannot read your data, access other datasets, or do anything else in your Axiom account. The worst-case outcome is noise in a single analytics dataset.
-</details>
+```js
+window.Do11yConfig = {
+  destination: 'http',
+  httpEndpoint: 'BACKEND_URL',
+  httpHeaders: {
+    'Authorization': 'Bearer API_TOKEN',
+  },
+};
+```
 
-## Axiom credentials
-
-You now have the three values from Axiom that Do11y needs:
-
-| Value | Example | Config option |
-|---|---|---|
-| Axiom domain | `us-east-1.aws.edge.axiom.co` | `axiomHost` |
-| Dataset name | `my-docs` | `axiomDataset` |
-| API token | `xaat-...` | `axiomToken` |
+Events are POSTed as a JSON array to the endpoint. The endpoint must be HTTPS.
 
 ## Add Do11y to your documentation site
 
-You're now ready to add Do11y to your documentation site. Follow the install guide for your documentation framework:
+Follow the install guide for your documentation framework:
 
 - [Mintlify](/install/mintlify)
 - [Docusaurus](/install/docusaurus)
@@ -80,11 +73,3 @@ You're now ready to add Do11y to your documentation site. Follow the install gui
 - [VitePress](/install/vitepress)
 - [MkDocs Material](/install/mkdocs-material)
 - [Other frameworks](/install/manual)
-
-## Further reading
-
-To learn more about Axiom, see these pages in the Axiom documentation:
-
-- [Datasets](https://axiom.co/docs/reference/datasets)
-- [Edge deployments](https://axiom.co/docs/reference/edge-deployments)
-- [API tokens](https://axiom.co/docs/reference/tokens)

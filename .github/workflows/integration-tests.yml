@@ -36,7 +36,8 @@ jobs:
         run: npm run test-integrations
         working-directory: tests
         env:
-          AXIOM_DOMAIN: ${{ secrets.AXIOM_DOMAIN }}
-          AXIOM_TOKEN: ${{ secrets.AXIOM_TOKEN }}
-          AXIOM_DATASET: ${{ secrets.AXIOM_DATASET }}
+          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          SUPABASE_KEY: ${{ secrets.SUPABASE_KEY }}
+          SUPABASE_SECRET_KEY: ${{ secrets.SUPABASE_SECRET_KEY }}
+          SUPABASE_TABLE: ${{ secrets.SUPABASE_TABLE }}
           SKIP_BUILD: '1'

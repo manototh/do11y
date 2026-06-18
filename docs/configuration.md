@@ -1,26 +1,45 @@
 ---
 title: Configuration
-description: All Do11y configuration options, including Axiom connection, behavior, framework, and custom selectors.
+description: All Do11y configuration options, including destination, behavior, framework, and custom selectors.
 head:
   - - meta
     - property: og:title
       content: Configuration — Do11y
   - - meta
     - property: og:description
-      content: All Do11y configuration options, including Axiom connection, behavior, framework, and custom selectors.
+      content: All Do11y configuration options, including destination, behavior, framework, and custom selectors.
 ---
 
 # Configuration
 
 Set all options via `window.Do11yConfig` using an inline script or a separate config file, or via meta tags. When both are present, meta tags take precedence over `window.Do11yConfig`, which takes precedence over the defaults.
 
-## Axiom connection
+## Destination
+
+Do11y supports two destinations for event data: Supabase (default) and generic HTTP.
 
 | Option | Default | Description |
 |---|---|---|
-| `axiomHost` | `'AXIOM_DOMAIN'` | Base domain of your Axiom edge deployment. See [Edge deployments](https://axiom.co/docs/reference/edge-deployments). |
-| `axiomDataset` | `'DATASET_NAME'` | Name of the Axiom dataset to store your data. |
-| `axiomToken` | `'API_TOKEN'` | Ingest-only API token scoped to the dataset. |
+| `destination` | `'supabase'` | Where to send events. `'supabase'` or `'http'`. |
+
+### Supabase
+
+| Option | Default | Description |
+|---|---|---|
+| `supabaseUrl` | `''` | Your Supabase project URL. For example: `https://abc123.supabase.co` |
+| `supabaseKey` | `''` | Publishable key. For example: `sb_publishable_1234567890` |
+| `supabaseTable` | `'do11y_events'` | Name of the table to insert events into. |
+
+### Generic HTTP
+
+Send events to any HTTPS endpoint. This is useful for custom backends, webhook relays, or other analytics platforms.
+
+| Option | Default | Description |
+|---|---|---|
+| `httpEndpoint` | `''` | Full URL to POST events to. Must be HTTPS. |
+| `httpHeaders` | `{}` | Custom headers to include (for example, authorization). |
+
+When using HTTP, Do11y sends events as a JSON array in the POST body and automatically sets the `Content-Type: application/json` header.
 
 ## Behavior
 
@@ -39,7 +58,7 @@ Set all options via `window.Do11yConfig` using an inline script or a separate co
 | `trackTocClicks` | `true` | Track on-page table of contents clicks. |
 | `trackExpandCollapse` | `true` | Track expand/collapse interactions (details, accordions). |
 | `trackFeedback` | `true` | Track "Was this helpful?" feedback widget clicks. |
-| `allowedDomains` | `['ALLOWED_DOMAINS']` | Restrict which domains may send data. Set to `null` to allow any. |
+| `allowedDomains` | `null` | Restrict which domains may send data. Set to `null` to allow any. |
 | `respectDNT` | `true` | Honor the browser's Do Not Track setting. |
 | `maxRetries` | `2` | Retry count for failed requests. |
 | `retryDelay` | `1000` | Base delay between retries in milliseconds (doubles each attempt). |
@@ -63,7 +82,7 @@ When you set `framework` to a supported value, Do11y automatically configures th
 You can also set the framework via a meta tag:
 
 ```html
-<meta name="axiom-do11y-framework" content="docusaurus">
+<meta name="do11y-framework" content="docusaurus">
 ```
 
 ## Custom selectors
@@ -86,9 +105,8 @@ Example:
 
 ```js
 window.Do11yConfig = {
-  axiomHost: 'us-east-1.aws.edge.axiom.co',
-  axiomToken: 'xaat-your-ingest-token',
-  axiomDataset: 'do11y',
+  supabaseUrl: 'SUPABASE_PROJECT_URL',
+  supabaseKey: 'SUPABASE_PUBLISHABLE_KEY',
   framework: 'custom',
   searchSelector: '#search-input',
   copyButtonSelector: '.copy-btn',

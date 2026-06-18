@@ -1,5 +1,6 @@
+// Originally derived from https://github.com/axiomhq/do11y
 /**
- * Axiom Documentation Observability (Axiom Do11y)
+ * Do11y — Documentation Observability
  *
  * Framework-agnostic documentation observability. Works with any static-site
  * generator or docs framework including Mintlify, Docusaurus, Nextra,
@@ -20,12 +21,12 @@
  *
  * Configuration (in order of precedence):
  * 1. HTML <meta> tags:
- *    <meta name="axiom-do11y-domain" content="axiom-domain">
- *    <meta name="axiom-do11y-token" content="api-token">
- *    <meta name="axiom-do11y-dataset" content="dataset-name">
- *    <meta name="axiom-do11y-framework" content="mintlify">
+ *    <meta name="do11y-url" content="https://YOUR_PROJECT.supabase.co">
+ *    <meta name="do11y-key" content="sb_publishable_...">
+ *    <meta name="do11y-table" content="do11y_events">
+ *    <meta name="do11y-framework" content="mintlify">
  * 2. window.Do11yConfig object (set in a separate script before this file):
- *    window.Do11yConfig = { axiomToken: '...', framework: 'mintlify' };
+ *    window.Do11yConfig = { supabaseUrl: '...', supabaseKey: 'sb_publishable_...', framework: 'mintlify' };
  * 3. The config object below (defaults).
  *
  * Using meta tags or window.Do11yConfig is recommended so you can
@@ -57,10 +58,15 @@ export interface FrameworkSelectors {
   feedbackSelector: string;
 }
 
+export type Destination = 'supabase' | 'http';
+
 export interface Do11yConfig {
-  axiomHost: string;
-  axiomDataset: string;
-  axiomToken: string;
+  destination: Destination;
+  supabaseUrl: string;
+  supabaseKey: string;
+  supabaseTable: string;
+  httpEndpoint: string;
+  httpHeaders: Record<string, string>;
   debug: boolean;
   flushInterval: number;
   maxBatchSize: number;
@@ -108,7 +114,7 @@ export interface Do11yEvent {
   [key: string]: unknown;
 }
 
-interface AxiomDo11yAPI {
+interface Do11yAPI {
   getConfig: () => object;
   flush: () => void;
   isEnabled: () => boolean;
@@ -118,32 +124,30 @@ interface AxiomDo11yAPI {
 
 declare global {
   interface Window {
-    __axiomDo11yInitialized?: boolean;
+    __do11yInitialized?: boolean;
     Do11yConfig?: Partial<Do11yConfig>;
-    AxiomDo11y?: AxiomDo11yAPI;
+    Do11y?: Do11yAPI;
     doNotTrack?: string;
   }
 }
 
-const VERSION = '0.0.6';
+const VERSION = '0.0.2';
 
 // Prevent double-initialization in SPA frameworks (React strict mode,
 // Next.js/Nextra re-renders, etc.) where the script tag may be re-evaluated.
-const _alreadyLoaded = !!window.__axiomDo11yInitialized;
-window.__axiomDo11yInitialized = true;
+const _alreadyLoaded = !!window.__do11yInitialized;
+window.__do11yInitialized = true;
 
 // ============================================================
 // Configuration
 // ============================================================
 const config: Do11yConfig = {
-  // Axiom ingest API domain
-  // Use an edge deployment domain for lower latency and data residency:
-  //   US East 1 (AWS):    'us-east-1.aws.edge.axiom.co'
-  //   EU Central 1 (AWS): 'eu-central-1.aws.edge.axiom.co'
-  // For more information, see https://axiom.co/docs/reference/edge-deployments
-  axiomHost: 'AXIOM_DOMAIN',
-  axiomDataset: 'DATASET_NAME',
-  axiomToken: 'API_TOKEN',
+  destination: 'supabase',
+  supabaseUrl: '',
+  supabaseKey: '',
+  supabaseTable: 'do11y_events',
+  httpEndpoint: '',
+  httpHeaders: {},
   debug: false,
   flushInterval: 5000,
   maxBatchSize: 10,
@@ -236,13 +240,13 @@ const FRAMEWORK_PRESETS: Record<string, FrameworkSelectors> = {
   },
   vitepress: {
     searchSelector: '.VPNavBarSearch button, .VPNavBarSearchButton, #local-search',
-    copyButtonSelector: '.vp-code-copy, button.copy[title*="Copy"]',
-    codeBlockSelector: 'pre, [class*="code"]',
+    copyButtonSelector: 'button.copy, .vp-code-copy, button.copy[title*="Copy"]',
+    codeBlockSelector: 'div[class*="language-"], pre, [class*="code"]',
     navigationSelector: 'nav, [role="navigation"], .VPNav, .VPSidebar, [class*="nav"], [class*="sidebar"]',
     footerSelector: 'footer, [role="contentinfo"], .VPFooter, [class*="footer"]',
     contentSelector: 'main, article, [role="main"], .VPContent, [class*="content"]',
     tabContainerSelector: '.vp-code-group .tabs, [role="tablist"]',
-    tocSelector: '.VPDocAsideOutline, [class*="toc"]',
+    tocSelector: '.VPDocAsideOutline, .VPLocalNavOutlineDropdown, a.outline-link',
     feedbackSelector: '[class*="feedback"], [class*="helpful"]',
   },
 };
@@ -274,7 +278,7 @@ function applyFrameworkSelectors(): void {
   } else if (config.framework !== 'custom') {
     if (config.debug) {
       console.warn(
-        `[Axiom Do11y] Unknown framework "${config.framework}". ` +
+        `[Do11y] Unknown framework "${config.framework}". ` +
         'Falling back to generic selectors. Supported: ' +
         Object.keys(FRAMEWORK_PRESETS).join(', ') + ', custom'
       );
@@ -300,7 +304,7 @@ function shouldDisableTracking(): boolean {
     window.doNotTrack === '1'
   )) {
     if (config.debug) {
-      console.log('[Axiom Do11y] Disabled: Do Not Track is enabled');
+      console.log('[Do11y] Disabled: Do Not Track is enabled');
     }
     return true;
   }
@@ -312,7 +316,7 @@ function shouldDisableTracking(): boolean {
     });
     if (!isAllowed) {
       if (config.debug) {
-        console.log('[Axiom Do11y] Disabled: Domain not allowed:', currentDomain);
+        console.log('[Do11y] Disabled: Domain not allowed:', currentDomain);
       }
       return true;
     }
@@ -335,10 +339,91 @@ function validateSelector(selector: string | null | undefined): string | null {
     return selector;
   } catch {
     if (config.debug) {
-      console.warn('[Axiom Do11y] Invalid CSS selector rejected:', selector);
+      console.warn('[Do11y] Invalid CSS selector rejected:', selector);
     }
     return null;
   }
+}
+
+/** Paths that are not documentation pages (for example tracking pixels). */
+const ENGAGEMENT_EXCLUDED_PATH_PREFIXES = ['/pixel/'];
+
+function isEngagementExcludedPath(path?: string): boolean {
+  const p = path ?? window.location.pathname;
+  return ENGAGEMENT_EXCLUDED_PATH_PREFIXES.some((prefix) => p.startsWith(prefix));
+}
+
+function getElementClassName(el: Element): string {
+  if (typeof el.className === 'string') return el.className;
+  const svgClass = el.className as SVGAnimatedString;
+  if (svgClass && typeof svgClass.baseVal === 'string') return svgClass.baseVal;
+  return '';
+}
+
+function languageFromClassName(className: string): string | null {
+  const match = className.match(/(?:^|\s)language-([\w-]+)(?:\s|$)/);
+  return match ? match[1]! : null;
+}
+
+/**
+ * Read the code block language from the element and its ancestors.
+ * Frameworks often put `language-*` on a wrapper div (VitePress, Prism)
+ * rather than on the pre/code element itself.
+ */
+function extractCodeLanguage(start: Element | null): string {
+  if (!start) return 'unknown';
+
+  let el: Element | null = start;
+  for (let depth = 0; el && depth < 12; depth++, el = el.parentElement) {
+    for (const attr of ['language', 'data-language', 'data-lang', 'data-code-lang']) {
+      const value = el.getAttribute(attr);
+      if (value) return value;
+    }
+
+    const fromClass = languageFromClassName(getElementClassName(el));
+    if (fromClass) return fromClass;
+
+    // VitePress renders <span class="lang">bash</span> beside the copy button.
+    const langSpan = el.querySelector(':scope > span.lang');
+    const langText = langSpan?.textContent?.trim();
+    if (langText) return langText;
+  }
+
+  return 'unknown';
+}
+
+function resolveTocHash(href: string): string | null {
+  if (href.startsWith('#')) return href;
+  const hashIndex = href.indexOf('#');
+  if (hashIndex === -1) return null;
+  const pathPart = href.slice(0, hashIndex);
+  if (
+    !pathPart ||
+    pathPart === window.location.pathname ||
+    pathPart === `${window.location.pathname}${window.location.search}`
+  ) {
+    return href.slice(hashIndex);
+  }
+  return null;
+}
+
+function resolveTocContainer(link: Element): Element | null {
+  const selector =
+    validateSelector(config.tocSelector) ??
+    '.table-of-contents, .VPDocAsideOutline, .VPLocalNavOutlineDropdown, ' +
+    '[class*="toc"], [class*="TableOfContents"], [class*="page-outline"]';
+
+  let container = link.closest(selector);
+  if (!container) return null;
+
+  // Avoid treating the link itself as the container (for example a.outline-link).
+  if (container === link || container.tagName === 'A') {
+    container =
+      link.closest('.VPDocAsideOutline, .VPLocalNavOutlineDropdown, nav, aside') ??
+      container.parentElement;
+  }
+
+  return container;
 }
 
 function sanitizeText(text: string | null | undefined, maxLength?: number): string | null {
@@ -357,7 +442,7 @@ function sanitizeText(text: string | null | undefined, maxLength?: number): stri
   sanitized = sanitized.replace(/\b(?:\d[ -]?){13,19}\b/g, '[card]');
   // JWTs (three base64url segments separated by dots)
   sanitized = sanitized.replace(/eyJ[A-Za-z0-9_-]+\.eyJ[A-Za-z0-9_-]+\.[A-Za-z0-9_-]+/g, '[token]');
-  // Axiom API tokens and generic bearer-style tokens (xaat-..., xapt-..., etc.)
+  // API tokens and generic bearer-style tokens (xaat-..., xapt-..., etc.)
   sanitized = sanitized.replace(/\bxa[a-z]{2}-[A-Za-z0-9_-]{20,}/g, '[token]');
   // Generic long hex secrets (32+ hex chars)
   sanitized = sanitized.replace(/\b[0-9a-fA-F]{32,}\b/g, '[redacted]');
@@ -421,7 +506,7 @@ function isValidSessionData(value: unknown): value is SessionData {
 function getSession(): SessionData {
   let session: SessionData | null = null;
   try {
-    const stored = sessionStorage.getItem('axiom_docs_session');
+    const stored = sessionStorage.getItem('do11y_session');
     if (stored) {
       const parsed: unknown = JSON.parse(stored);
       if (isValidSessionData(parsed)) {
@@ -449,7 +534,7 @@ function getSession(): SessionData {
 
 function saveSession(session: SessionData): void {
   try {
-    sessionStorage.setItem('axiom_docs_session', JSON.stringify(session));
+    sessionStorage.setItem('do11y_session', JSON.stringify(session));
   } catch {
     // sessionStorage not available
   }
@@ -629,7 +714,7 @@ function queueEvent(eventType: string, eventData: Record<string, unknown>): void
   if (config.rateLimitMs > 0 && lastEventTime[eventType]) {
     if (now - lastEventTime[eventType] < config.rateLimitMs) {
       if (config.debug) {
-        console.log('[Axiom Do11y] Rate limited:', eventType);
+        console.log('[Do11y] Rate limited:', eventType);
       }
       return;
     }
@@ -650,7 +735,7 @@ function queueEvent(eventType: string, eventData: Record<string, unknown>): void
   };
 
   if (config.debug) {
-    console.log('[Axiom Do11y] Event queued:', event);
+    console.log('[Do11y] Event queued:', event);
   }
 
   eventQueue.push(event);
@@ -658,7 +743,7 @@ function queueEvent(eventType: string, eventData: Record<string, unknown>): void
   if (eventQueue.length > 100) {
     eventQueue = eventQueue.slice(-100);
     if (config.debug) {
-      console.warn('[Axiom Do11y] Event queue capped at 100 events');
+      console.warn('[Do11y] Event queue capped at 100 events');
     }
   }
 
@@ -674,52 +759,110 @@ function scheduleFlush(): void {
   flushTimeout = setTimeout(flush, config.flushInterval);
 }
 
-/**
- * Axiom-owned ingest domains. The axiomHost config value MUST be one of
- * these. This prevents an attacker who can inject a <meta> tag or set
- * window.Do11yConfig from redirecting requests (and the bearer token) to
- * an arbitrary server.
- *
- * Add new Axiom edge-deployment domains here as they are provisioned.
- */
-const AXIOM_ALLOWED_HOSTS: ReadonlySet<string> = new Set([
-  'us-east-1.aws.edge.axiom.co',
-  'eu-central-1.aws.edge.axiom.co',
-]);
+function validateSupabaseUrl(url: string): boolean {
+  try {
+    const parsed = new URL(url);
+    if (parsed.protocol !== 'https:') return false;
+    if (!parsed.hostname.endsWith('.supabase.co')) return false;
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+function validateHttpEndpoint(url: string): boolean {
+  try {
+    const parsed = new URL(url);
+    if (parsed.protocol !== 'https:') return false;
+    const host = parsed.hostname;
+    if (host === 'localhost' || host === '127.0.0.1' || host === '::1') return false;
+    if (/^(10\.|172\.(1[6-9]|2\d|3[01])\.|192\.168\.)/.test(host)) return false;
+    return true;
+  } catch {
+    return false;
+  }
+}
 
 function validateConfig(): boolean {
-  if (!config.axiomToken) {
-    if (config.debug) {
-      console.warn('[Axiom Do11y] No API token configured');
+  if (config.destination === 'supabase') {
+    if (!config.supabaseUrl) {
+      if (config.debug) {
+        console.warn('[Do11y] No Supabase URL configured');
+      }
+      return false;
     }
-    return false;
+
+    if (!validateSupabaseUrl(config.supabaseUrl)) {
+      if (config.debug) {
+        console.warn('[Do11y] Invalid Supabase URL. Must be https://<project>.supabase.co');
+      }
+      return false;
+    }
+
+    if (!config.supabaseKey || typeof config.supabaseKey !== 'string' || config.supabaseKey.length < 10) {
+      if (config.debug) {
+        console.warn('[Do11y] Invalid or missing Supabase publishable key');
+      }
+      return false;
+    }
+
+    if (!/^[a-zA-Z0-9_-]+$/.test(config.supabaseTable)) {
+      if (config.debug) {
+        console.warn('[Do11y] Invalid table name');
+      }
+      return false;
+    }
+
+    return true;
   }
 
-  if (typeof config.axiomToken !== 'string' || config.axiomToken.length < 10) {
-    if (config.debug) {
-      console.warn('[Axiom Do11y] Invalid token format');
+  if (config.destination === 'http') {
+    if (!config.httpEndpoint) {
+      if (config.debug) {
+        console.warn('[Do11y] No HTTP endpoint configured');
+      }
+      return false;
     }
-    return false;
+
+    if (!validateHttpEndpoint(config.httpEndpoint)) {
+      if (config.debug) {
+        console.warn('[Do11y] Invalid HTTP endpoint. Must be HTTPS and not a private address.');
+      }
+      return false;
+    }
+
+    return true;
   }
 
-  if (!AXIOM_ALLOWED_HOSTS.has(config.axiomHost)) {
-    if (config.debug) {
-      console.warn(
-        '[Axiom Do11y] Untrusted axiomHost "' + config.axiomHost + '". ' +
-        'Must be one of: ' + Array.from(AXIOM_ALLOWED_HOSTS).join(', ')
-      );
-    }
-    return false;
+  if (config.debug) {
+    console.warn('[Do11y] Unknown destination:', config.destination);
+  }
+  return false;
+}
+
+function buildRequest(events: Do11yEvent[]): { url: string; headers: Record<string, string>; body: string } {
+  if (config.destination === 'supabase') {
+    const url = config.supabaseUrl.replace(/\/$/, '') + '/rest/v1/' + config.supabaseTable;
+    return {
+      url,
+      headers: {
+        'apikey': config.supabaseKey,
+        'Authorization': 'Bearer ' + config.supabaseKey,
+        'Content-Type': 'application/json',
+        'Prefer': 'return=minimal',
+      },
+      body: JSON.stringify(events.map((e) => ({ payload: e }))),
+    };
   }
 
-  if (!/^[a-zA-Z0-9_-]+$/.test(config.axiomDataset)) {
-    if (config.debug) {
-      console.warn('[Axiom Do11y] Invalid dataset name');
-    }
-    return false;
-  }
-
-  return true;
+  return {
+    url: config.httpEndpoint,
+    headers: {
+      'Content-Type': 'application/json',
+      ...config.httpHeaders,
+    },
+    body: JSON.stringify(events),
+  };
 }
 
 function flush(retriesLeft?: number): void {
@@ -736,31 +879,27 @@ function flush(retriesLeft?: number): void {
   const events = eventQueue.slice();
   eventQueue = [];
 
-  const url = 'https://' + config.axiomHost + '/v1/ingest/' + encodeURIComponent(config.axiomDataset);
-
-  sendEvents(url, events, retries);
+  const req = buildRequest(events);
+  sendEvents(req, events, retries);
 }
 
-function sendEvents(url: string, events: Do11yEvent[], retriesLeft: number): void {
-  fetch(url, {
+function sendEvents(req: { url: string; headers: Record<string, string>; body: string }, events: Do11yEvent[], retriesLeft: number): void {
+  fetch(req.url, {
     method: 'POST',
-    headers: {
-      'Authorization': 'Bearer ' + config.axiomToken,
-      'Content-Type': 'application/json',
-    },
-    body: JSON.stringify(events),
+    headers: req.headers,
+    body: req.body,
     keepalive: true,
   }).then((response) => {
     if (response.ok) {
       if (config.debug) {
-        console.log('[Axiom Do11y] Flushed', events.length, 'events');
+        console.log('[Do11y] Flushed', events.length, 'events');
       }
       return;
     }
 
     if (retriesLeft > 0 && (response.status >= 500 || response.status === 429)) {
       if (config.debug) {
-        console.log('[Axiom Do11y] Retrying after error:', response.status);
+        console.log('[Do11y] Retrying after error:', response.status);
       }
       eventQueue = events.concat(eventQueue);
       setTimeout(() => {
@@ -771,20 +910,20 @@ function sendEvents(url: string, events: Do11yEvent[], retriesLeft: number): voi
 
     if (config.debug) {
       response.text().then((text) => {
-        console.error('[Axiom Do11y] Ingest failed:', response.status, text);
+        console.error('[Do11y] Ingest failed:', response.status, text);
       }).catch(() => { /* ignore */ });
     }
   }).catch((err: Error) => {
     if (retriesLeft > 0) {
       if (config.debug) {
-        console.log('[Axiom Do11y] Network error, retrying:', err.message);
+        console.log('[Do11y] Network error, retrying:', err.message);
       }
       eventQueue = events.concat(eventQueue);
       setTimeout(() => {
         flush(retriesLeft - 1);
       }, config.retryDelay * (config.maxRetries - retriesLeft + 1));
     } else if (config.debug) {
-      console.error('[Axiom Do11y] Failed to send events:', err);
+      console.error('[Do11y] Failed to send events:', err);
     }
   });
 }
@@ -796,16 +935,13 @@ function flushSync(): void {
   const events = eventQueue;
   eventQueue = [];
 
-  const url = 'https://' + config.axiomHost + '/v1/ingest/' + encodeURIComponent(config.axiomDataset);
+  const req = buildRequest(events);
 
   try {
-    fetch(url, {
+    fetch(req.url, {
       method: 'POST',
-      headers: {
-        'Authorization': 'Bearer ' + config.axiomToken,
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify(events),
+      headers: req.headers,
+      body: req.body,
       keepalive: true,
     });
   } catch {
@@ -813,7 +949,7 @@ function flushSync(): void {
   }
 
   if (config.debug) {
-    console.log('[Axiom Do11y] Sync flushed', events.length, 'events');
+    console.log('[Do11y] Sync flushed', events.length, 'events');
   }
 }
 
@@ -1015,6 +1151,8 @@ function setupScrollTracking(): void {
  * the content without scrolling.
  */
 function checkScrollDepth(): void {
+  if (isEngagementExcludedPath()) return;
+
   let scrollTop: number;
   let totalHeight: number;
   let viewportHeight: number;
@@ -1061,6 +1199,8 @@ let totalActiveTime = 0;
 let isPageVisible = true;
 
 function emitPageExit(): void {
+  if (isEngagementExcludedPath()) return;
+
   if (isPageVisible) {
     totalActiveTime += Date.now() - lastActivityTime;
   }
@@ -1147,6 +1287,7 @@ function setupCopyTracking(): void {
     const copyButton = (e.target as Element).closest(config.copyButtonSelector!);
     if (copyButton) {
       const codeBlock: Element | null =
+        copyButton.closest('[class*="language-"]') ??
         copyButton.closest(config.codeBlockSelector!) ??
         copyButton.closest('div, section')?.querySelector('pre') ??
         copyButton.parentElement?.querySelector('pre') ??
@@ -1158,16 +1299,7 @@ function setupCopyTracking(): void {
           : codeBlock.querySelector('code[class*="language-"]') ?? codeBlock.querySelector('code'))
         : null;
 
-      const language =
-        codeBlock?.getAttribute('language') ??
-        codeBlock?.getAttribute('data-language') ??
-        codeBlock?.getAttribute('data-lang') ??
-        codeBlock?.className.match(/language-(\w+)/)?.[1] ??
-        codeEl?.getAttribute('language') ??
-        codeEl?.getAttribute('data-language') ??
-        codeEl?.getAttribute('data-lang') ??
-        codeEl?.className.match(/language-(\w+)/)?.[1] ??
-        'unknown';
+      const language = extractCodeLanguage(codeEl ?? codeBlock ?? copyButton);
 
       queueEvent('code_copied', {
         language,
@@ -1310,27 +1442,24 @@ function setupTocClickTracking(): void {
     const link = (e.target as Element).closest('a');
     if (!link) return;
 
-    const tocContainer = link.closest(
-      validateSelector(config.tocSelector) ??
-      '.table-of-contents, [class*="toc"], [class*="outline"], ' +
-      '[class*="TableOfContents"], [class*="page-outline"]'
-    );
+    const tocContainer = resolveTocContainer(link);
     if (!tocContainer) return;
 
     const href = link.getAttribute('href');
-    if (!href || !href.startsWith('#')) return;
+    const hash = href ? resolveTocHash(href) : null;
+    if (!hash) return;
 
     const headingText = sanitizeText(link.textContent, 100);
     let headingLevel: number | null = null;
     try {
-      const targetId = href.slice(1);
+      const targetId = hash.slice(1);
       const targetEl = document.getElementById(targetId);
       if (targetEl && /^H[1-6]$/.test(targetEl.tagName)) {
         headingLevel = parseInt(targetEl.tagName.charAt(1), 10);
       }
     } catch { /* ignore */ }
 
-    const tocLinks = tocContainer.querySelectorAll('a[href^="#"]');
+    const tocLinks = tocContainer.querySelectorAll('a[href*="#"]');
     let tocPosition = 1;
     for (let i = 0; i < tocLinks.length; i++) {
       if (tocLinks[i] === link) { tocPosition = i + 1; break; }
@@ -1453,19 +1582,28 @@ function init(): void {
     }
   }
 
-  const metaDomain = document.querySelector('meta[name="axiom-do11y-domain"]');
-  if (metaDomain) config.axiomHost = metaDomain.getAttribute('content') ?? config.axiomHost;
+  const metaDestination = document.querySelector('meta[name="do11y-destination"]');
+  if (metaDestination) {
+    const dest = metaDestination.getAttribute('content');
+    if (dest === 'supabase' || dest === 'http') config.destination = dest;
+  }
 
-  const metaToken = document.querySelector('meta[name="axiom-do11y-token"]');
-  if (metaToken) config.axiomToken = metaToken.getAttribute('content') ?? config.axiomToken;
+  const metaUrl = document.querySelector('meta[name="do11y-url"]');
+  if (metaUrl) config.supabaseUrl = metaUrl.getAttribute('content') ?? config.supabaseUrl;
 
-  const metaDataset = document.querySelector('meta[name="axiom-do11y-dataset"]');
-  if (metaDataset) config.axiomDataset = metaDataset.getAttribute('content') ?? config.axiomDataset;
+  const metaKey = document.querySelector('meta[name="do11y-key"]');
+  if (metaKey) config.supabaseKey = metaKey.getAttribute('content') ?? config.supabaseKey;
 
-  const metaDebug = document.querySelector('meta[name="axiom-do11y-debug"]');
+  const metaTable = document.querySelector('meta[name="do11y-table"]');
+  if (metaTable) config.supabaseTable = metaTable.getAttribute('content') ?? config.supabaseTable;
+
+  const metaHttpEndpoint = document.querySelector('meta[name="do11y-http-endpoint"]');
+  if (metaHttpEndpoint) config.httpEndpoint = metaHttpEndpoint.getAttribute('content') ?? config.httpEndpoint;
+
+  const metaDebug = document.querySelector('meta[name="do11y-debug"]');
   if (metaDebug && metaDebug.getAttribute('content') === 'true') config.debug = true;
 
-  const metaDomains = document.querySelector('meta[name="axiom-do11y-domains"]');
+  const metaDomains = document.querySelector('meta[name="do11y-domains"]');
   if (metaDomains) {
     const domainsStr = metaDomains.getAttribute('content');
     if (domainsStr) {
@@ -1473,7 +1611,7 @@ function init(): void {
     }
   }
 
-  const metaFramework = document.querySelector('meta[name="axiom-do11y-framework"]');
+  const metaFramework = document.querySelector('meta[name="do11y-framework"]');
   if (metaFramework) {
     config.framework = (metaFramework.getAttribute('content') ?? config.framework) as FrameworkPreset;
   }
@@ -1481,8 +1619,9 @@ function init(): void {
   applyFrameworkSelectors();
 
   if (config.debug) {
-    console.log('[Axiom Do11y] Initializing with config:', {
-      hasToken: !!config.axiomToken,
+    console.log('[Do11y] Initializing with config:', {
+      destination: config.destination,
+      hasCredentials: config.destination === 'supabase' ? !!config.supabaseKey : !!config.httpEndpoint,
       framework: config.framework,
       allowedDomains: config.allowedDomains,
       respectDNT: config.respectDNT,
@@ -1491,14 +1630,15 @@ function init(): void {
 
   if (shouldDisableTracking()) {
     isDisabled = true;
-    if (config.debug) console.log('[Axiom Do11y] Tracking disabled');
+    if (config.debug) console.log('[Do11y] Tracking disabled');
     return;
   }
 
-  if (!config.axiomToken) {
+  const hasDestination = config.destination === 'supabase' ? !!config.supabaseKey : !!config.httpEndpoint;
+  if (!hasDestination) {
     if (config.debug) {
-      console.warn('[Axiom Do11y] No API token configured. Events will not be sent.');
-      console.warn('[Axiom Do11y] Add <meta name="axiom-do11y-token" content="api-token"> to enable.');
+      console.warn('[Do11y] No destination configured. Events will not be sent.');
+      console.warn('[Do11y] Add <meta name="do11y-url"> and <meta name="do11y-key"> to enable.');
     }
   }
 
@@ -1548,12 +1688,12 @@ function init(): void {
     }
   });
 
-  // Freeze the resolved config so that third-party scripts loaded after
-  // this point cannot mutate axiomHost, axiomToken, or any other field
+    // Freeze the resolved config so that third-party scripts loaded after
+  // this point cannot mutate host, key, or any other field
   // through window.Do11yConfig or direct property assignment.
   Object.freeze(config);
 
-  if (config.debug) console.log('[Axiom Do11y] Initialized successfully');
+  if (config.debug) console.log('[Do11y] Initialized successfully');
 }
 
 function cleanup(): void {
@@ -1583,21 +1723,20 @@ if (!_alreadyLoaded) {
 }
 
 // Expose API for debugging and integration
-// cleanup() and debug() are intentionally NOT exposed on window.AxiomDo11y.
+// cleanup() and debug() are intentionally NOT exposed on window.Do11y.
 // Exposing cleanup() would allow any third-party script to silently stop
 // tracking. Exposing debug() would allow any script to enable verbose
 // console output revealing the endpoint, dataset, and queued event data.
-window.AxiomDo11y = window.AxiomDo11y ?? {
+window.Do11y = window.Do11y ?? {
   getConfig: () => ({
-    endpoint: config.axiomHost,
-    dataset: config.axiomDataset,
-    hasToken: !!config.axiomToken,
+    destination: config.destination,
+    hasCredentials: config.destination === 'supabase' ? !!config.supabaseKey : !!config.httpEndpoint,
     isDisabled,
     allowedDomains: config.allowedDomains,
     respectDNT: config.respectDNT,
   }),
   flush,
-  isEnabled: () => !isDisabled && !!config.axiomToken,
+  isEnabled: () => !isDisabled && (config.destination === 'supabase' ? !!config.supabaseKey : !!config.httpEndpoint),
   getQueueSize: () => eventQueue.length,
   version: VERSION,
 };

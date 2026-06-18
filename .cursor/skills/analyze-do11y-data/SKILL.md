@@ -5,177 +5,252 @@ description: Query and interpret documentation analytics data collected by Do11y
 
 # Analyze Do11y data
 
+## Agent workflow
+
+Follow these steps in order. Do not skip to ad-hoc curl or inline scripts.
+
+1. **Get credentials** from the user message.
+2. **Run the audit script** (one command, one fetch, all metrics):
+
+```bash
+export SUPABASE_URL="https://YOUR_PROJECT.supabase.co"
+export SUPABASE_SECRET_KEY="sb_secret_..."
+export SUPABASE_TABLE="do11y_events"   # optional, this is the default
+export DAYS_BACK=90                    # optional, default 90
+
+npx tsx scripts/analyze.ts
+```
+
+3. **Parse the JSON output** and write the report using [Report structure](#report-structure) below.
+
 ## Setup
 
 Ask for these credentials if not already provided:
 
-- **Dataset** — Axiom dataset name
-- **Token** — Axiom API token
-- **Domain** — edge deployment domain example: `us-east-1.aws.edge.axiom.co`
-- **Time range** — default last 90 days
+| Credential | Environment variable | Default |
+|---|---|---|
+| Supabase URL | `SUPABASE_URL` | — |
+| Supabase secret key | `SUPABASE_SECRET_KEY` | — |
+| Supabase table | `SUPABASE_TABLE` | `do11y_events` |
+| Time range | `DAYS_BACK` | `90` |
 
-## Running queries
+Find the secret key under **Project settings > API Keys > Secret keys**.
+
+## How to query
+
+PostgREST does not run raw SQL. `scripts/analyze.ts` fetches all events in one REST call and aggregates in memory. The SQL blocks below document what the script computes.
+
+Events are stored as JSONB in the `payload` column. Relevant fields:
+
+| Field | Used for |
+|---|---|
+| `eventType` | Filter by event kind (`page_view`, `page_exit`, etc.) |
+| `path` | Page-level grouping |
+| `_time` | Time range filter |
+| `activeTimeSeconds`, `maxScrollDepth` | Engagement on `page_exit` |
+| `isFirstPage`, `referrerCategory` | Entry points and traffic sources |
+| `testFramework`, `testRunId` | Integration test detection |
+
+## Pitfalls
+
+| Do not | Do instead |
+|---|---|
+| Inline env vars with curl in one line (`SUPABASE_URL=... curl "${SUPABASE_URL}..."`) | `export` variables first, then run curl or the script |
+| `npx tsx -e 'await fetch(...)'` | Use `scripts/analyze.ts` (top-level await fails in `-e` mode) |
+| Write a temporary analysis script | Use `scripts/analyze.ts` |
+| Multiple REST calls per event type | One fetch in `scripts/analyze.ts`, aggregate locally |
+| Raw SQL via REST | Fetch via PostgREST filters, aggregate in the script |
+
+### Smoke-test connectivity
+
+Only if the audit script fails, verify credentials with export + curl:
 
 ```bash
-curl -s -X POST "https://DOMAIN/v1/query/_apl?format=tabular`" \
-  -H "Authorization: Bearer TOKEN" \
-  -H "Content-Type: application/json" \
-  -d '{"apl": "APL_QUERY", "startTime": "START", "endTime": "END"}'
+export SUPABASE_URL="https://YOUR_PROJECT.supabase.co"
+export SUPABASE_SECRET_KEY="sb_secret_..."
+export SUPABASE_TABLE="do11y_events"
+
+curl -s "${SUPABASE_URL}/rest/v1/${SUPABASE_TABLE}?select=payload&limit=3" \
+  -H "apikey: ${SUPABASE_SECRET_KEY}" \
+  -H "Authorization: Bearer ${SUPABASE_SECRET_KEY}"
 ```
 
-Replace `['do11y']` with `['DATASET']` in every APL query. Results are in `tables[0].columns[]` (parallel arrays); field names are in `tables[0].fields[].name`.
-
-Parse with:
+Row count (optional sanity check):
 
 ```bash
-| python3 -c "
-import json,sys
-d=json.load(sys.stdin)
-cols=d['tables'][0]['columns']
-fields=[f['name'] for f in d['tables'][0]['fields']]
-for i in range(len(cols[0])):
-    print({fields[j]: cols[j][i] for j in range(len(fields))})
-"
+curl -sI "${SUPABASE_URL}/rest/v1/${SUPABASE_TABLE}?select=id&limit=1" \
+  -H "apikey: ${SUPABASE_SECRET_KEY}" \
+  -H "Authorization: Bearer ${SUPABASE_SECRET_KEY}" \
+  -H "Prefer: count=exact" | grep -i content-range
 ```
 
-## Analysis workflow
+## Audit script output
 
-Run these queries in parallel for a full audit. All use `['do11y']` — replace with your dataset.
+`scripts/analyze.ts` prints a single JSON object. Key sections map to the report:
+
+| JSON key | Report section |
+|---|---|
+| `instrumentation` | Instrumentation gaps |
+| `top_entry_points`, `section_traffic`, `traffic_sources`, `sessions` | Traffic overview |
+| `bounce_candidates`, `high_traffic_low_engagement`, `page_exits` | Engagement problems |
+| `high_search_rate`, `heavy_toc_usage` | Confusion signals |
+| `scroll_completion`, `page_exits` (high scroll) | High-performing content |
+| `page_exits` (path variants, zero-scroll paths) | Routing issues |
+| `per_framework` | Framework-specific instrumentation gaps (test tables) |
+
+## SQL reference
+
+Replace `TABLE` with the Supabase table name. Implemented by `scripts/analyze.ts`.
 
 ### 1. Section-level traffic and engagement
 
-```apl
-['do11y']
-| extend section = extract("^/docs/([^/]+)", 1, path)
-| where eventType == 'page_exit'
-| summarize visits = count(), avgTime = avg(activeTimeSeconds), avgScroll = avg(maxScrollDepth) by section
-| order by visits desc
+```sql
+select
+  split_part(payload->>'path', '/', 3) as section,
+  count(*) as visits,
+  avg((payload->>'activeTimeSeconds')::numeric) as avg_time,
+  avg((payload->>'maxScrollDepth')::numeric) as avg_scroll
+from TABLE
+where payload->>'eventType' = 'page_exit'
+group by 1
+order by visits desc
 ```
 
 ### 2. Top entry points
 
-```apl
-['do11y']
-| where eventType == 'page_view' and isFirstPage == true
-| summarize entries = count() by path
-| order by entries desc
-| take 25
+```sql
+select payload->>'path' as path, count(*) as entries
+from TABLE
+where payload->>'eventType' = 'page_view' and (payload->>'isFirstPage')::boolean = true
+group by 1
+order by entries desc
+limit 25
 ```
 
 ### 3. High search rate — confusion signal
 
-```apl
-['do11y']
-| summarize pageViews = countif(eventType == 'page_view'), searches = countif(eventType == 'search_opened') by sessionId, path
-| where pageViews > 0
-| summarize totalViews = sum(pageViews), sessionsWithSearch = countif(searches > 0) by path
-| extend searchRate = round(100.0 * sessionsWithSearch / totalViews, 1)
-| where totalViews > 10
-| order by searchRate desc
-| take 20
+```sql
+select
+  payload->>'path' as path,
+  count(*) filter (where payload->>'eventType' = 'page_view') as page_views,
+  count(*) filter (where payload->>'eventType' = 'search_opened') as searches,
+  round(100.0 * count(*) filter (where payload->>'eventType' = 'search_opened')
+    / count(*) filter (where payload->>'eventType' = 'page_view'), 1) as search_rate
+from TABLE
+group by 1
+having count(*) filter (where payload->>'eventType' = 'page_view') > 10
+order by search_rate desc
+limit 20
 ```
 
 ### 4. Bounce detection
 
-```apl
-['do11y']
-| where eventType == 'page_exit'
-| summarize avgTime = avg(activeTimeSeconds), avgScroll = avg(maxScrollDepth), visits = count() by path
-| where visits > 5 and avgTime < 10 and avgScroll < 25
-| order by visits desc
+```sql
+select
+  payload->>'path' as path,
+  avg((payload->>'activeTimeSeconds')::numeric) as avg_time,
+  avg((payload->>'maxScrollDepth')::numeric) as avg_scroll,
+  count(*) as visits
+from TABLE
+where payload->>'eventType' = 'page_exit'
+group by 1
+having count(*) > 5
+  and avg((payload->>'activeTimeSeconds')::numeric) < 10
+  and avg((payload->>'maxScrollDepth')::numeric) < 25
+order by visits desc
 ```
 
 ### 5. High-traffic, low-engagement pages
 
-```apl
-['do11y']
-| where eventType == 'page_exit'
-| summarize visits = count(), avgScroll = avg(maxScrollDepth), avgTime = avg(activeTimeSeconds) by path
-| where visits > 20 and avgScroll < 30
-| order by visits desc
+```sql
+select
+  payload->>'path' as path,
+  count(*) as visits,
+  avg((payload->>'maxScrollDepth')::numeric) as avg_scroll,
+  avg((payload->>'activeTimeSeconds')::numeric) as avg_time
+from TABLE
+where payload->>'eventType' = 'page_exit'
+group by 1
+having count(*) > 20 and avg((payload->>'maxScrollDepth')::numeric) < 30
+order by visits desc
 ```
 
 ### 6. Scroll completion rate
 
-```apl
-['do11y']
-| where eventType == 'page_exit'
-| summarize total = count(), completed = countif(maxScrollDepth >= 90) by path
-| extend completionRate = round(100.0 * completed / total, 1)
-| where total > 10
-| order by completionRate desc
-| take 20
+```sql
+select
+  payload->>'path' as path,
+  count(*) as total,
+  count(*) filter (where (payload->>'maxScrollDepth')::numeric >= 90) as completed,
+  round(100.0 * count(*) filter (where (payload->>'maxScrollDepth')::numeric >= 90)
+    / count(*), 1) as completion_rate
+from TABLE
+where payload->>'eventType' = 'page_exit'
+group by 1
+having count(*) > 10
+order by completion_rate desc
+limit 20
 ```
 
 ### 7. TOC heavy usage — page length / organization signal
 
-```apl
-['do11y']
-| where eventType in ('toc_click', 'page_view')
-| summarize tocClicks = countif(eventType == 'toc_click'), views = countif(eventType == 'page_view') by path
-| where views > 10
-| extend tocRate = round(100.0 * tocClicks / views, 1)
-| order by tocRate desc
-| take 20
+```sql
+select
+  payload->>'path' as path,
+  count(*) filter (where payload->>'eventType' = 'toc_click') as toc_clicks,
+  count(*) filter (where payload->>'eventType' = 'page_view') as views,
+  round(100.0 * count(*) filter (where payload->>'eventType' = 'toc_click')
+    / count(*) filter (where payload->>'eventType' = 'page_view'), 1) as toc_rate
+from TABLE
+where payload->>'eventType' in ('toc_click', 'page_view')
+group by 1
+having count(*) filter (where payload->>'eventType' = 'page_view') > 10
+order by toc_rate desc
+limit 20
 ```
 
 ### 8. Tab switch preferences
 
-```apl
-['do11y']
-| where eventType == 'tab_switch' and isDefault == false
-| summarize switches = count() by tabLabel
-| order by switches desc
-| take 20
+```sql
+select payload->>'tabLabel' as tab_label, count(*) as switches
+from TABLE
+where payload->>'eventType' = 'tab_switch' and (payload->>'isDefault')::boolean = false
+group by 1
+order by switches desc
+limit 20
 ```
 
 ### 9. Feedback by page
 
-```apl
-['do11y']
-| where eventType == 'feedback'
-| summarize total = count(), helpful = countif(rating == 'yes'), notHelpful = countif(rating == 'no') by path
-| extend helpfulPct = round(helpful * 100.0 / total, 1)
-| where total >= 3
-| order by helpfulPct asc
+```sql
+select
+  payload->>'path' as path,
+  count(*) as total,
+  count(*) filter (where payload->>'rating' = 'yes') as helpful,
+  count(*) filter (where payload->>'rating' = 'no') as not_helpful,
+  round(count(*) filter (where payload->>'rating' = 'yes') * 100.0 / count(*), 1) as helpful_pct
+from TABLE
+where payload->>'eventType' = 'feedback'
+group by 1
+having count(*) >= 3
+order by helpful_pct asc
 ```
 
-### 10. Exit pages in multi-page sessions
+Also check `instrumentation.feedback_ratings` in the script output.
 
-```apl
-['do11y']
-| where eventType == 'page_view'
-| order by _time asc
-| summarize pages = make_list(path), pageCount = count() by sessionId
-| where pageCount > 1
-| extend lastPage = tostring(pages[array_length(pages) - 1])
-| summarize exits = count() by lastPage
-| order by exits desc
-| take 20
-```
+### 10. Traffic sources
 
-### 11. Paths missing expected prefix — routing / redirect signal
-
-```apl
-['do11y']
-| where eventType == 'page_view' and not(path startswith '/docs/')
-| summarize visits = count() by path
-| order by visits desc
-| take 20
-```
-
-### 12. Traffic sources
-
-```apl
-['do11y']
-| where eventType == 'page_view' and isFirstPage == true
-| summarize sessions = count() by referrerCategory
-| order by sessions desc
+```sql
+select payload->>'referrerCategory' as referrer_category, count(*) as sessions
+from TABLE
+where payload->>'eventType' = 'page_view' and (payload->>'isFirstPage')::boolean = true
+group by 1
+order by sessions desc
 ```
 
 ## Instrumentation health checks
 
-After running the audit queries, check for these common gaps:
+Read from `instrumentation` in the script output, or check manually:
 
 | Check | How to spot it | Likely cause |
 |---|---|---|
@@ -219,7 +294,3 @@ Organize output into these sections:
    - **Instrumentation** — Do11y tracking gaps
 
 For each finding, cite the specific pages affected, the metric values vs threshold, and a concrete change linked to the page's file path in the docs repo where possible.
-
-## Additional queries
-
-For deeper analysis — AI traffic by platform, page-to-page transitions, code copy rates, section reading patterns, expand/collapse behaviour, device breakdown — see [QUERIES.md](../../QUERIES.md).

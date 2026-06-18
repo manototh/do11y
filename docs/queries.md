@@ -1,20 +1,20 @@
 ---
 title: Queries
-description: Example APL queries for analyzing documentation usage data collected by Do11y in Axiom.
+description: Example SQL queries for analyzing documentation usage data collected by Do11y in Supabase.
 head:
   - - meta
     - property: og:title
       content: Queries — Do11y
   - - meta
     - property: og:description
-      content: Example APL queries for analyzing documentation usage data collected by Do11y in Axiom.
+      content: Example SQL queries for analyzing documentation usage data collected by Do11y in Supabase.
 ---
 
 # Queries
 
-Example APL queries for analyzing the data Do11y sends to Axiom. Replace `do11y` with your dataset name in each query.
+Example SQL queries for analyzing the data Do11y stores in Supabase. Events live in the `do11y_events` table with a `payload jsonb` column. You can run these via the Supabase SQL Editor or any PostgreSQL client.
 
-For more on APL, see [Query data with Axiom](https://axiom.co/docs/query-data/explore).
+PostgreSQL's JSONB operators extract fields from the payload: `payload->>'field'` returns text, and you cast to the appropriate type when needed (for example, `::numeric`, `::boolean`, `::timestamptz`).
 
 ## Traffic and discovery
 
@@ -22,122 +22,143 @@ For more on APL, see [Query data with Axiom](https://axiom.co/docs/query-data/ex
 
 Find the most common first pages users land on.
 
-```apl
-['do11y']
-| where eventType == 'page_view' and isFirstPage == true
-| summarize entries = count() by path
-| order by entries desc
-| take 20
+```sql
+select payload->>'path' as path, count(*) as entries
+from do11y_events
+where payload->>'eventType' = 'page_view'
+  and (payload->>'isFirstPage')::boolean = true
+group by 1
+order by entries desc
+limit 20
 ```
 
 ### Traffic sources
 
 See where your visitors come from.
 
-```apl
-['do11y']
-| where eventType == 'page_view' and isFirstPage == true
-| summarize sessions = count() by referrerDomain
-| order by sessions desc
+```sql
+select payload->>'referrerDomain' as "referrerDomain", count(*) as sessions
+from do11y_events
+where payload->>'eventType' = 'page_view'
+  and (payload->>'isFirstPage')::boolean = true
+group by 1
+order by sessions desc
 ```
 
 ### Entry point by referrer
 
 Understand which sources land on which pages.
 
-```apl
-['do11y']
-| where eventType == 'page_view' and isFirstPage == true
-| summarize sessions = count() by referrerDomain, path
-| order by sessions desc
-| take 30
+```sql
+select
+    payload->>'referrerDomain' as "referrerDomain",
+    payload->>'path' as path,
+    count(*) as sessions
+from do11y_events
+where payload->>'eventType' = 'page_view'
+  and (payload->>'isFirstPage')::boolean = true
+group by 1, 2
+order by sessions desc
+limit 30
 ```
 
 ### AI traffic overview
 
 See how much of your documentation traffic comes from AI platforms.
 
-```apl
-['do11y']
-| where eventType == 'page_view' and isFirstPage == true
-| summarize
-    total = count(),
-    aiSessions = countif(referrerCategory == 'ai'),
-    searchSessions = countif(referrerCategory == 'search-engine'),
-    directSessions = countif(referrerCategory == 'direct'),
-    socialSessions = countif(referrerCategory == 'social'),
-    communitySessions = countif(referrerCategory == 'community'),
-    codeHostSessions = countif(referrerCategory == 'code-host'),
-    otherSessions = countif(referrerCategory == 'other')
-| extend aiPct = round(100.0 * aiSessions / total, 1)
+```sql
+select
+    count(*) as total,
+    count(*) filter (where payload->>'referrerCategory' = 'ai') as "aiSessions",
+    count(*) filter (where payload->>'referrerCategory' = 'search-engine') as "searchSessions",
+    count(*) filter (where payload->>'referrerCategory' = 'direct') as "directSessions",
+    count(*) filter (where payload->>'referrerCategory' = 'social') as "socialSessions",
+    count(*) filter (where payload->>'referrerCategory' = 'community') as "communitySessions",
+    count(*) filter (where payload->>'referrerCategory' = 'code-host') as "codeHostSessions",
+    count(*) filter (where payload->>'referrerCategory' = 'other') as "otherSessions",
+    round(100.0 * count(*) filter (where payload->>'referrerCategory' = 'ai') / count(*), 1) as "aiPct"
+from do11y_events
+where payload->>'eventType' = 'page_view'
+  and (payload->>'isFirstPage')::boolean = true
 ```
 
 ### AI traffic by platform
 
 Break down AI traffic by platform (ChatGPT, Perplexity, Claude, etc.).
 
-```apl
-['do11y']
-| where eventType == 'page_view' and isFirstPage == true and referrerCategory == 'ai'
-| extend aiPlatform = column_ifexists('aiPlatform', '')
-| summarize sessions = count() by aiPlatform
-| order by sessions desc
+```sql
+select payload->>'aiPlatform' as "aiPlatform", count(*) as sessions
+from do11y_events
+where payload->>'eventType' = 'page_view'
+  and (payload->>'isFirstPage')::boolean = true
+  and payload->>'referrerCategory' = 'ai'
+group by 1
+order by sessions desc
 ```
 
 ### AI traffic trend
 
 Track AI-referred sessions over time.
 
-```apl
-['do11y']
-| where eventType == 'page_view' and isFirstPage == true
-| extend week = startofweek(_time)
-| summarize
-    total = count(),
-    ai = countif(referrerCategory == 'ai')
-  by bin_auto(_time), week
-| extend aiPct = round(100.0 * ai / total, 1)
-| order by week asc
+```sql
+select
+    date_trunc('week', (payload->>'_time')::timestamptz) as week,
+    count(*) as total,
+    count(*) filter (where payload->>'referrerCategory' = 'ai') as ai,
+    round(100.0 * count(*) filter (where payload->>'referrerCategory' = 'ai') / count(*), 1) as "aiPct"
+from do11y_events
+where payload->>'eventType' = 'page_view'
+  and (payload->>'isFirstPage')::boolean = true
+group by 1
+order by week asc
 ```
 
 ### Pages discovered via AI
 
 Find which documentation pages AI platforms link to most.
 
-```apl
-['do11y']
-| where eventType == 'page_view' and isFirstPage == true and referrerCategory == 'ai'
-| extend aiPlatform = column_ifexists('aiPlatform', '')
-| summarize sessions = count() by path, aiPlatform
-| order by sessions desc
-| take 30
+```sql
+select
+    payload->>'path' as path,
+    payload->>'aiPlatform' as "aiPlatform",
+    count(*) as sessions
+from do11y_events
+where payload->>'eventType' = 'page_view'
+  and (payload->>'isFirstPage')::boolean = true
+  and payload->>'referrerCategory' = 'ai'
+group by 1, 2
+order by sessions desc
+limit 30
 ```
 
 ### AI vs non-AI engagement
 
 Compare engagement depth for AI-referred visitors vs other sources.
 
-```apl
-['do11y']
-| where eventType == 'page_exit'
-| summarize
-    visits = count(),
-    avgTime = avg(activeTimeSeconds),
-    avgScroll = avg(maxScrollDepth),
-    avgEngagement = avg(engagementRatio)
-  by referrerCategory
-| order by visits desc
+```sql
+select
+    payload->>'referrerCategory' as "referrerCategory",
+    count(*) as visits,
+    avg((payload->>'activeTimeSeconds')::numeric) as "avgTime",
+    avg((payload->>'maxScrollDepth')::numeric) as "avgScroll",
+    avg((payload->>'engagementRatio')::numeric) as "avgEngagement"
+from do11y_events
+where payload->>'eventType' = 'page_exit'
+group by 1
+order by visits desc
 ```
 
 ### Traffic source breakdown
 
 Summarize traffic by category.
 
-```apl
-['do11y']
-| where eventType == 'page_view' and isFirstPage == true
-| summarize sessions = count() by referrerCategory
-| order by sessions desc
+```sql
+select payload->>'referrerCategory' as "referrerCategory", count(*) as sessions
+from do11y_events
+where payload->>'eventType' = 'page_view'
+  and (payload->>'isFirstPage')::boolean = true
+group by 1
+order by sessions desc
 ```
 
 ## Engagement and page performance
@@ -146,51 +167,69 @@ Summarize traffic by category.
 
 Combine time, scroll depth, and engagement ratio into a single score.
 
-```apl
-['do11y']
-| where eventType == 'page_exit'
-| summarize 
-    avgActiveTime = avg(activeTimeSeconds),
-    avgEngagement = avg(engagementRatio),
-    avgScrollDepth = avg(maxScrollDepth),
-    visits = count()
-  by path
-| where visits > 10
-| extend engagementScore = (avgActiveTime * avgEngagement * avgScrollDepth) / 100
-| order by engagementScore desc
+```sql
+select
+    path,
+    "avgActiveTime",
+    "avgEngagement",
+    "avgScrollDepth",
+    visits,
+    ("avgActiveTime" * "avgEngagement" * "avgScrollDepth") / 100 as "engagementScore"
+from (
+    select
+        payload->>'path' as path,
+        avg((payload->>'activeTimeSeconds')::numeric) as "avgActiveTime",
+        avg((payload->>'engagementRatio')::numeric) as "avgEngagement",
+        avg((payload->>'maxScrollDepth')::numeric) as "avgScrollDepth",
+        count(*) as visits
+    from do11y_events
+    where payload->>'eventType' = 'page_exit'
+    group by 1
+    having count(*) > 10
+) sub
+order by "engagementScore" desc
 ```
 
 ### Scroll completion rate
 
 Find pages where users read to the end.
 
-```apl
-['do11y']
-| where eventType == 'page_exit'
-| summarize 
-    total = count(),
-    completed = countif(maxScrollDepth >= 90)
-  by path
-| extend completionRate = round(100.0 * completed / total, 1)
-| where total > 10
-| order by completionRate desc
+```sql
+select
+    path,
+    total,
+    completed,
+    round(100.0 * completed / total, 1) as "completionRate"
+from (
+    select
+        payload->>'path' as path,
+        count(*) as total,
+        count(*) filter (where (payload->>'maxScrollDepth')::numeric >= 90) as completed
+    from do11y_events
+    where payload->>'eventType' = 'page_exit'
+    group by 1
+    having count(*) > 10
+) sub
+order by "completionRate" desc
 ```
 
 ### Bounce detection
 
 Identify pages with high bounce rates (low scroll, low time).
 
-```apl
-['do11y']
-| where eventType == 'page_exit'
-| summarize 
-    avgTime = avg(activeTimeSeconds),
-    avgScroll = avg(maxScrollDepth),
-    visits = count()
-  by path
-| where visits > 5
-| where avgTime < 10 and avgScroll < 25
-| order by visits desc
+```sql
+select
+    payload->>'path' as path,
+    avg((payload->>'activeTimeSeconds')::numeric) as "avgTime",
+    avg((payload->>'maxScrollDepth')::numeric) as "avgScroll",
+    count(*) as visits
+from do11y_events
+where payload->>'eventType' = 'page_exit'
+group by 1
+having count(*) > 5
+  and avg((payload->>'activeTimeSeconds')::numeric) < 10
+  and avg((payload->>'maxScrollDepth')::numeric) < 25
+order by visits desc
 ```
 
 ## Where users get stuck
@@ -199,56 +238,75 @@ Identify pages with high bounce rates (low scroll, low time).
 
 Find where sessions end (excluding single-page sessions).
 
-```apl
-['do11y']
-| where eventType == 'page_view'
-| order by _time asc
-| summarize 
-    pages = make_list(path),
-    pageCount = count()
-  by sessionId
-| where pageCount > 1
-| extend firstPage = tostring(pages[0]), lastPage = tostring(pages[array_length(pages) - 1])
-| where firstPage != lastPage
-| summarize exits = count() by lastPage
-| order by exits desc
-| take 20
+```sql
+select "lastPage", count(*) as exits
+from (
+    select
+        pages[array_length(pages, 1)] as "lastPage",
+        pages[1] as "firstPage"
+    from (
+        select
+            payload->>'sessionId' as "sessionId",
+            array_agg(payload->>'path' order by (payload->>'_time')::timestamptz) as pages
+        from do11y_events
+        where payload->>'eventType' = 'page_view'
+        group by 1
+        having count(*) > 1
+    ) sessions
+) sub
+where "firstPage" != "lastPage"
+group by 1
+order by exits desc
+limit 20
 ```
 
 ### Low engagement pages
 
 Find high-traffic pages with poor engagement.
 
-```apl
-['do11y']
-| where eventType == 'page_exit'
-| summarize 
-    visits = count(),
-    avgScroll = avg(maxScrollDepth),
-    avgTime = avg(activeTimeSeconds)
-  by path
-| where visits > 20 and avgScroll < 30
-| order by visits desc
+```sql
+select
+    payload->>'path' as path,
+    count(*) as visits,
+    avg((payload->>'maxScrollDepth')::numeric) as "avgScroll",
+    avg((payload->>'activeTimeSeconds')::numeric) as "avgTime"
+from do11y_events
+where payload->>'eventType' = 'page_exit'
+group by 1
+having count(*) > 20
+  and avg((payload->>'maxScrollDepth')::numeric) < 30
+order by visits desc
 ```
 
 ### Pages with high search rate
 
 Identify pages where users frequently open search (a potential confusion signal).
 
-```apl
-['do11y']
-| summarize 
-    pageViews = countif(eventType == 'page_view'),
-    searches = countif(eventType == 'search_opened')
-  by sessionId, path
-| where pageViews > 0
-| summarize 
-    totalViews = sum(pageViews),
-    sessionsWithSearch = countif(searches > 0)
-  by path
-| extend searchRate = round(100.0 * sessionsWithSearch / totalViews, 1)
-| where totalViews > 10
-| order by searchRate desc
+```sql
+select
+    path,
+    "totalViews",
+    "sessionsWithSearch",
+    round(100.0 * "sessionsWithSearch" / "totalViews", 1) as "searchRate"
+from (
+    select
+        path,
+        sum("pageViews") as "totalViews",
+        count(*) filter (where searches > 0) as "sessionsWithSearch"
+    from (
+        select
+            payload->>'sessionId' as "sessionId",
+            payload->>'path' as path,
+            count(*) filter (where payload->>'eventType' = 'page_view') as "pageViews",
+            count(*) filter (where payload->>'eventType' = 'search_opened') as searches
+        from do11y_events
+        group by 1, 2
+        having count(*) filter (where payload->>'eventType' = 'page_view') > 0
+    ) per_session
+    group by path
+    having sum("pageViews") > 10
+) per_page
+order by "searchRate" desc
 ```
 
 ## Navigation patterns
@@ -257,42 +315,57 @@ Identify pages where users frequently open search (a potential confusion signal)
 
 See how users move between pages.
 
-```apl
-['do11y']
-| where eventType == 'page_view' and isnotnull(previousPath)
-| summarize transitions = count() by previousPath, path
-| where transitions > 5
-| order by transitions desc
-| take 50
+```sql
+select
+    payload->>'previousPath' as "previousPath",
+    payload->>'path' as path,
+    count(*) as transitions
+from do11y_events
+where payload->>'eventType' = 'page_view'
+  and payload->>'previousPath' is not null
+group by 1, 2
+having count(*) > 5
+order by transitions desc
+limit 50
 ```
 
 ### Journey depth distribution
 
 Understand how many pages users view per session.
 
-```apl
-['do11y']
-| where eventType == 'page_view'
-| summarize pageCount = count() by sessionId
-| summarize 
-    sessions = count(),
-    avgPages = avg(pageCount),
-    medianPages = percentile(pageCount, 50),
-    p90Pages = percentile(pageCount, 90)
+```sql
+select
+    count(*) as sessions,
+    avg("pageCount") as "avgPages",
+    percentile_cont(0.5) within group (order by "pageCount") as "medianPages",
+    percentile_cont(0.9) within group (order by "pageCount") as "p90Pages"
+from (
+    select payload->>'sessionId' as "sessionId", count(*) as "pageCount"
+    from do11y_events
+    where payload->>'eventType' = 'page_view'
+    group by 1
+) sub
 ```
 
 ### Full session journeys
 
 View complete page sequences for multi-page sessions.
 
-```apl
-['do11y']
-| where eventType == 'page_view'
-| order by _time asc
-| summarize journey = make_list(path) by sessionId
-| extend journeyLength = array_length(journey)
-| where journeyLength >= 3
-| take 100
+```sql
+select
+    "sessionId",
+    journey,
+    array_length(journey, 1) as "journeyLength"
+from (
+    select
+        payload->>'sessionId' as "sessionId",
+        array_agg(payload->>'path' order by (payload->>'_time')::timestamptz) as journey
+    from do11y_events
+    where payload->>'eventType' = 'page_view'
+    group by 1
+    having count(*) >= 3
+) sub
+limit 100
 ```
 
 ## Link and CTA performance
@@ -301,49 +374,67 @@ View complete page sequences for multi-page sessions.
 
 Find the most popular links across all pages.
 
-```apl
-['do11y']
-| where eventType == 'link_click'
-| summarize clicks = count() by linkText, targetUrl
-| order by clicks desc
-| take 30
+```sql
+select
+    payload->>'linkText' as "linkText",
+    payload->>'targetUrl' as "targetUrl",
+    count(*) as clicks
+from do11y_events
+where payload->>'eventType' = 'link_click'
+group by 1, 2
+order by clicks desc
+limit 30
 ```
 
 ### External link destinations
 
 See where users go when they leave.
 
-```apl
-['do11y']
-| where eventType == 'link_click' and linkType == 'external'
-| summarize clicks = count() by targetUrl
-| order by clicks desc
+```sql
+select payload->>'targetUrl' as "targetUrl", count(*) as clicks
+from do11y_events
+where payload->>'eventType' = 'link_click'
+  and payload->>'linkType' = 'external'
+group by 1
+order by clicks desc
 ```
 
 ### Link clicks by section
 
-Track specific CTAs (like "Run in Playground") by page and section.
+Track specific CTAs (like "Sign up") by page and section.
 
-```apl
-['do11y']
-| where eventType == 'link_click' and linkText contains 'Playground'
-| summarize clicks = count() by path, linkSection
-| order by clicks desc
+```sql
+select
+    payload->>'path' as path,
+    payload->>'linkSection' as "linkSection",
+    count(*) as clicks
+from do11y_events
+where payload->>'eventType' = 'link_click'
+  and payload->>'linkText' like '%Sign up%'
+group by 1, 2
+order by clicks desc
 ```
 
 ### Pages with low link engagement
 
 Find pages where users don't click links.
 
-```apl
-['do11y']
-| summarize 
-    views = countif(eventType == 'page_view'),
-    linkClicks = countif(eventType == 'link_click')
-  by path
-| extend clickRate = round(100.0 * linkClicks / views, 1)
-| where views > 20
-| order by clickRate asc
+```sql
+select
+    path,
+    views,
+    "linkClicks",
+    round(100.0 * "linkClicks" / views, 1) as "clickRate"
+from (
+    select
+        payload->>'path' as path,
+        count(*) filter (where payload->>'eventType' = 'page_view') as views,
+        count(*) filter (where payload->>'eventType' = 'link_click') as "linkClicks"
+    from do11y_events
+    group by 1
+    having count(*) filter (where payload->>'eventType' = 'page_view') > 20
+) sub
+order by "clickRate" asc
 ```
 
 ## Code block engagement
@@ -352,23 +443,28 @@ Find pages where users don't click links.
 
 See which code languages users copy most.
 
-```apl
-['do11y']
-| where eventType == 'code_copied'
-| summarize copies = count() by language
-| order by copies desc
+```sql
+select payload->>'language' as language, count(*) as copies
+from do11y_events
+where payload->>'eventType' = 'code_copied'
+group by 1
+order by copies desc
 ```
 
 ### Code copies by page
 
 Find pages with the most code block engagement.
 
-```apl
-['do11y']
-| where eventType == 'code_copied'
-| summarize copies = count() by path, codeSection
-| order by copies desc
-| take 30
+```sql
+select
+    payload->>'path' as path,
+    payload->>'codeSection' as "codeSection",
+    count(*) as copies
+from do11y_events
+where payload->>'eventType' = 'code_copied'
+group by 1, 2
+order by copies desc
+limit 30
 ```
 
 ## Section reading patterns
@@ -377,30 +473,34 @@ Find pages with the most code block engagement.
 
 Find which headings users actually spend time reading.
 
-```apl
-['do11y']
-| where eventType == 'section_visible'
-| summarize
-    readers = dcount(sessionId),
-    avgDwell = avg(visibleSeconds)
-  by path, heading
-| order by readers desc
-| take 30
+```sql
+select
+    payload->>'path' as path,
+    payload->>'heading' as heading,
+    count(distinct payload->>'sessionId') as readers,
+    avg((payload->>'visibleSeconds')::numeric) as "avgDwell"
+from do11y_events
+where payload->>'eventType' = 'section_visible'
+group by 1, 2
+order by readers desc
+limit 30
 ```
 
 ### Skipped sections
 
 Identify sections that users scroll past without reading.
 
-```apl
-['do11y']
-| where eventType == 'section_visible'
-| summarize
-    readers = dcount(sessionId),
-    avgDwell = avg(visibleSeconds)
-  by path, heading
-| where avgDwell < 5
-| order by readers desc
+```sql
+select
+    payload->>'path' as path,
+    payload->>'heading' as heading,
+    count(distinct payload->>'sessionId') as readers,
+    avg((payload->>'visibleSeconds')::numeric) as "avgDwell"
+from do11y_events
+where payload->>'eventType' = 'section_visible'
+group by 1, 2
+having avg((payload->>'visibleSeconds')::numeric) < 5
+order by readers desc
 ```
 
 ## Tab switch patterns
@@ -409,23 +509,30 @@ Identify sections that users scroll past without reading.
 
 See which code language or framework tabs users select.
 
-```apl
-['do11y']
-| where eventType == 'tab_switch' and isDefault == false
-| summarize switches = count() by tabLabel
-| order by switches desc
+```sql
+select payload->>'tabLabel' as "tabLabel", count(*) as switches
+from do11y_events
+where payload->>'eventType' = 'tab_switch'
+  and (payload->>'isDefault')::boolean = false
+group by 1
+order by switches desc
 ```
 
 ### Tab switches by page
 
 Understand audience preferences on specific pages.
 
-```apl
-['do11y']
-| where eventType == 'tab_switch'
-| summarize switches = count() by path, tabLabel, tabGroup
-| order by switches desc
-| take 30
+```sql
+select
+    payload->>'path' as path,
+    payload->>'tabLabel' as "tabLabel",
+    payload->>'tabGroup' as "tabGroup",
+    count(*) as switches
+from do11y_events
+where payload->>'eventType' = 'tab_switch'
+group by 1, 2, 3
+order by switches desc
+limit 30
 ```
 
 ## Table of contents usage
@@ -434,28 +541,39 @@ Understand audience preferences on specific pages.
 
 Find the headings users jump to via the on-page TOC.
 
-```apl
-['do11y']
-| where eventType == 'toc_click'
-| summarize clicks = count() by path, heading
-| order by clicks desc
-| take 30
+```sql
+select
+    payload->>'path' as path,
+    payload->>'heading' as heading,
+    count(*) as clicks
+from do11y_events
+where payload->>'eventType' = 'toc_click'
+group by 1, 2
+order by clicks desc
+limit 30
 ```
 
 ### Pages with heavy TOC usage
 
 Identify pages where users rely on the TOC (a potential signal that the page is too long or poorly organized).
 
-```apl
-['do11y']
-| where eventType in ('toc_click', 'page_view')
-| summarize
-    tocClicks = countif(eventType == 'toc_click'),
-    views = countif(eventType == 'page_view')
-  by path
-| where views > 10
-| extend tocRate = round(100.0 * tocClicks / views, 1)
-| order by tocRate desc
+```sql
+select
+    path,
+    "tocClicks",
+    views,
+    round(100.0 * "tocClicks" / views, 1) as "tocRate"
+from (
+    select
+        payload->>'path' as path,
+        count(*) filter (where payload->>'eventType' = 'toc_click') as "tocClicks",
+        count(*) filter (where payload->>'eventType' = 'page_view') as views
+    from do11y_events
+    where payload->>'eventType' in ('toc_click', 'page_view')
+    group by 1
+    having count(*) filter (where payload->>'eventType' = 'page_view') > 10
+) sub
+order by "tocRate" desc
 ```
 
 ## User feedback
@@ -464,17 +582,25 @@ Identify pages where users rely on the TOC (a potential signal that the page is 
 
 See which pages get the best and worst ratings.
 
-```apl
-['do11y']
-| where eventType == 'feedback'
-| summarize
-    total = count(),
-    helpful = countif(rating == 'yes'),
-    notHelpful = countif(rating == 'no')
-  by path
-| extend helpfulPct = round(helpful * 100.0 / total, 1)
-| where total >= 3
-| order by helpfulPct asc
+```sql
+select
+    path,
+    total,
+    helpful,
+    "notHelpful",
+    round(helpful * 100.0 / total, 1) as "helpfulPct"
+from (
+    select
+        payload->>'path' as path,
+        count(*) as total,
+        count(*) filter (where payload->>'rating' = 'yes') as helpful,
+        count(*) filter (where payload->>'rating' = 'no') as "notHelpful"
+    from do11y_events
+    where payload->>'eventType' = 'feedback'
+    group by 1
+    having count(*) >= 3
+) sub
+order by "helpfulPct" asc
 ```
 
 ## Expand/collapse patterns
@@ -483,28 +609,40 @@ See which pages get the best and worst ratings.
 
 Find the `<details>` and accordion content users most want to see.
 
-```apl
-['do11y']
-| where eventType == 'expand_collapse' and action == 'expand'
-| summarize expansions = count() by path, summary
-| order by expansions desc
-| take 30
+```sql
+select
+    payload->>'path' as path,
+    payload->>'summary' as summary,
+    count(*) as expansions
+from do11y_events
+where payload->>'eventType' = 'expand_collapse'
+  and payload->>'action' = 'expand'
+group by 1, 2
+order by expansions desc
+limit 30
 ```
 
 ### Expand rate by page
 
 Identify pages where users frequently expand hidden content.
 
-```apl
-['do11y']
-| where eventType in ('expand_collapse', 'page_view')
-| summarize
-    expands = countif(eventType == 'expand_collapse' and action == 'expand'),
-    views = countif(eventType == 'page_view')
-  by path
-| where views > 10
-| extend expandRate = round(100.0 * expands / views, 1)
-| order by expandRate desc
+```sql
+select
+    path,
+    expands,
+    views,
+    round(100.0 * expands / views, 1) as "expandRate"
+from (
+    select
+        payload->>'path' as path,
+        count(*) filter (where payload->>'eventType' = 'expand_collapse' and payload->>'action' = 'expand') as expands,
+        count(*) filter (where payload->>'eventType' = 'page_view') as views
+    from do11y_events
+    where payload->>'eventType' in ('expand_collapse', 'page_view')
+    group by 1
+    having count(*) filter (where payload->>'eventType' = 'page_view') > 10
+) sub
+order by "expandRate" desc
 ```
 
 ## Content performance comparison
@@ -513,51 +651,66 @@ Identify pages where users frequently expand hidden content.
 
 View all page metrics in a single query.
 
-```apl
-['do11y']
-| summarize 
-    pageViews = countif(eventType == 'page_view'),
-    avgScrollDepth = avgif(maxScrollDepth, eventType == 'page_exit'),
-    avgTimeSeconds = avgif(activeTimeSeconds, eventType == 'page_exit'),
-    linkClicks = countif(eventType == 'link_click'),
-    codeCopies = countif(eventType == 'code_copied'),
-    searches = countif(eventType == 'search_opened'),
-    tocClicks = countif(eventType == 'toc_click'),
-    expands = countif(eventType == 'expand_collapse')
-  by path
-| where pageViews > 10
-| extend 
-    clicksPerView = round(1.0 * linkClicks / pageViews, 2),
-    copiesPerView = round(1.0 * codeCopies / pageViews, 2)
-| order by pageViews desc
+```sql
+select
+    path,
+    "pageViews",
+    "avgScrollDepth",
+    "avgTimeSeconds",
+    "linkClicks",
+    "codeCopies",
+    searches,
+    "tocClicks",
+    expands,
+    round(1.0 * "linkClicks" / "pageViews", 2) as "clicksPerView",
+    round(1.0 * "codeCopies" / "pageViews", 2) as "copiesPerView"
+from (
+    select
+        payload->>'path' as path,
+        count(*) filter (where payload->>'eventType' = 'page_view') as "pageViews",
+        avg((payload->>'maxScrollDepth')::numeric) filter (where payload->>'eventType' = 'page_exit') as "avgScrollDepth",
+        avg((payload->>'activeTimeSeconds')::numeric) filter (where payload->>'eventType' = 'page_exit') as "avgTimeSeconds",
+        count(*) filter (where payload->>'eventType' = 'link_click') as "linkClicks",
+        count(*) filter (where payload->>'eventType' = 'code_copied') as "codeCopies",
+        count(*) filter (where payload->>'eventType' = 'search_opened') as searches,
+        count(*) filter (where payload->>'eventType' = 'toc_click') as "tocClicks",
+        count(*) filter (where payload->>'eventType' = 'expand_collapse') as expands
+    from do11y_events
+    group by 1
+    having count(*) filter (where payload->>'eventType' = 'page_view') > 10
+) sub
+order by "pageViews" desc
 ```
 
 ### Compare sections
 
 Aggregate performance by URL prefix (section).
 
-```apl
-['do11y']
-| extend section = extract("^/([^/]+)", 1, path)
-| where eventType == 'page_exit'
-| summarize 
-    visits = count(),
-    avgTime = avg(activeTimeSeconds),
-    avgScroll = avg(maxScrollDepth)
-  by section
-| order by visits desc
+```sql
+select
+    substring(payload->>'path' from '^/([^/]+)') as section,
+    count(*) as visits,
+    avg((payload->>'activeTimeSeconds')::numeric) as "avgTime",
+    avg((payload->>'maxScrollDepth')::numeric) as "avgScroll"
+from do11y_events
+where payload->>'eventType' = 'page_exit'
+group by 1
+order by visits desc
 ```
 
 ### Week-over-week trend
 
 Track traffic growth over time.
 
-```apl
-['do11y']
-| where eventType == 'page_view'
-| extend week = startofweek(_time)
-| summarize pageViews = count(), uniqueSessions = dcount(sessionId) by bin_auto(_time), week
-| order by week asc
+```sql
+select
+    date_trunc('week', (payload->>'_time')::timestamptz) as week,
+    count(*) as "pageViews",
+    count(distinct payload->>'sessionId') as "uniqueSessions"
+from do11y_events
+where payload->>'eventType' = 'page_view'
+group by 1
+order by week asc
 ```
 
 ## Device and context
@@ -566,39 +719,42 @@ Track traffic growth over time.
 
 Compare engagement by device type.
 
-```apl
-['do11y']
-| where eventType == 'page_exit'
-| summarize 
-    visits = count(),
-    avgTime = avg(activeTimeSeconds),
-    avgScroll = avg(maxScrollDepth)
-  by deviceType
+```sql
+select
+    payload->>'deviceType' as "deviceType",
+    count(*) as visits,
+    avg((payload->>'activeTimeSeconds')::numeric) as "avgTime",
+    avg((payload->>'maxScrollDepth')::numeric) as "avgScroll"
+from do11y_events
+where payload->>'eventType' = 'page_exit'
+group by 1
 ```
 
 ### Viewport impact on engagement
 
 See how screen size affects user behavior.
 
-```apl
-['do11y']
-| where eventType == 'page_exit'
-| summarize 
-    visits = count(),
-    avgScroll = avg(maxScrollDepth)
-  by viewportCategory
-| order by visits desc
+```sql
+select
+    payload->>'viewportCategory' as "viewportCategory",
+    count(*) as visits,
+    avg((payload->>'maxScrollDepth')::numeric) as "avgScroll"
+from do11y_events
+where payload->>'eventType' = 'page_exit'
+group by 1
+order by visits desc
 ```
 
 ### Browser breakdown
 
 Understand your audience's browser preferences.
 
-```apl
-['do11y']
-| where eventType == 'page_view'
-| summarize sessions = dcount(sessionId) by browserFamily
-| order by sessions desc
+```sql
+select payload->>'browserFamily' as "browserFamily", count(distinct payload->>'sessionId') as sessions
+from do11y_events
+where payload->>'eventType' = 'page_view'
+group by 1
+order by sessions desc
 ```
 
 ## Key metrics reference

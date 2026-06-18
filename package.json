@@ -1,7 +1,7 @@
 {
-  "name": "@axiomhq/do11y",
-  "version": "0.0.6",
-  "description": "Documentation observability for Axiom",
+  "name": "@manototh/do11y",
+  "version": "0.0.2",
+  "description": "Documentation observability",
   "type": "module",
   "main": "./dist/do11y.min.js",
   "exports": {
@@ -19,7 +19,7 @@
     "check": "tsc --noEmit"
   },
   "keywords": [
-    "axiom",
+    "supabase",
     "analytics",
     "documentation",
     "observability"

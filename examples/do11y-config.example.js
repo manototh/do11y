@@ -2,7 +2,7 @@
  * Do11y configuration example.
  *
  * Copy this file alongside do11y.js in your docs site and rename it to
- * do11y-config.js. Set the values below to match your Axiom setup.
+ * do11y-config.js. Set the values below to match your Supabase setup.
  *
  * This file must load before do11y.js. For frameworks that auto-include
  * all .js files (like Mintlify), alphabetical ordering handles this
@@ -12,17 +12,17 @@
  * See the README for the full list.
  */
 window.Do11yConfig = {
-  // Required: Axiom ingest endpoint.
-  // Use an edge deployment domain for lower latency:
-  //   US East 1 (AWS):    'us-east-1.aws.edge.axiom.co'
-  //   EU Central 1 (AWS): 'eu-central-1.aws.edge.axiom.co'
-  axiomHost: 'AXIOM_DOMAIN',
+  // Destination: 'supabase' (default) or 'http'
+  destination: 'supabase',
 
-  // Required: Ingest-only API token scoped to a single dataset.
-  axiomToken: 'API_TOKEN',
+  // Required: Supabase project URL.
+  supabaseUrl: 'https://YOUR_PROJECT.supabase.co',
 
-  // Required: Target Axiom dataset.
-  axiomDataset: 'DATASET_NAME',
+  // Required: Supabase publishable key (starts with sb_publishable_).
+  supabaseKey: 'sb_publishable_YOUR_KEY',
+
+  // Optional: Table name (default: 'do11y_events').
+  supabaseTable: 'do11y_events',
 
   // Documentation framework. Supported values:
   // 'mintlify', 'docusaurus', 'nextra', 'gitbook', 'mkdocs-material',
@@ -32,4 +32,9 @@ window.Do11yConfig = {
   // Optional: restrict which domains may send data.
   // Set to null to allow any domain.
   // allowedDomains: ['docs.example.com'],
+
+  // --- Alternative: Generic HTTP destination ---
+  // destination: 'http',
+  // httpEndpoint: 'https://your-endpoint.com/events',
+  // httpHeaders: { 'Authorization': 'Bearer your-token' },
 };

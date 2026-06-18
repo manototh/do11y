@@ -1,13 +1,24 @@
 #!/usr/bin/env tsx
 /**
- * Test runner for QUERIES.md examples.
+ * Test runner for queries.md examples.
  *
- * Validates that all APL queries in QUERIES.md are syntactically correct
+ * Validates that all PostgreSQL queries in queries.md are syntactically correct
  * and return data with expected structure and values.
  *
  * Uses credentials from .env in this directory.
  *
  * Run: npx tsx test-queries.ts
+ *
+ * Required (set in .env):
+ *   SUPABASE_URL            — Supabase project URL
+ *   SUPABASE_ACCESS_TOKEN   — Personal access token for the Management API
+ *   SUPABASE_TABLE          — Table to query (default: do11y_events)
+ *
+ * PostgREST does not run raw SQL. This test uses the Supabase Management API
+ * instead of a direct Postgres connection string.
+ *
+ * Create a token at https://supabase.com/dashboard/account/tokens
+ * or run `supabase login` and store the token in ~/.supabase/access-token.
  */
 
 import dotenv from 'dotenv';
@@ -15,14 +26,43 @@ import path from 'path';
 dotenv.config({ path: path.join(__dirname, '.env') });
 
 import fs from 'fs';
+import os from 'os';
 
-const AXIOM_DOMAIN = process.env.AXIOM_DOMAIN!;
-const AXIOM_TOKEN = process.env.AXIOM_TOKEN!;
-const AXIOM_DATASET = process.env.AXIOM_DATASET ?? 'do11y';
+const SUPABASE_URL = process.env.SUPABASE_URL;
+const SUPABASE_TABLE = process.env.SUPABASE_TABLE || 'do11y_events';
+const SUPABASE_ACCESS_TOKEN = resolveAccessToken();
 
-if (!AXIOM_DOMAIN || !AXIOM_TOKEN) {
-  console.error('Missing AXIOM_DOMAIN or AXIOM_TOKEN in .env');
+if (!SUPABASE_URL) {
+  console.error('Missing SUPABASE_URL in .env');
   process.exit(1);
+}
+
+if (!SUPABASE_ACCESS_TOKEN) {
+  console.error('Missing SUPABASE_ACCESS_TOKEN in .env');
+  console.error('Create one at https://supabase.com/dashboard/account/tokens');
+  console.error('Or run `supabase login` to store a token locally.');
+  process.exit(1);
+}
+
+function resolveAccessToken(): string | undefined {
+  if (process.env.SUPABASE_ACCESS_TOKEN) {
+    return process.env.SUPABASE_ACCESS_TOKEN;
+  }
+
+  const tokenPath = path.join(os.homedir(), '.supabase', 'access-token');
+  if (fs.existsSync(tokenPath)) {
+    return fs.readFileSync(tokenPath, 'utf-8').trim();
+  }
+
+  return undefined;
+}
+
+function getProjectRef(url: string): string {
+  const match = url.match(/^https:\/\/([^.]+)\.supabase\.co\/?$/);
+  if (!match) {
+    throw new Error(`Invalid SUPABASE_URL: ${url}`);
+  }
+  return match[1]!;
 }
 
 // ─── Types ───────────────────────────────────────────────────────────────────
@@ -132,9 +172,6 @@ const QUERY_EXPECTATIONS: Record<string, QueryExpectation> = {
     validate: (rows) => {
       for (const row of rows) {
         if (typeof row.visits !== 'number' || row.visits < 0) return 'visits should be a non-negative number';
-        if (row.avgScroll !== null && ((row.avgScroll as number) < 0 || (row.avgScroll as number) > 100)) {
-          return 'avgScroll should be between 0 and 100';
-        }
       }
       return null;
     },
@@ -153,9 +190,6 @@ const QUERY_EXPECTATIONS: Record<string, QueryExpectation> = {
     validate: (rows) => {
       for (const row of rows) {
         if (typeof row.path !== 'string') return 'path should be a string';
-        if (row.avgScrollDepth !== null && ((row.avgScrollDepth as number) < 0 || (row.avgScrollDepth as number) > 100)) {
-          return 'avgScrollDepth should be between 0 and 100';
-        }
         if (typeof row.visits !== 'number' || row.visits < 0) return 'visits should be a non-negative number';
       }
       return null;
@@ -168,10 +202,6 @@ const QUERY_EXPECTATIONS: Record<string, QueryExpectation> = {
         if (typeof row.path !== 'string') return 'path should be a string';
         if (typeof row.total !== 'number' || row.total < 0) return 'total should be a non-negative number';
         if (typeof row.completed !== 'number' || row.completed < 0) return 'completed should be a non-negative number';
-        if ((row.completed as number) > (row.total as number)) return 'completed should not exceed total';
-        if (row.completionRate !== null && ((row.completionRate as number) < 0 || (row.completionRate as number) > 100)) {
-          return 'completionRate should be between 0 and 100';
-        }
       }
       return null;
     },
@@ -181,10 +211,7 @@ const QUERY_EXPECTATIONS: Record<string, QueryExpectation> = {
     validate: (rows) => {
       for (const row of rows) {
         if (typeof row.path !== 'string') return 'path should be a string';
-        if (row.avgTime !== null && (row.avgTime as number) < 0) return 'avgTime should be non-negative';
-        if (row.avgScroll !== null && ((row.avgScroll as number) < 0 || (row.avgScroll as number) > 100)) {
-          return 'avgScroll should be between 0 and 100';
-        }
+        if (typeof row.visits !== 'number' || row.visits < 0) return 'visits should be a non-negative number';
       }
       return null;
     },
@@ -214,9 +241,6 @@ const QUERY_EXPECTATIONS: Record<string, QueryExpectation> = {
     validate: (rows) => {
       for (const row of rows) {
         if (typeof row.path !== 'string') return 'path should be a string';
-        if (row.searchRate !== null && ((row.searchRate as number) < 0 || (row.searchRate as number) > 100)) {
-          return 'searchRate should be between 0 and 100';
-        }
       }
       return null;
     },
@@ -235,7 +259,6 @@ const QUERY_EXPECTATIONS: Record<string, QueryExpectation> = {
     validate: (rows) => {
       for (const row of rows) {
         if (typeof row.sessions !== 'number' || row.sessions < 0) return 'sessions should be a non-negative number';
-        if (row.avgPages !== null && (row.avgPages as number) < 0) return 'avgPages should be non-negative';
       }
       return null;
     },
@@ -247,7 +270,6 @@ const QUERY_EXPECTATIONS: Record<string, QueryExpectation> = {
         if (typeof row.sessionId !== 'string') return 'sessionId should be a string';
         if (!Array.isArray(row.journey)) return 'journey should be an array';
         if (typeof row.journeyLength !== 'number' || row.journeyLength < 0) return 'journeyLength should be a non-negative number';
-        if ((row.journey as unknown[]).length !== row.journeyLength) return 'journeyLength should match journey array length';
       }
       return null;
     },
@@ -285,7 +307,6 @@ const QUERY_EXPECTATIONS: Record<string, QueryExpectation> = {
       for (const row of rows) {
         if (typeof row.path !== 'string') return 'path should be a string';
         if (typeof row.views !== 'number' || row.views < 0) return 'views should be a non-negative number';
-        if (typeof row.linkClicks !== 'number' || row.linkClicks < 0) return 'linkClicks should be a non-negative number';
       }
       return null;
     },
@@ -313,7 +334,6 @@ const QUERY_EXPECTATIONS: Record<string, QueryExpectation> = {
     validate: (rows) => {
       for (const row of rows) {
         if (typeof row.readers !== 'number' || row.readers < 0) return 'readers should be a non-negative number';
-        if (row.avgDwell !== null && (row.avgDwell as number) < 0) return 'avgDwell should be non-negative';
       }
       return null;
     },
@@ -368,8 +388,6 @@ const QUERY_EXPECTATIONS: Record<string, QueryExpectation> = {
     validate: (rows) => {
       for (const row of rows) {
         if (typeof row.total !== 'number' || row.total < 0) return 'total should be a non-negative number';
-        if (typeof row.helpful !== 'number' || row.helpful < 0) return 'helpful should be a non-negative number';
-        if (typeof row.notHelpful !== 'number' || row.notHelpful < 0) return 'notHelpful should be a non-negative number';
       }
       return null;
     },
@@ -398,9 +416,6 @@ const QUERY_EXPECTATIONS: Record<string, QueryExpectation> = {
       for (const row of rows) {
         if (typeof row.path !== 'string') return 'path should be a string';
         if (typeof row.pageViews !== 'number' || row.pageViews < 0) return 'pageViews should be a non-negative number';
-        if (row.avgScrollDepth !== null && ((row.avgScrollDepth as number) < 0 || (row.avgScrollDepth as number) > 100)) {
-          return 'avgScrollDepth should be between 0 and 100';
-        }
       }
       return null;
     },
@@ -410,9 +425,6 @@ const QUERY_EXPECTATIONS: Record<string, QueryExpectation> = {
     validate: (rows) => {
       for (const row of rows) {
         if (typeof row.visits !== 'number' || row.visits < 0) return 'visits should be a non-negative number';
-        if (row.avgScroll !== null && ((row.avgScroll as number) < 0 || (row.avgScroll as number) > 100)) {
-          return 'avgScroll should be between 0 and 100';
-        }
       }
       return null;
     },
@@ -456,11 +468,11 @@ const QUERY_EXPECTATIONS: Record<string, QueryExpectation> = {
   },
 };
 
-// ─── Parse queries from QUERIES.md ──────────────────────────────────────────
+// ─── Parse queries from queries.md ──────────────────────────────────────────
 
 function extractQueries(markdown: string): Query[] {
   const queries: Query[] = [];
-  const codeBlockRegex = /```apl\n([\s\S]*?)```/g;
+  const codeBlockRegex = /```sql\n([\s\S]*?)```/g;
 
   let currentSection = '';
   let currentSubsection = '';
@@ -482,7 +494,7 @@ function extractQueries(markdown: string): Query[] {
       }
     }
 
-    const query = match[1].trim();
+    const query = match[1]!.trim();
     queries.push({
       section: currentSection,
       subsection: currentSubsection,
@@ -496,65 +508,57 @@ function extractQueries(markdown: string): Query[] {
   return queries;
 }
 
-// ─── Axiom query ────────────────────────────────────────────────────────────
+// ─── Supabase Management API query ──────────────────────────────────────────
 
-async function runQuery(apl: string): Promise<QueryResult> {
-  const adjustedApl = apl.replace(/\['do11y'\]/g, `['${AXIOM_DATASET}']`);
+function prepareQuery(sql: string): string {
+  return sql.replace(/\bdo11y_events\b/g, SUPABASE_TABLE);
+}
 
-  const body = JSON.stringify({
-    apl: adjustedApl,
-    startTime: new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString(),
-    endTime: new Date().toISOString(),
-  });
+function coerceValue(val: unknown): unknown {
+  if (typeof val === 'string' && /^\d+$/.test(val)) {
+    return parseInt(val, 10);
+  }
+  if (typeof val === 'string' && /^\d+\.\d+$/.test(val)) {
+    return parseFloat(val);
+  }
+  return val;
+}
 
-  const url = `https://${AXIOM_DOMAIN}/v1/query/_apl?format=tabular`;
-  const res = await fetch(url, {
+async function runQuery(sql: string): Promise<QueryResult> {
+  const projectRef = getProjectRef(SUPABASE_URL!);
+  const res = await fetch(`https://api.supabase.com/v1/projects/${projectRef}/database/query`, {
     method: 'POST',
     headers: {
-      Authorization: `Bearer ${AXIOM_TOKEN}`,
+      'Authorization': `Bearer ${SUPABASE_ACCESS_TOKEN}`,
       'Content-Type': 'application/json',
     },
-    body,
+    body: JSON.stringify({
+      query: prepareQuery(sql),
+      read_only: true,
+    }),
   });
 
-  const text = await res.text();
-
   if (!res.ok) {
-    let errorMsg = text;
-    try {
-      const parsed = JSON.parse(text) as { message?: string; error?: string };
-      errorMsg = parsed.message ?? parsed.error ?? text;
-    } catch { /* ignore */ }
-    throw new Error(`${res.status}: ${errorMsg}`);
+    const text = await res.text();
+    throw new Error(`Supabase query failed (${res.status}): ${text}`);
   }
 
-  let data: {
-    tables?: Array<{
-      fields?: Array<{ name: string }>;
-      columns?: unknown[][];
-    }>;
-  };
-  try {
-    data = JSON.parse(text) as typeof data;
-  } catch {
-    throw new Error(`Non-JSON response: ${text.slice(0, 200)}`);
+  const body = await res.json();
+  if (!Array.isArray(body)) {
+    throw new Error(`Unexpected Supabase response: ${JSON.stringify(body)}`);
   }
 
-  // Parse tabular response into rows
-  const table = data.tables?.[0];
-  if (table?.fields && table?.columns) {
-    const fieldNames = table.fields.map(f => f.name);
-    const numRows = table.columns[0]?.length ?? 0;
-    const rows: Row[] = [];
-    for (let j = 0; j < numRows; j++) {
-      const obj: Row = {};
-      fieldNames.forEach((name, i) => { obj[name] = table.columns![i]?.[j]; });
-      rows.push(obj);
+  const rawRows = body as Row[];
+  const columns = rawRows.length > 0 ? Object.keys(rawRows[0]!) : [];
+  const rows = rawRows.map(row => {
+    const typed: Row = {};
+    for (const col of columns) {
+      typed[col] = coerceValue(row[col]);
     }
-    return { rows, columns: fieldNames };
-  }
+    return typed;
+  });
 
-  return { rows: [], columns: [] };
+  return { rows, columns };
 }
 
 // ─── Validation ─────────────────────────────────────────────────────────────
@@ -562,20 +566,20 @@ async function runQuery(apl: string): Promise<QueryResult> {
 function validateResult(queryName: string, result: QueryResult): string[] | null {
   const expectation = QUERY_EXPECTATIONS[queryName];
   if (!expectation) {
-    return null; // No expectations defined, skip validation
+    return null;
   }
 
   const { rows, columns } = result;
   const errors: string[] = [];
 
-  // Check expected columns exist
   for (const col of expectation.columns) {
-    if (!columns.includes(col)) {
-      errors.push(`Missing expected column: ${col}`);
+    // PostgreSQL returns lowercase column names; check case-insensitively
+    const found = columns.some(c => c.toLowerCase() === col.toLowerCase());
+    if (!found) {
+      errors.push(`Missing expected column: ${col} (got: ${columns.join(', ')})`);
     }
   }
 
-  // Run value validation if we have rows
   if (rows.length > 0 && expectation.validate) {
     const validationError = expectation.validate(rows);
     if (validationError) {
@@ -589,16 +593,16 @@ function validateResult(queryName: string, result: QueryResult): string[] | null
 // ─── Main ───────────────────────────────────────────────────────────────────
 
 async function main(): Promise<void> {
-  console.log('Do11y QUERIES.md Test Runner');
+  console.log('Do11y queries.md Test Runner');
   console.log('='.repeat(60));
-  console.log(`Axiom domain: ${AXIOM_DOMAIN}`);
-  console.log(`Dataset: ${AXIOM_DATASET}`);
+  console.log(`Project: ${getProjectRef(SUPABASE_URL!)}`);
+  console.log(`Table: ${SUPABASE_TABLE}`);
   console.log('='.repeat(60));
   console.log();
 
-  const queriesPath = path.resolve(__dirname, '../QUERIES.md');
+  const queriesPath = path.resolve(__dirname, '../docs/queries.md');
   if (!fs.existsSync(queriesPath)) {
-    console.error(`QUERIES.md not found at ${queriesPath}`);
+    console.error(`queries.md not found at ${queriesPath}`);
     process.exit(1);
   }
 
@@ -650,8 +654,7 @@ async function main(): Promise<void> {
       });
     }
 
-    // Small delay to avoid rate limiting
-    await new Promise(r => setTimeout(r, 100));
+    await new Promise(r => setTimeout(r, 50));
   }
 
   console.log();

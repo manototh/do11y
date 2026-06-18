@@ -16,29 +16,28 @@ Mintlify doesn't support loading scripts from a CDN via config, so Do11y must be
 
 ## Steps
 
-1. Download the latest release from [GitHub](https://github.com/axiomhq/do11y/releases/latest) and extract the `do11y-<version>.zip` file.
+1. Download the latest release from [GitHub](https://github.com/manototh/do11y/releases/latest) and extract the `do11y-<version>.zip` file.
 
 2. Copy `dist/do11y.min.js` and `examples/do11y-config.example.js` to the same folder in your docs repo (for example, `scripts/`). Alphabetical ordering ensures the config file loads before the main script.
 
 3. Rename `do11y-config.example.js` to `do11y-config.js`.
 
-4. In `do11y-config.js`, replace the placeholder values with your Axiom credentials:
+4. In `do11y-config.js`, replace the placeholder values with your Supabase credentials:
 
 ```js
 window.Do11yConfig = {
-  axiomHost: 'AXIOM_DOMAIN',
-  axiomToken: 'API_TOKEN',
-  axiomDataset: 'DATASET_NAME',
+  supabaseUrl: 'SUPABASE_PROJECT_URL',
+  supabaseKey: 'SUPABASE_PUBLISHABLE_KEY',
   framework: 'mintlify',
 };
 ```
 
-Replace `AXIOM_DOMAIN`, `API_TOKEN`, and `DATASET_NAME` with your [Axiom credentials](/get-started).
+Replace `SUPABASE_PROJECT_URL` and `SUPABASE_PUBLISHABLE_KEY` with your [Supabase credentials](/get-started).
 
 5. Optional: [Set up the automatic sync](/install/manual#automatic-sync-via-github-action) to keep `do11y.min.js` up to date automatically.
 
 ## Next steps
 
-- [Analyze data in the integration dashboard](/integration-dashboard)
+- [Analyze data in the integration dashboard](/analyze)
 - [Query your data](/queries)
 - [Advanced configuration](/configuration)

@@ -18,15 +18,14 @@ Add the following to the `head` array in `.vitepress/config.js` or `.vitepress/c
 
 ```js
 head: [
-  ['meta', { name: 'axiom-do11y-domain', content: 'AXIOM_DOMAIN' }],
-  ['meta', { name: 'axiom-do11y-token', content: 'API_TOKEN' }],
-  ['meta', { name: 'axiom-do11y-dataset', content: 'DATASET_NAME' }],
-  ['meta', { name: 'axiom-do11y-framework', content: 'vitepress' }],
-  ['script', { src: 'https://cdn.jsdelivr.net/npm/@axiomhq/do11y@latest/dist/do11y.min.js' }],
+  ['meta', { name: 'do11y-url', content: 'SUPABASE_PROJECT_URL' }],
+  ['meta', { name: 'do11y-key', content: 'SUPABASE_PUBLISHABLE_KEY' }],
+  ['meta', { name: 'do11y-framework', content: 'vitepress' }],
+  ['script', { src: 'https://cdn.jsdelivr.net/npm/@manototh/do11y@latest/dist/do11y.min.js' }],
 ],
 ```
 
-Replace `AXIOM_DOMAIN`, `API_TOKEN`, and `DATASET_NAME` with your [Axiom credentials](/get-started).
+Replace `SUPABASE_PROJECT_URL` and `SUPABASE_PUBLISHABLE_KEY` with your [Supabase credentials](/get-started).
 
 ## Advanced configuration
 
@@ -34,12 +33,11 @@ To use options beyond the basic credentials, add an inline script entry before t
 
 ```js
 head: [
-  ['meta', { name: 'axiom-do11y-domain', content: 'AXIOM_DOMAIN' }],
-  ['meta', { name: 'axiom-do11y-token', content: 'API_TOKEN' }],
-  ['meta', { name: 'axiom-do11y-dataset', content: 'DATASET_NAME' }],
-  ['meta', { name: 'axiom-do11y-framework', content: 'vitepress' }],
+  ['meta', { name: 'do11y-url', content: 'SUPABASE_PROJECT_URL' }],
+  ['meta', { name: 'do11y-key', content: 'SUPABASE_PUBLISHABLE_KEY' }],
+  ['meta', { name: 'do11y-framework', content: 'vitepress' }],
   ['script', {}, `window.Do11yConfig = { scrollThresholds: [25, 50, 75, 100] };`],
-  ['script', { src: 'https://cdn.jsdelivr.net/npm/@axiomhq/do11y@latest/dist/do11y.min.js' }],
+  ['script', { src: 'https://cdn.jsdelivr.net/npm/@manototh/do11y@latest/dist/do11y.min.js' }],
 ],
 ```
 
@@ -47,6 +45,6 @@ See the [configuration reference](/configuration) for all available options.
 
 ## Next steps
 
-- [Analyze data in the integration dashboard](/integration-dashboard)
+- [Get insights from your data](/analyze)
 - [Query your data](/queries)
 - [Advanced configuration](/configuration)

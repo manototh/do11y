@@ -1,4 +1,4 @@
-name: Update Axiom Do11y
+name: Update Do11y
 
 # Periodically checks for new do11y releases and opens a PR when one is found.
 # Copy this file to .github/workflows/ in your docs repo.
@@ -8,7 +8,7 @@ name: Update Axiom Do11y
 #   Variables:
 #     DO11Y_JS_PATH   - Path to do11y.js in your docs repo (e.g. scripts/do11y.min.js).
 #     DO11Y_VER_PATH  - Path to the version tracking file in your docs repo (e.g. scripts/do11y.version).
-#                       Create this file with the current version tag (e.g. v1.0.0) to
+#                       Create this file with the current version tag (e.g. v0.1.0) to
 #                       avoid triggering a PR on the first run.
 
 on:
@@ -29,7 +29,7 @@ jobs:
       - name: Get latest do11y release
         id: latest
         run: |
-          VERSION=$(curl -sf https://api.github.com/repos/axiomhq/do11y/releases/latest | jq -r '.tag_name')
+          VERSION=$(curl -sf https://api.github.com/repos/manototh/do11y/releases/latest | jq -r '.tag_name')
           echo "version=${VERSION}" >> "$GITHUB_OUTPUT"
 
       - name: Get current do11y version
@@ -55,7 +55,7 @@ jobs:
         if: steps.check.outputs.needed == 'true'
         uses: actions/checkout@v4
         with:
-          repository: axiomhq/do11y
+          repository: manototh/do11y
           ref: ${{ steps.latest.outputs.version }}
           path: _do11y
 
@@ -96,5 +96,5 @@ jobs:
           else
             gh pr create \
               --title "Update do11y to ${VERSION}" \
-              --body "Automated update from [do11y ${VERSION}](https://github.com/axiomhq/do11y/releases/tag/${VERSION})."
+              --body "Automated update from [do11y ${VERSION}](https://github.com/manototh/do11y/releases/tag/${VERSION})."
           fi

@@ -29,10 +29,7 @@ export default async function RootLayout({ children }) {
       suppressHydrationWarning
     >
       <Head>
-        <meta name="axiom-do11y-domain" content="us-east-1.aws.edge.axiom.co" />
-        <meta name="axiom-do11y-token" content="xaat-8c763b42-88a2-4474-a776-8f534d9fd82b" />
-        <meta name="axiom-do11y-dataset" content="mano-do11y-test" />
-        <meta name="axiom-do11y-framework" content="nextra" />
+        <meta name="do11y-framework" content="nextra" />
         <script src="/do11y.js" defer />
       </Head>
       <body>

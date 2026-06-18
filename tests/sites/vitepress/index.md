@@ -43,7 +43,7 @@ The SDK supports Node.js 18+ and all modern browsers.
 ## Navigation
 
 - [Guide page](/guide) — internal link for click tracking
-- [Axiom website](https://axiom.co) — external link for outbound tracking
+- [Supabase website](https://supabase.com) — external link for outbound tracking
 
 ## More content
 

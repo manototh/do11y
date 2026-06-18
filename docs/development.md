@@ -20,11 +20,11 @@ The `tests` folder contains multiple layers of testing. Each catches a different
 |---|---|
 | Framework updated a CSS class name (selector drift) | `test-live-sites.ts` |
 | Do11y broken on a specific framework's local dev server | `test-integrations.ts` |
-| Events not reaching Axiom from a real production site | `test-e2e-live.ts` |
+| Events not reaching Supabase from a real production site | `test-e2e-live.ts` |
 
 ### Selector tests against live sites
 
-**`tests/test-live-sites.ts`** runs headless Chromium via Puppeteer against real documentation sites to validate that selectors match elements in production. It requires no Axiom credentials. Its only job is to catch selector drift when a framework ships a DOM update that renames class names.
+**`tests/test-live-sites.ts`** runs headless Chromium via Puppeteer against real documentation sites to validate that selectors match elements in production. It requires no credentials. Its only job is to catch selector drift when a framework ships a DOM update that renames class names.
 
 ```bash
 cd tests
@@ -45,7 +45,7 @@ Sites covered:
 
 ### E2E live-site tests
 
-**`tests/test-e2e-live.ts`** is the only test that proves events reach Axiom from a real site. It injects `do11y.js` into live public documentation sites via Puppeteer's `evaluateOnNewDocument`, drives a realistic user journey, sends events to Axiom, and then queries Axiom to validate that the expected event types arrived.
+**`tests/test-e2e-live.ts`** is the only test that proves events reach Supabase from a real site. It injects `do11y.js` into live public documentation sites via Puppeteer's `evaluateOnNewDocument`, drives a realistic user journey, sends events to Supabase, and then queries the database to validate that the expected event types arrived.
 
 ```bash
 cd tests
@@ -56,12 +56,11 @@ npx puppeteer browsers install chrome
 Copy `tests/.env.example` to `tests/.env` and add your credentials:
 
 ```
-AXIOM_DOMAIN=us-east-1.aws.edge.axiom.co
-AXIOM_TOKEN=xaat-your-ingest-token
-AXIOM_DATASET=do11y
+SUPABASE_URL=https://your-project.supabase.co
+SUPABASE_KEY=sb_publishable_your_key
+SUPABASE_SECRET_KEY=sb_secret_your_secret_key
+SUPABASE_TABLE=do11y_integration_test
 ```
-
-The token requires both **ingest** and **query** permissions on the target dataset.
 
 Run the full suite:
 
@@ -81,43 +80,31 @@ Skip the build step on repeat runs (uses an existing `dist/do11y.js`):
 SKIP_BUILD=1 npm run test-e2e-live
 ```
 
-Sites covered:
-
-| Framework | Start URL | Second URL |
-|---|---|---|
-| Mintlify | https://www.mintlify.com/docs/components/expandables | https://www.mintlify.com/docs/components/accordions |
-| Docusaurus | https://docusaurus.io/docs/next/swizzling | https://docusaurus.io/docs/next/markdown-features |
-| Nextra | https://nextra.site/docs/docs-theme/start | https://nextra.site/docs/docs-theme/built-ins/layout |
-| MkDocs Material | https://squidfunk.github.io/mkdocs-material/reference/admonitions | https://squidfunk.github.io/mkdocs-material/reference/code-blocks/ |
-| VitePress | https://vitepress.dev/guide/getting-started | https://vitepress.dev/guide/markdown |
-
-Events validated per framework:
-
-| Event | Minimum expected | Notes |
-|---|---|---|
-| `page_view` | 2 | Start page + second page |
-| `scroll_depth` | 1 | |
-| `link_click` | 1 | |
-| `page_exit` | 1 | |
-| `expand_collapse` | 1 | 0 for Nextra (no documentation-level expandables on test page) |
-| `toc_click` | 1 | |
-| `search_opened` | 0 | Best-effort. Not all frameworks render search the same way. |
-| `code_copied` | 1 | |
-| `feedback` | 0 | 1 for Mintlify and MkDocs Material |
-| `section_visible` | 1 | `sectionVisibleThreshold: 1` + 2s dwell |
-
 ### Query validation
 
-**`tests/test-queries.ts`** validates that all APL queries in `QUERIES.md` are syntactically correct by executing them against the Axiom API.
+**`tests/test-queries.ts`** validates that all SQL queries in the queries docs are syntactically correct by executing them against the Supabase database.
 
 ```bash
 cd tests
 npm run test-queries
 ```
 
+Copy `tests/.env.example` to `tests/.env` and add the same Supabase credentials as the integration tests, plus a personal access token for the Management API:
+
+```
+SUPABASE_URL=https://your-project.supabase.co
+SUPABASE_SECRET_KEY=sb_secret_your_secret_key
+SUPABASE_TABLE=do11y_integration_test
+SUPABASE_ACCESS_TOKEN=sbp_...
+```
+
+PostgREST doesn't support raw SQL. This test runs queries through the [Supabase Management API](https://supabase.com/docs/reference/api/v1-run-a-query) instead of a direct Postgres connection string.
+
+Create `SUPABASE_ACCESS_TOKEN` at [Account tokens](https://supabase.com/dashboard/account/tokens), or run `supabase login` to store a token locally.
+
 ### Integration tests
 
-**`tests/test-integrations.ts`** installs each supported framework, injects `do11y.js`, starts a local dev server, drives user interactions via Puppeteer, and then queries the Axiom API to verify that events arrived correctly.
+**`tests/test-integrations.ts`** installs each supported framework, injects `do11y.js`, starts a local dev server, drives user interactions via Puppeteer, and then queries the Supabase database to verify that events arrived correctly.
 
 ```bash
 cd tests
@@ -128,9 +115,30 @@ npx puppeteer browsers install chrome
 Copy `tests/.env.example` to `tests/.env` and add your credentials:
 
 ```
-AXIOM_DOMAIN=us-east-1.aws.edge.axiom.co
-AXIOM_TOKEN=xaat-your-ingest-token
-AXIOM_DATASET=do11y
+SUPABASE_URL=https://your-project.supabase.co
+SUPABASE_KEY=sb_publishable_your_key
+SUPABASE_SECRET_KEY=sb_secret_your_secret_key
+SUPABASE_TABLE=do11y_integration_test
+```
+
+Create a dedicated test table in the Supabase SQL Editor:
+
+```sql
+create table do11y_integration_test (
+  id bigint generated always as identity primary key,
+  created_at timestamptz not null default now(),
+  payload jsonb not null
+);
+
+alter table do11y_integration_test enable row level security;
+
+grant insert on do11y_integration_test to anon;
+grant select on do11y_integration_test to service_role;
+
+create policy "Allow anonymous inserts"
+  on do11y_integration_test for insert
+  to anon
+  with check (true);
 ```
 
 Run the full suite:
@@ -180,14 +188,14 @@ npm run lint
 5. Tag and release:
 
 ```bash
-git tag v1.1.0
-git push origin v1.1.0
-gh release create v1.1.0
+git tag v0.1.0
+git push origin v0.1.0
+gh release create v0.1.0
 ```
 
-Alternatively, create the release at [github.com/axiomhq/do11y/releases/new](https://github.com/axiomhq/do11y/releases/new).
+Alternatively, create the release at [github.com/manototh/do11y/releases/new](https://github.com/manototh/do11y/releases/new).
 
-6. Publish to npm as `@axiomhq/do11y` (requires access to the `@axiomhq` npm organization):
+6. Publish to npm:
 
 ```bash
 npm login
