@@ -22,9 +22,9 @@ Before running the skill, get your Supabase database connection string from **Se
 
 Copy the [**Analyze Do11y data** skill](https://github.com/manototh/do11y/blob/main/.cursor/skills/analyze-do11y-data/SKILL.md) into the AI agent and ask it to analyze your docs:
 
-> Analyze my Do11y data. Database URL: `postgresql://...`, table: `do11y_events`.
+> Analyze my Do11y data. Database URL: `https://abc123.supabase.co`, secret key: `sb_secret_...`
 
-Additionally, define the time range for the audit.
+Optionally, define the table name and time range for the audit.
 
 The agent picks up the skill automatically. It queries your database, checks for common instrumentation gaps, and returns a report.
 
