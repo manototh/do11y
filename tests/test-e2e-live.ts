@@ -439,7 +439,7 @@ const EXPECTED_EVENTS: Record<string, EventExpectation> = {
   section_visible: { min: 1 },
 };
 
-const FEEDBACK_REQUIRED = new Set(['mintlify', 'mkdocs-material']);
+const FEEDBACK_REQUIRED = new Set(['mkdocs-material']);
 const EXPAND_NONE = new Set(['nextra']);
 
 function validateEvents(
