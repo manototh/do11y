@@ -387,6 +387,22 @@ function extractCodeLanguage(start: Element | null): string {
     const langSpan = el.querySelector(':scope > span.lang');
     const langText = langSpan?.textContent?.trim();
     if (langText) return langText;
+
+    // Broader search: any descendant with language metadata
+    // (catches cases where language is nested deeper in the subtree,
+    //  e.g. Mintlify's <pre language="mdx"> / <code language="mdx">).
+    const deepLang = el.querySelector(
+      '[data-language], [data-lang], [data-code-lang], [class*="language-"], [language]'
+    );
+    if (deepLang) {
+      const dl =
+        deepLang.getAttribute('language') ??
+        deepLang.getAttribute('data-language') ??
+        deepLang.getAttribute('data-lang') ??
+        deepLang.getAttribute('data-code-lang') ??
+        languageFromClassName(getElementClassName(deepLang));
+      if (dl) return dl;
+    }
   }
 
   return 'unknown';
@@ -1290,7 +1306,7 @@ function setupCopyTracking(): void {
     const copyButton = (e.target as Element).closest(config.copyButtonSelector!);
     if (copyButton) {
       const codeBlock: Element | null =
-        copyButton.closest('[class*="language-"]') ??
+        copyButton.closest('[class*="language-"], [language]') ??
         copyButton.closest(config.codeBlockSelector!) ??
         // For Starlight / Expressive Code: the <pre> is a sibling, not
         // an ancestor, of the copy button's container. Look for it
@@ -1303,7 +1319,7 @@ function setupCopyTracking(): void {
       const codeEl: Element | null = codeBlock
         ? (codeBlock.tagName === 'PRE'
           ? codeBlock.querySelector('code')
-          : codeBlock.querySelector('code[class*="language-"]') ?? codeBlock.querySelector('code'))
+          : codeBlock.querySelector('code[class*="language-"], code[language]') ?? codeBlock.querySelector('code'))
         : null;
 
       const language = extractCodeLanguage(codeEl ?? codeBlock ?? copyButton);
