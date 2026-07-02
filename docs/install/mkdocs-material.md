@@ -23,7 +23,7 @@ theme:
   name: material
   custom_dir: overrides
 extra_javascript:
-  - https://cdn.jsdelivr.net/npm/@axiomhq/do11y@latest/dist/do11y.min.js
+  - https://cdn.jsdelivr.net/npm/@manototh/do11y@latest/dist/do11y.min.js
 ```
 
 ### 2. Create the overrides template
@@ -33,14 +33,13 @@ Create `overrides/main.html` to inject the configuration meta tags:
 ```html
 {% extends "base.html" %}
 {% block extrahead %}
-  <meta name="axiom-do11y-domain" content="AXIOM_DOMAIN">
-  <meta name="axiom-do11y-token" content="API_TOKEN">
-  <meta name="axiom-do11y-dataset" content="DATASET_NAME">
-  <meta name="axiom-do11y-framework" content="mkdocs-material">
+  <meta name="do11y-url" content="SUPABASE_PROJECT_URL">
+  <meta name="do11y-key" content="SUPABASE_PUBLISHABLE_KEY">
+  <meta name="do11y-framework" content="mkdocs-material">
 {% endblock %}
 ```
 
-Replace `AXIOM_DOMAIN`, `API_TOKEN`, and `DATASET_NAME` with your [Axiom credentials](/get-started).
+Replace `SUPABASE_PROJECT_URL` and `SUPABASE_PUBLISHABLE_KEY` with your [Supabase credentials](/get-started).
 
 See the [MkDocs Material docs](https://squidfunk.github.io/mkdocs-material/customization/#extending-the-theme) for more on theme overrides.
 
@@ -51,20 +50,18 @@ To use options beyond the basic credentials, add an inline script in `overrides/
 ```html
 {% extends "base.html" %}
 {% block extrahead %}
-  <meta name="axiom-do11y-domain" content="AXIOM_DOMAIN">
-  <meta name="axiom-do11y-token" content="API_TOKEN">
-  <meta name="axiom-do11y-dataset" content="DATASET_NAME">
-  <meta name="axiom-do11y-framework" content="mkdocs-material">
+  <meta name="do11y-url" content="SUPABASE_PROJECT_URL">
+  <meta name="do11y-key" content="SUPABASE_PUBLISHABLE_KEY">
+  <meta name="do11y-framework" content="mkdocs-material">
   <script>
     window.Do11yConfig = { scrollThresholds: [25, 50, 75, 100] };
-  </script>
-{% endblock %}
+  </script>{% endblock %}
 ```
 
-See the [configuration reference](/configuration) for all available options.
+Replace `SUPABASE_PROJECT_URL` and `SUPABASE_PUBLISHABLE_KEY` with your [Supabase credentials](/get-started).
 
 ## Next steps
 
-- [Analyze data in the integration dashboard](/integration-dashboard)
+- [Get insights from your data](/analyze)
 - [Query your data](/queries)
 - [Advanced configuration](/configuration)

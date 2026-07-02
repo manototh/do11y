@@ -9,7 +9,7 @@ const OG_IMAGE = `${SITE_URL}og-image.png`
 export default defineConfig({
   base: PATH,
   title: "Do11y",
-  description: "Documentation observability for Axiom. Stream behavioral events from your docs site in real time.",
+  description: "Documentation observability. Stream behavioral events from your docs site in real time.",
   sitemap: {
     hostname: `${SITE_URL}`,
   },
@@ -20,13 +20,11 @@ export default defineConfig({
     ['meta', { property: 'og:site_name', content: 'Do11y' }],
     ['meta', { property: 'og:image', content: OG_IMAGE }],
     ['meta', { name: 'twitter:card', content: 'summary_large_image' }],
-    ['meta', { name: 'twitter:site', content: '@axiomhq' }],
     ['meta', { name: 'twitter:image', content: OG_IMAGE }],
-    ['meta', { name: 'axiom-do11y-domain', content: 'us-east-1.aws.edge.axiom.co' }],
-    ['meta', { name: 'axiom-do11y-token', content: 'TODO' }],
-    ['meta', { name: 'axiom-do11y-dataset', content: 'mano-docs-site-of-do11y' }],
-    ['meta', { name: 'axiom-do11y-framework', content: 'vitepress' }],
-    ['script', { src: 'https://cdn.jsdelivr.net/npm/@axiomhq/do11y@latest/dist/do11y.min.js' }],
+    ['meta', { name: 'do11y-url', content: 'https://jhyelfdzatnuebggtnwj.supabase.co' }],
+    ['meta', { name: 'do11y-key', content: 'sb_publishable_HEBOG0yBbyznVe589OarEA_I_4msl3d' }],
+    ['meta', { name: 'do11y-framework', content: 'vitepress' }],
+    ['script', { src: 'https://cdn.jsdelivr.net/npm/@manototh/do11y@latest/dist/do11y.min.js' }],
   ],
   themeConfig: {
     siteTitle: 'Do11y Documentation',
@@ -44,7 +42,7 @@ export default defineConfig({
       { text: 'Home', link: '/' },
       { text: 'Introduction', link: '/introduction' },
       { text: 'Install', link: '/get-started' },
-      { text: 'Analyze', link: '/integration-dashboard' },
+      { text: 'Analyze', link: '/analyze' },
       { text: 'Reference', link: '/reference' },
     ],
 
@@ -68,7 +66,6 @@ export default defineConfig({
           { text: 'Docusaurus', link: '/install/docusaurus' },
           { text: 'Nextra', link: '/install/nextra' },
           { text: 'VitePress', link: '/install/vitepress' },
-          { text: 'Starlight (Astro)', link: '/install/starlight' },
           { text: 'MkDocs Material', link: '/install/mkdocs-material' },
           { text: 'Manual setup', link: '/install/manual' },
         ],
@@ -77,7 +74,7 @@ export default defineConfig({
         text: 'Analyze',
         collapsed: false,
         items: [
-          { text: 'Integration dashboard', link: '/integration-dashboard' },
+          { text: 'Analyze your data', link: '/analyze' },
           { text: 'Audit docs with AI agent', link: '/audit' },
           { text: 'Example queries', link: '/queries' },
         ],
@@ -111,17 +108,16 @@ export default defineConfig({
     ],
 
     editLink: {
-      pattern: 'https://github.com/axiomhq/do11y/edit/main/docs/:path',
+      pattern: 'https://github.com/manototh/do11y/edit/main/docs/:path',
       text: 'Edit this page on GitHub',
     },
 
     socialLinks: [
-      { icon: 'github', link: 'https://github.com/axiomhq/do11y' }
+      { icon: 'github', link: 'https://github.com/manototh/do11y' }
     ],
 
     footer: {
       message: 'Released under the MIT License.',
-      copyright: 'Copyright © Axiom, Inc.'
     },
   }
 })

@@ -6,7 +6,7 @@ export default defineConfig([
     output: {
       file: 'dist/do11y.js',
       format: 'iife',
-      name: 'AxiomDo11yBundle',
+      name: 'Do11yBundle',
     },
   },
   {
@@ -14,7 +14,7 @@ export default defineConfig([
     output: {
       file: 'dist/do11y.min.js',
       format: 'iife',
-      name: 'AxiomDo11yBundle',
+      name: 'Do11yBundle',
       minify: true,
     },
   },

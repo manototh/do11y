@@ -19,14 +19,13 @@ Use manual setup for frameworks not listed in the supported frameworks, or for c
 Add the following to every page of your docs site:
 
 ```html
-<meta name="axiom-do11y-domain" content="AXIOM_DOMAIN">
-<meta name="axiom-do11y-token" content="API_TOKEN">
-<meta name="axiom-do11y-dataset" content="DATASET_NAME">
-<meta name="axiom-do11y-framework" content="FRAMEWORK">
-<script src="https://cdn.jsdelivr.net/npm/@axiomhq/do11y@latest/dist/do11y.min.js"></script>
+<meta name="do11y-url" content="SUPABASE_PROJECT_URL">
+<meta name="do11y-key" content="SUPABASE_PUBLISHABLE_KEY">
+<meta name="do11y-framework" content="FRAMEWORK">
+<script src="https://cdn.jsdelivr.net/npm/@manototh/do11y@latest/dist/do11y.min.js"></script>
 ```
 
-Replace the meta tag values with your [Axiom credentials](/get-started) and your framework name. To pin a specific version, replace `latest` with a version tag like `1.0.0`.
+Replace the meta tag values with your [Supabase credentials](/get-started) and your framework name. To pin a specific version, replace `latest` with a version tag like `0.1.0`.
 
 Set `FRAMEWORK` to one of the [supported framework values](/configuration#framework), or `'custom'` to provide your own selectors.
 
@@ -37,16 +36,15 @@ Meta tags only cover the essential settings. To configure any [advanced options]
 ```html
 <script>
 window.Do11yConfig = {
-  axiomHost: 'us-east-1.aws.edge.axiom.co',
-  axiomToken: 'xaat-your-ingest-token',
-  axiomDataset: 'do11y',
+  supabaseUrl: 'SUPABASE_PROJECT_URL',
+  supabaseKey: 'SUPABASE_PUBLISHABLE_KEY',
   framework: 'vitepress',
   scrollThresholds: [25, 50, 75, 100],
   trackFeedback: false,
   sectionVisibleThreshold: 5,
 };
 </script>
-<script src="https://cdn.jsdelivr.net/npm/@axiomhq/do11y@latest/dist/do11y.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/@manototh/do11y@latest/dist/do11y.min.js"></script>
 ```
 
 When both are present, meta tags take precedence over `window.Do11yConfig`, which takes precedence over the defaults.
@@ -55,16 +53,15 @@ When both are present, meta tags take precedence over `window.Do11yConfig`, whic
 
 If you can't use a CDN, host the script yourself.
 
-1. Download the latest release from [GitHub](https://github.com/axiomhq/do11y/releases/latest) and extract the zip.
+1. Download the latest release from [GitHub](https://github.com/manototh/do11y/releases/latest) and extract the zip.
 2. Copy `dist/do11y.min.js` and `examples/do11y-config.example.js` to your docs project (for example, `scripts/`).
 3. Rename `do11y-config.example.js` to `do11y-config.js`.
 4. In `do11y-config.js`, replace the placeholder values with your credentials:
 
 ```js
 window.Do11yConfig = {
-  axiomHost: 'AXIOM_DOMAIN',
-  axiomToken: 'API_TOKEN',
-  axiomDataset: 'DATASET_NAME',
+  supabaseUrl: 'SUPABASE_PROJECT_URL',
+  supabaseKey: 'SUPABASE_PUBLISHABLE_KEY',
   framework: 'FRAMEWORK',
 };
 ```

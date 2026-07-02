@@ -9,9 +9,9 @@ module.exports = {
     ['classic', { docs: { routeBasePath: '/' }, blog: false, theme: {} }],
   ],
   headTags: [
-    { tagName: 'meta', attributes: { name: 'axiom-do11y-framework', content: 'docusaurus' } },
-    { tagName: 'meta', attributes: { name: 'axiom-do11y-debug', content: 'true' } },
-    { tagName: 'meta', attributes: { name: 'axiom-do11y-domains', content: 'localhost' } },
+    { tagName: 'meta', attributes: { name: 'do11y-framework', content: 'docusaurus' } },
+    { tagName: 'meta', attributes: { name: 'do11y-debug', content: 'true' } },
+    { tagName: 'meta', attributes: { name: 'do11y-domains', content: 'localhost' } },
   ],
   scripts: ['/do11y.js'],
 };
