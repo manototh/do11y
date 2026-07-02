@@ -850,7 +850,7 @@
 	function setupSearchTracking() {
 		document.addEventListener("click", (e) => {
 			if (e.target.closest(config.searchSelector)) queueEvent("search_opened", {});
-		});
+		}, true);
 		document.addEventListener("keydown", (e) => {
 			if ((e.metaKey || e.ctrlKey) && e.key === "k") queueEvent("search_opened", { trigger: "keyboard" });
 		});

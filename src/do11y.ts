@@ -1252,12 +1252,14 @@ function setupEngagementTracking(): void {
 // ============================================================
 
 function setupSearchTracking(): void {
+  // Use capture phase so the handler fires before framework event handlers
+  // (e.g. Starlight's <site-search>) can call stopPropagation().
   document.addEventListener('click', (e) => {
     const searchTrigger = (e.target as Element).closest(config.searchSelector!);
     if (searchTrigger) {
       queueEvent('search_opened', {});
     }
-  });
+  }, true);
 
   document.addEventListener('keydown', (e) => {
     if ((e.metaKey || e.ctrlKey) && e.key === 'k') {
