@@ -1292,6 +1292,10 @@ function setupCopyTracking(): void {
       const codeBlock: Element | null =
         copyButton.closest('[class*="language-"]') ??
         copyButton.closest(config.codeBlockSelector!) ??
+        // For Starlight / Expressive Code: the <pre> is a sibling, not
+        // an ancestor, of the copy button's container. Look for it
+        // inside the .expressive-code wrapper.
+        copyButton.closest('.expressive-code')?.querySelector('pre') ??
         copyButton.closest('div, section')?.querySelector('pre') ??
         copyButton.parentElement?.querySelector('pre') ??
         null;
