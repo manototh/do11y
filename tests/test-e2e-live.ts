@@ -453,7 +453,7 @@ const FEEDBACK_REQUIRED = new Set(['mkdocs-material']);
 // Frameworks whose test pages have no documentation-level expandable content.
 // expand_collapse events on these pages indicate a false positive in do11y
 // (e.g. a sidebar nav toggle being mis-classified), so we assert max: 0.
-const EXPAND_NONE = new Set(['nextra', 'starlight']);
+const EXPAND_NONE = new Set(['nextra']);
 
 function validateEvents(
   framework: string,
