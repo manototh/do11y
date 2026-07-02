@@ -17,23 +17,15 @@ head:
 Add the following to the `head` array in your Starlight configuration inside `astro.config.mjs`:
 
 ```js
-export default defineConfig({
-  integrations: [
-    starlight({
-      title: 'My Docs',
-      head: [
-        { tag: 'meta', attrs: { name: 'axiom-do11y-domain', content: 'AXIOM_DOMAIN' } },
-        { tag: 'meta', attrs: { name: 'axiom-do11y-token', content: 'API_TOKEN' } },
-        { tag: 'meta', attrs: { name: 'axiom-do11y-dataset', content: 'DATASET_NAME' } },
-        { tag: 'meta', attrs: { name: 'axiom-do11y-framework', content: 'starlight' } },
-        { tag: 'script', attrs: { src: 'https://cdn.jsdelivr.net/npm/@axiomhq/do11y@latest/dist/do11y.min.js' } },
-      ],
-    }),
-  ],
-});
+head: [
+  { tag: 'meta', attrs: { name: 'do11y-url', content: 'SUPABASE_PROJECT_URL' } },
+  { tag: 'meta', attrs: { name: 'do11y-key', content: 'SUPABASE_PUBLISHABLE_KEY' } },
+  { tag: 'meta', attrs: { name: 'do11y-framework', content: 'starlight' } },
+  { tag: 'script', attrs: { src: 'https://cdn.jsdelivr.net/npm/@manototh/do11y@latest/dist/do11y.min.js' } },
+],
 ```
 
-Replace `AXIOM_DOMAIN`, `API_TOKEN`, and `DATASET_NAME` with your [Axiom credentials](/get-started).
+Replace `SUPABASE_PROJECT_URL` and `SUPABASE_PUBLISHABLE_KEY` with your [Supabase credentials](/get-started).
 
 ## Advanced configuration
 
@@ -41,12 +33,12 @@ To use options beyond the basic credentials, add an inline script entry before t
 
 ```js
 head: [
-  { tag: 'meta', attrs: { name: 'axiom-do11y-domain', content: 'AXIOM_DOMAIN' } },
-  { tag: 'meta', attrs: { name: 'axiom-do11y-token', content: 'API_TOKEN' } },
-  { tag: 'meta', attrs: { name: 'axiom-do11y-dataset', content: 'DATASET_NAME' } },
-  { tag: 'meta', attrs: { name: 'axiom-do11y-framework', content: 'starlight' } },
+  { tag: 'meta', attrs: { name: 'do11y-url', content: 'SUPABASE_PROJECT_URL' } },
+  { tag: 'meta', attrs: { name: 'do11y-key', content: 'SUPABASE_PUBLISHABLE_KEY' } },
+  { tag: 'meta', attrs: { name: 'do11y-dataset', content: 'DATASET_NAME' } },
+  { tag: 'meta', attrs: { name: 'do11y-framework', content: 'starlight' } },
   { tag: 'script', content: `window.Do11yConfig = { scrollThresholds: [25, 50, 75, 100] };` },
-  { tag: 'script', attrs: { src: 'https://cdn.jsdelivr.net/npm/@axiomhq/do11y@latest/dist/do11y.min.js' } },
+  { tag: 'script', attrs: { src: 'https://cdn.jsdelivr.net/npm/@manototh/do11y@latest/dist/do11y.min.js' } },
 ],
 ```
 
