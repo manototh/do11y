@@ -4,10 +4,10 @@
  *
  * Framework-agnostic documentation observability. Works with any static-site
  * generator or docs framework including Mintlify, Docusaurus, Nextra,
- * GitBook, MkDocs Material, VitePress, Starlight (Astro), and plain HTML.
+ * MkDocs Material, VitePress, Starlight (Astro), and plain HTML.
  *
  * Set the `framework` config option to your docs framework. Supported
- * values: 'mintlify', 'docusaurus', 'nextra', 'gitbook', 'mkdocs-material',
+ * values: 'mintlify', 'docusaurus', 'nextra', 'mkdocs-material',
  * 'vitepress', 'starlight'. Set to 'custom' and provide your own selectors
  * if your framework is not listed.
  *
@@ -41,7 +41,6 @@ export type FrameworkPreset =
   | 'mintlify'
   | 'docusaurus'
   | 'nextra'
-  | 'gitbook'
   | 'mkdocs-material'
   | 'vitepress'
   | 'starlight'
@@ -216,17 +215,6 @@ const FRAMEWORK_PRESETS: Record<string, FrameworkSelectors> = {
     tabContainerSelector: '[role="tablist"], [class*="tab"]',
     tocSelector: '.nextra-toc, [class*="toc"]',
     feedbackSelector: '[class*="feedback"], [class*="helpful"]',
-  },
-  gitbook: {
-    searchSelector: '[data-testid*="search"], button[aria-label*="search" i]',
-    copyButtonSelector: '[class*="copy"], button[aria-label*="copy" i]',
-    codeBlockSelector: 'pre, code, [class*="code"]',
-    navigationSelector: 'nav, [role="navigation"], [class*="nav"], [class*="sidebar"]',
-    footerSelector: 'footer, [role="contentinfo"], [class*="footer"]',
-    contentSelector: 'main, article, [role="main"], [class*="content"]',
-    tabContainerSelector: '[role="tablist"], [class*="tab"]',
-    tocSelector: '[class*="table-of-contents"], [class*="toc"], [class*="page-outline"]',
-    feedbackSelector: '[class*="feedback"], [class*="helpful"], [class*="rating"]',
   },
   'mkdocs-material': {
     searchSelector: '.md-search__input',
@@ -1113,7 +1101,7 @@ function findScrollableAncestor(el: Element): Element | null {
 /**
  * Track scroll depth.
  *
- * Some frameworks (GitBook/HonKit, MkDocs Material) use container-based
+ * Some frameworks (MkDocs Material) use container-based
  * scrolling where the window itself never scrolls. We detect the scrollable
  * container by walking up from the content element and listen on it in
  * addition to the window.
