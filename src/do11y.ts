@@ -185,7 +185,7 @@ const config: Do11yConfig = {
 const FRAMEWORK_PRESETS: Record<string, FrameworkSelectors> = {
   mintlify: {
     searchSelector: '#search-bar-entry, #search-bar-entry-mobile, [class*="search"]',
-    copyButtonSelector: '[class*="copy"], button[aria-label*="copy" i]',
+    copyButtonSelector: 'button[class*="copy"], button[aria-label*="copy" i]',
     codeBlockSelector: 'pre, [class*="code"]',
     navigationSelector: 'nav, [role="navigation"], #navbar, #sidebar, [class*="nav"], [class*="sidebar"]',
     footerSelector: 'footer, [role="contentinfo"], [class*="footer"]',
