@@ -411,7 +411,8 @@ function resolveTocContainer(link: Element): Element | null {
   const selector =
     validateSelector(config.tocSelector) ??
     '.table-of-contents, .VPDocAsideOutline, .VPLocalNavOutlineDropdown, ' +
-    '[class*="toc"], [class*="TableOfContents"], [class*="page-outline"]';
+    '[class*="toc"], [class*="TableOfContents"], [class*="page-outline"], ' +
+    '.right-sidebar-panel, starlight-toc';
 
   let container = link.closest(selector);
   if (!container) return null;
@@ -419,7 +420,7 @@ function resolveTocContainer(link: Element): Element | null {
   // Avoid treating the link itself as the container (for example a.outline-link).
   if (container === link || container.tagName === 'A') {
     container =
-      link.closest('.VPDocAsideOutline, .VPLocalNavOutlineDropdown, nav, aside') ??
+      link.closest('.VPDocAsideOutline, .VPLocalNavOutlineDropdown, nav, aside, .right-sidebar-panel, starlight-toc') ??
       container.parentElement;
   }
 
