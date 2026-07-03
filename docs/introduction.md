@@ -75,5 +75,6 @@ Do11y supports the latest versions of the following documentation frameworks out
 | [Nextra](https://nextra.site) | [Install on Nextra](/install/nextra) |
 | [MkDocs Material](https://squidfunk.github.io/mkdocs-material/) | [Install on MkDocs Material](/install/mkdocs-material) |
 | [VitePress](https://vitepress.dev) | [Install on VitePress](/install/vitepress) |
+| [Starlight (Astro)](https://starlight.astro.build/) | [Install on Starlight](/install/starlight) |
 
 For other frameworks, use [manual setup](/install/manual).

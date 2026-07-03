@@ -72,4 +72,5 @@ Follow the install guide for your documentation framework:
 - [Nextra](/install/nextra)
 - [VitePress](/install/vitepress)
 - [MkDocs Material](/install/mkdocs-material)
+- [Starlight (Astro)](/install/starlight)
 - [Other frameworks](/install/manual)

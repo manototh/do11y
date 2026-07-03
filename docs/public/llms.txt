@@ -4,7 +4,7 @@
 
 Do11y is agent-native: it detects AI platform referrers (ChatGPT, Perplexity, Claude, Gemini, Copilot, DeepSeek, and others) so you can understand how agents and humans engage with your content differently.
 
-The runtime artifact is a single dependency-free JavaScript file. It supports Mintlify, Docusaurus, Nextra, MkDocs Material, and VitePress out of the box. For other frameworks, manual setup is available via CDN or self-hosting.
+The runtime artifact is a single dependency-free JavaScript file. It supports Mintlify, Docusaurus, Nextra, MkDocs Material, Starlight (Astro), and VitePress out of the box. For other frameworks, manual setup is available via CDN or self-hosting.
 
 Privacy: no cookies, no PII, no device fingerprinting, no cross-site tracking. Uses sessionStorage. No GDPR consent banner required.
 

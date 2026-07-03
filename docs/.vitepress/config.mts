@@ -67,6 +67,7 @@ export default defineConfig({
           { text: 'Nextra', link: '/install/nextra' },
           { text: 'VitePress', link: '/install/vitepress' },
           { text: 'MkDocs Material', link: '/install/mkdocs-material' },
+          { text: 'Starlight (Astro)', link: '/install/starlight' },
           { text: 'Manual setup', link: '/install/manual' },
         ],
       },

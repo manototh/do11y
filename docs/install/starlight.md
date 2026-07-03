@@ -35,7 +35,6 @@ To use options beyond the basic credentials, add an inline script entry before t
 head: [
   { tag: 'meta', attrs: { name: 'do11y-url', content: 'SUPABASE_PROJECT_URL' } },
   { tag: 'meta', attrs: { name: 'do11y-key', content: 'SUPABASE_PUBLISHABLE_KEY' } },
-  { tag: 'meta', attrs: { name: 'do11y-dataset', content: 'DATASET_NAME' } },
   { tag: 'meta', attrs: { name: 'do11y-framework', content: 'starlight' } },
   { tag: 'script', content: `window.Do11yConfig = { scrollThresholds: [25, 50, 75, 100] };` },
   { tag: 'script', attrs: { src: 'https://cdn.jsdelivr.net/npm/@manototh/do11y@latest/dist/do11y.min.js' } },
