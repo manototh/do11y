@@ -33,16 +33,6 @@ npx puppeteer browsers install chrome
 npm run test-live-sites
 ```
 
-Sites covered:
-
-| Framework | URL |
-|---|---|
-| Mintlify | https://www.mintlify.com/docs/components/expandables |
-| Docusaurus | https://docusaurus.io/docs/next/swizzling |
-| Nextra | https://nextra.site/docs/docs-theme/start |
-| MkDocs Material | https://squidfunk.github.io/mkdocs-material/reference/admonitions |
-| VitePress | https://vitepress.dev/guide/markdown |
-
 ### E2E live-site tests
 
 **`tests/test-e2e-live.ts`** is the only test that proves events reach Supabase from a real site. It injects `do11y.js` into live public documentation sites via Puppeteer's `evaluateOnNewDocument`, drives a realistic user journey, sends events to Supabase, and then queries the database to validate that the expected event types arrived.
@@ -159,46 +149,36 @@ Skip dependency installation on repeat runs:
 SKIP_INSTALL=1 npm run test-integrations
 ```
 
-Frameworks covered:
-
-| Name | Type | Port | Notes |
-|---|---|---|---|
-| `mintlify` | npm (Mintlify CLI) | 4005 | Full framework install |
-| `docusaurus` | npm (Docusaurus 3) | 4001 | Full framework install |
-| `nextra` | npm (Next.js + Nextra 3) | 4002 | Full framework install |
-| `vitepress` | npm (VitePress 1.x) | 4003 | Full framework install |
-| `mkdocs-material` | pip (MkDocs Material) | 4004 | Requires Python. Skips if unavailable. |
-
-## Create a release
+## Create release
 
 1. Run all tests.
 
-2. Bump the version in `package.json` and `src/do11y.ts`.
+1. Bump the version in `package.json` and `src/do11y.ts`.
 
-3. Build and verify:
+1. Build and verify:
 
-```bash
-npm run build
-npm run check
-npm run lint
-```
+    ```bash
+    npm run build
+    npm run check
+    npm run lint
+    ```
 
-4. Commit and push to `main`.
+1. Commit and push to `main`.
 
-5. Tag and release:
+1. Tag and release:
 
-```bash
-git tag v0.1.0
-git push origin v0.1.0
-gh release create v0.1.0
-```
+    ```bash
+    git tag v0.1.0
+    git push origin v0.1.0
+    gh release create v0.1.0
+    ```
 
-Alternatively, create the release at [github.com/manototh/do11y/releases/new](https://github.com/manototh/do11y/releases/new).
+    Alternatively, create the release at [github.com/manototh/do11y/releases/new](https://github.com/manototh/do11y/releases/new).
 
-6. Publish to npm:
+1. Publish to npm:
 
-```bash
-npm login
-npm publish --access public
-npm logout
-```
+    ```bash
+    npm login
+    npm publish --access public
+    npm logout
+    ```

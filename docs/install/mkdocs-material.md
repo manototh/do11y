@@ -26,7 +26,7 @@ extra_javascript:
   - https://cdn.jsdelivr.net/npm/@manototh/do11y@latest/dist/do11y.min.js
 ```
 
-### 2. Create the overrides template
+### Create the overrides template
 
 Create `overrides/main.html` to inject the configuration meta tags:
 

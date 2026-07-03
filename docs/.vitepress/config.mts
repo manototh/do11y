@@ -44,6 +44,7 @@ export default defineConfig({
       { text: 'Install', link: '/get-started' },
       { text: 'Analyze', link: '/analyze' },
       { text: 'Reference', link: '/reference' },
+      { text: 'Changelog', link: '/changelog' },
     ],
 
     sidebar: [
@@ -96,6 +97,7 @@ export default defineConfig({
           { text: 'AI traffic detection', link: '/reference#ai-traffic-detection' },
           { text: 'JavaScript API', link: '/reference#javascript-api' },
           { text: 'Known limitations', link: '/reference#known-limitations' },
+          { text: 'Changelog', link: '/changelog' },
         ],
       },
       {

@@ -17,6 +17,7 @@ Privacy: no cookies, no PII, no device fingerprinting, no cross-site tracking. U
 - [Audit](https://docservable.com/audit): AI-powered recommendations about what to fix in your documentation.
 - [SQL queries](https://docservable.com/queries): Ready-to-run SQL queries for traffic, engagement, navigation, content performance, and more.
 - [Reference](https://docservable.com/reference): Events schema, AI traffic detection fields, JavaScript API, and known limitations.
+- [Changelog](https://docservable.com/changelog): Release history for Do11y.
 
 ## Optional
 

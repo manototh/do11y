@@ -17,24 +17,21 @@ Mintlify doesn't support loading scripts from a CDN via config, so Do11y must be
 ## Steps
 
 1. Download the latest release from [GitHub](https://github.com/manototh/do11y/releases/latest) and extract the `do11y-<version>.zip` file.
+1. Copy `dist/do11y.min.js` and `examples/do11y-config.example.js` to the same folder in your docs repo (for example, `scripts/`). Alphabetical ordering ensures the config file loads before the main script.
+1. Rename `do11y-config.example.js` to `do11y-config.js`.
+1. In `do11y-config.js`, replace the placeholder values with your Supabase credentials:
 
-2. Copy `dist/do11y.min.js` and `examples/do11y-config.example.js` to the same folder in your docs repo (for example, `scripts/`). Alphabetical ordering ensures the config file loads before the main script.
+    ```js
+    window.Do11yConfig = {
+      supabaseUrl: 'SUPABASE_PROJECT_URL',
+      supabaseKey: 'SUPABASE_PUBLISHABLE_KEY',
+      framework: 'mintlify',
+    };
+    ```
 
-3. Rename `do11y-config.example.js` to `do11y-config.js`.
+    Replace `SUPABASE_PROJECT_URL` and `SUPABASE_PUBLISHABLE_KEY` with your [Supabase credentials](/get-started).
 
-4. In `do11y-config.js`, replace the placeholder values with your Supabase credentials:
-
-```js
-window.Do11yConfig = {
-  supabaseUrl: 'SUPABASE_PROJECT_URL',
-  supabaseKey: 'SUPABASE_PUBLISHABLE_KEY',
-  framework: 'mintlify',
-};
-```
-
-Replace `SUPABASE_PROJECT_URL` and `SUPABASE_PUBLISHABLE_KEY` with your [Supabase credentials](/get-started).
-
-5. Optional: [Set up the automatic sync](/install/manual#automatic-sync-via-github-action) to keep `do11y.min.js` up to date automatically.
+1. Optional: [Set up the automatic sync](/install/manual#automatic-sync-via-github-action) to keep `do11y.min.js` up to date automatically.
 
 ## Next steps
 
