@@ -46,6 +46,6 @@ See the [configuration reference](/configuration) for all available options.
 
 ## Next steps
 
-- [Analyze data in the integration dashboard](/integration-dashboard)
+- [Get insights from your data](/analyze)
 - [Query your data](/queries)
 - [Advanced configuration](/configuration)
