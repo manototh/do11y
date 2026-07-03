@@ -1,6 +1,6 @@
 (function() {
 	//#region src/do11y.ts
-	const VERSION = "0.0.3";
+	const VERSION = "0.0.4";
 	const _alreadyLoaded = !!window.__do11yInitialized;
 	window.__do11yInitialized = true;
 	const config = {
@@ -47,7 +47,7 @@
 	const FRAMEWORK_PRESETS = {
 		mintlify: {
 			searchSelector: "#search-bar-entry, #search-bar-entry-mobile, [class*=\"search\"]",
-			copyButtonSelector: "[class*=\"copy\"], button[aria-label*=\"copy\" i]",
+			copyButtonSelector: "button[class*=\"copy\"], button[aria-label*=\"copy\" i]",
 			codeBlockSelector: "pre, [class*=\"code\"]",
 			navigationSelector: "nav, [role=\"navigation\"], #navbar, #sidebar, [class*=\"nav\"], [class*=\"sidebar\"]",
 			footerSelector: "footer, [role=\"contentinfo\"], [class*=\"footer\"]",
@@ -213,6 +213,11 @@
 			if (fromClass) return fromClass;
 			const langText = el.querySelector(":scope > span.lang")?.textContent?.trim();
 			if (langText) return langText;
+			const deepLang = el.querySelector("[data-language], [data-lang], [data-code-lang], [class*=\"language-\"], [language]");
+			if (deepLang) {
+				const dl = deepLang.getAttribute("language") ?? deepLang.getAttribute("data-language") ?? deepLang.getAttribute("data-lang") ?? deepLang.getAttribute("data-code-lang") ?? languageFromClassName(getElementClassName(deepLang));
+				if (dl) return dl;
+			}
 		}
 		return "unknown";
 	}
@@ -867,9 +872,9 @@
 		document.addEventListener("click", (e) => {
 			const copyButton = e.target.closest(config.copyButtonSelector);
 			if (copyButton) {
-				const codeBlock = copyButton.closest("[class*=\"language-\"]") ?? copyButton.closest(config.codeBlockSelector) ?? copyButton.closest(".expressive-code")?.querySelector("pre") ?? copyButton.closest("div, section")?.querySelector("pre") ?? copyButton.parentElement?.querySelector("pre") ?? null;
+				const codeBlock = copyButton.closest("[class*=\"language-\"], [language]") ?? copyButton.closest(config.codeBlockSelector) ?? copyButton.closest(".expressive-code")?.querySelector("pre") ?? copyButton.closest("div, section")?.querySelector("pre") ?? copyButton.parentElement?.querySelector("pre") ?? null;
 				queueEvent("code_copied", {
-					language: extractCodeLanguage((codeBlock ? codeBlock.tagName === "PRE" ? codeBlock.querySelector("code") : codeBlock.querySelector("code[class*=\"language-\"]") ?? codeBlock.querySelector("code") : null) ?? codeBlock ?? copyButton),
+					language: extractCodeLanguage((codeBlock ? codeBlock.tagName === "PRE" ? codeBlock.querySelector("code") : codeBlock.querySelector("code[class*=\"language-\"], code[language]") ?? codeBlock.querySelector("code") : null) ?? codeBlock ?? copyButton),
 					codeSection: sanitizeText(getNearestHeading(codeBlock ?? copyButton), 100),
 					codeBlockIndex: getCodeBlockIndex(codeBlock)
 				});
