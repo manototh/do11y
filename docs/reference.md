@@ -66,3 +66,7 @@ The selectors work on sites using the standard theme of each supported framework
 ### Framework selector drift
 
 CSS selectors reflect each framework's current DOM output and may break when frameworks release major updates that change class names or HTML structure. The [test suites](/development#tests) exist specifically to catch this. Run them periodically to verify selectors still match.
+
+### Code snippet language detection on Nextra
+
+Do11y detects the programming language of the code snippets that readers copy, but it can't detect the language for documentation sites based on Nextra. The reason is that Nextra doesn't provide the language of the code snippet in the DOM. This is a fundamental limitation of Nextra's architecture and can't be solved by Do11y. If you use Nextra, the `code_copied` event will always report `language: "unknown"`.

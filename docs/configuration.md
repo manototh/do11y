@@ -75,6 +75,7 @@ Set `framework` to auto-configure CSS selectors for your documentation platform:
 | `'nextra'` | [Nextra](https://nextra.site) |
 | `'mkdocs-material'` | [MkDocs Material](https://squidfunk.github.io/mkdocs-material/) |
 | `'vitepress'` | [VitePress](https://vitepress.dev) |
+| `'starlight'` | [Starlight](https://starlight.astro.build) (Astro) |
 | `'custom'` | Provide your own selectors (see below) |
 
 When you set `framework` to a supported value, Do11y automatically configures the correct CSS selectors for search bars, copy buttons, code blocks, navigation, footers, and content areas.

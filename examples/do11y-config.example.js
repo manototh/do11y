@@ -25,7 +25,7 @@ window.Do11yConfig = {
   supabaseTable: 'do11y_events',
 
   // Documentation framework. Supported values:
-  // 'mintlify', 'docusaurus', 'nextra', 'gitbook', 'mkdocs-material',
+  // 'mintlify', 'docusaurus', 'nextra', 'starlight', 'mkdocs-material',
   // 'vitepress', 'custom'
   framework: 'mintlify',
 

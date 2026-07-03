@@ -1,6 +1,6 @@
 (function() {
 	//#region src/do11y.ts
-	const VERSION = "0.0.3";
+	const VERSION = "0.0.4";
 	const _alreadyLoaded = !!window.__do11yInitialized;
 	window.__do11yInitialized = true;
 	const config = {
@@ -47,7 +47,7 @@
 	const FRAMEWORK_PRESETS = {
 		mintlify: {
 			searchSelector: "#search-bar-entry, #search-bar-entry-mobile, [class*=\"search\"]",
-			copyButtonSelector: "[class*=\"copy\"], button[aria-label*=\"copy\" i]",
+			copyButtonSelector: "button[class*=\"copy\"], button[aria-label*=\"copy\" i]",
 			codeBlockSelector: "pre, [class*=\"code\"]",
 			navigationSelector: "nav, [role=\"navigation\"], #navbar, #sidebar, [class*=\"nav\"], [class*=\"sidebar\"]",
 			footerSelector: "footer, [role=\"contentinfo\"], [class*=\"footer\"]",
@@ -78,17 +78,6 @@
 			tocSelector: ".nextra-toc, [class*=\"toc\"]",
 			feedbackSelector: "[class*=\"feedback\"], [class*=\"helpful\"]"
 		},
-		gitbook: {
-			searchSelector: "[data-testid*=\"search\"], button[aria-label*=\"search\" i]",
-			copyButtonSelector: "[class*=\"copy\"], button[aria-label*=\"copy\" i]",
-			codeBlockSelector: "pre, code, [class*=\"code\"]",
-			navigationSelector: "nav, [role=\"navigation\"], [class*=\"nav\"], [class*=\"sidebar\"]",
-			footerSelector: "footer, [role=\"contentinfo\"], [class*=\"footer\"]",
-			contentSelector: "main, article, [role=\"main\"], [class*=\"content\"]",
-			tabContainerSelector: "[role=\"tablist\"], [class*=\"tab\"]",
-			tocSelector: "[class*=\"table-of-contents\"], [class*=\"toc\"], [class*=\"page-outline\"]",
-			feedbackSelector: "[class*=\"feedback\"], [class*=\"helpful\"], [class*=\"rating\"]"
-		},
 		"mkdocs-material": {
 			searchSelector: ".md-search__input",
 			copyButtonSelector: ".md-clipboard, .md-code__button[title=\"Copy to clipboard\"]",
@@ -109,6 +98,17 @@
 			contentSelector: "main, article, [role=\"main\"], .VPContent, [class*=\"content\"]",
 			tabContainerSelector: ".vp-code-group .tabs, [role=\"tablist\"]",
 			tocSelector: ".VPDocAsideOutline, .VPLocalNavOutlineDropdown, a.outline-link",
+			feedbackSelector: "[class*=\"feedback\"], [class*=\"helpful\"]"
+		},
+		starlight: {
+			searchSelector: "site-search button[data-open-modal], sl-doc-search .DocSearch-Button, button[aria-label*=\"search\" i]",
+			copyButtonSelector: ".expressive-code .copy button, .copy button[data-code]",
+			codeBlockSelector: ".expressive-code pre, pre",
+			navigationSelector: "nav, [role=\"navigation\"], [class*=\"sidebar\"]",
+			footerSelector: "footer, [role=\"contentinfo\"], [class*=\"footer\"]",
+			contentSelector: "main, .sl-markdown-content, [role=\"main\"]",
+			tabContainerSelector: "starlight-tabs [role=\"tablist\"], [role=\"tablist\"]",
+			tocSelector: ".right-sidebar-panel, starlight-toc, mobile-starlight-toc",
 			feedbackSelector: "[class*=\"feedback\"], [class*=\"helpful\"]"
 		}
 	};
@@ -213,6 +213,11 @@
 			if (fromClass) return fromClass;
 			const langText = el.querySelector(":scope > span.lang")?.textContent?.trim();
 			if (langText) return langText;
+			const deepLang = el.querySelector("[data-language], [data-lang], [data-code-lang], [class*=\"language-\"], [language]");
+			if (deepLang) {
+				const dl = deepLang.getAttribute("language") ?? deepLang.getAttribute("data-language") ?? deepLang.getAttribute("data-lang") ?? deepLang.getAttribute("data-code-lang") ?? languageFromClassName(getElementClassName(deepLang));
+				if (dl) return dl;
+			}
 		}
 		return "unknown";
 	}
@@ -225,10 +230,10 @@
 		return null;
 	}
 	function resolveTocContainer(link) {
-		const selector = validateSelector(config.tocSelector) ?? ".table-of-contents, .VPDocAsideOutline, .VPLocalNavOutlineDropdown, [class*=\"toc\"], [class*=\"TableOfContents\"], [class*=\"page-outline\"]";
+		const selector = validateSelector(config.tocSelector) ?? ".table-of-contents, .VPDocAsideOutline, .VPLocalNavOutlineDropdown, [class*=\"toc\"], [class*=\"TableOfContents\"], [class*=\"page-outline\"], .right-sidebar-panel, starlight-toc";
 		let container = link.closest(selector);
 		if (!container) return null;
-		if (container === link || container.tagName === "A") container = link.closest(".VPDocAsideOutline, .VPLocalNavOutlineDropdown, nav, aside") ?? container.parentElement;
+		if (container === link || container.tagName === "A") container = link.closest(".VPDocAsideOutline, .VPLocalNavOutlineDropdown, nav, aside, .right-sidebar-panel, starlight-toc") ?? container.parentElement;
 		return container;
 	}
 	function sanitizeText(text, maxLength) {
@@ -728,7 +733,7 @@
 	/**
 	* Track scroll depth.
 	*
-	* Some frameworks (GitBook/HonKit, MkDocs Material) use container-based
+	* Some frameworks (MkDocs Material) use container-based
 	* scrolling where the window itself never scrolls. We detect the scrollable
 	* container by walking up from the content element and listen on it in
 	* addition to the window.
@@ -850,7 +855,7 @@
 	function setupSearchTracking() {
 		document.addEventListener("click", (e) => {
 			if (e.target.closest(config.searchSelector)) queueEvent("search_opened", {});
-		});
+		}, true);
 		document.addEventListener("keydown", (e) => {
 			if ((e.metaKey || e.ctrlKey) && e.key === "k") queueEvent("search_opened", { trigger: "keyboard" });
 		});
@@ -867,9 +872,9 @@
 		document.addEventListener("click", (e) => {
 			const copyButton = e.target.closest(config.copyButtonSelector);
 			if (copyButton) {
-				const codeBlock = copyButton.closest("[class*=\"language-\"]") ?? copyButton.closest(config.codeBlockSelector) ?? copyButton.closest("div, section")?.querySelector("pre") ?? copyButton.parentElement?.querySelector("pre") ?? null;
+				const codeBlock = copyButton.closest("[class*=\"language-\"], [language]") ?? copyButton.closest(config.codeBlockSelector) ?? copyButton.closest(".expressive-code")?.querySelector("pre") ?? copyButton.closest("div, section")?.querySelector("pre") ?? copyButton.parentElement?.querySelector("pre") ?? null;
 				queueEvent("code_copied", {
-					language: extractCodeLanguage((codeBlock ? codeBlock.tagName === "PRE" ? codeBlock.querySelector("code") : codeBlock.querySelector("code[class*=\"language-\"]") ?? codeBlock.querySelector("code") : null) ?? codeBlock ?? copyButton),
+					language: extractCodeLanguage((codeBlock ? codeBlock.tagName === "PRE" ? codeBlock.querySelector("code") : codeBlock.querySelector("code[class*=\"language-\"], code[language]") ?? codeBlock.querySelector("code") : null) ?? codeBlock ?? copyButton),
 					codeSection: sanitizeText(getNearestHeading(codeBlock ?? copyButton), 100),
 					codeBlockIndex: getCodeBlockIndex(codeBlock)
 				});

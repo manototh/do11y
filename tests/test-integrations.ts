@@ -143,6 +143,17 @@ const FRAMEWORKS: Record<string, Framework> = {
     startPage: '/',
     guidePage: '/guide/',
   },
+  starlight: {
+    port: 4006,
+    type: 'npm',
+    dir: path.join(SITES_DIR, 'starlight'),
+    do11yDest: path.join(SITES_DIR, 'starlight', 'public', 'do11y.js'),
+    startCmd: 'npm',
+    startArgs: ['run', 'start'],
+    readyPattern: /astro.*started|localhost:4006/i,
+    startPage: '/',
+    guidePage: '/guide/',
+  },
 };
 
 // ─── Helpers ────────────────────────────────────────────────────────────────
@@ -310,10 +321,12 @@ async function runInteractions(browser: Browser, baseUrl: string, fw: Framework)
   const TOC_SELECTORS = [
     '#table-of-contents',
     '[data-testid="table-of-contents"]',
-    '.table-of-contents',
-    '.VPDocAsideOutline',
-    '.VPLocalNavOutlineDropdown',
-    '.md-sidebar--secondary .md-nav',
+    '.table-of-contents',            // Docusaurus
+    '.VPDocAsideOutline',            // VitePress
+    '.VPLocalNavOutlineDropdown',   // VitePress
+    '.md-sidebar--secondary .md-nav', // MkDocs Material
+    '.right-sidebar-panel',          // Starlight
+    'starlight-toc',                 // Starlight (custom element)
     '[class*="toc"]',
     '[class*="TableOfContents"]',
     'aside.toc',
@@ -349,6 +362,7 @@ async function runInteractions(browser: Browser, baseUrl: string, fw: Framework)
   const SEARCH_SEL =
     '#search-bar-entry, .DocSearch-Button, .nextra-search input, ' +
     '[data-testid*="search"], .md-search__input, .VPNavBarSearchButton, ' +
+    'site-search button[data-open-modal], ' +
     'button[aria-label*="search" i]';
   try {
     await page.waitForSelector(SEARCH_SEL, { timeout: 3000 });
@@ -364,9 +378,10 @@ async function runInteractions(browser: Browser, baseUrl: string, fw: Framework)
     const copyClicked = await page.evaluate(() => {
       const el = document.querySelector(
         'button.clean-btn[aria-label*="copy" i], button[class*="copyButton"], ' +
-        '[class*="copy"], button[aria-label*="copy" i], button[title*="copy" i], ' +
+        'button[aria-label*="copy" i], button[title*="copy" i], ' +
         '.md-clipboard, .md-code__button[title="Copy to clipboard"], ' +
-        '.vp-code-copy, button.copy[title*="Copy"]'
+        '.vp-code-copy, button.copy[title*="Copy"], ' +
+        '.expressive-code .copy button'
       );
       if (el) { (el as HTMLElement).click(); return true; }
       return false;

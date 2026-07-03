@@ -80,6 +80,10 @@ const LIVE_SITES: Record<string, LiveSite> = {
     startUrl:  'https://vitepress.dev/guide/getting-started',
     secondUrl: 'https://vitepress.dev/guide/markdown',
   },
+  starlight: {
+    startUrl:  'https://starlight.astro.build/getting-started/',
+    secondUrl: 'https://starlight.astro.build/guides/pages/',
+  },
 };
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
@@ -209,6 +213,8 @@ async function runInteractions(
     '.VPDocAsideOutline',
     '.VPLocalNavOutlineDropdown',
     '.md-sidebar--secondary .md-nav',
+    '.right-sidebar-panel',          // Starlight
+    'starlight-toc',                 // Starlight (custom element)
     '[class*="toc"]',
     '[class*="TableOfContents"]',
     'aside.toc',
@@ -244,6 +250,7 @@ async function runInteractions(
   const SEARCH_SEL =
     '#search-bar-entry, .DocSearch-Button, .nextra-search input, ' +
     '[data-testid*="search"], .md-search__input, .VPNavBarSearchButton, ' +
+    'site-search button[data-open-modal], ' +
     'button[aria-label*="search" i]';
   try {
     await page.waitForSelector(SEARCH_SEL, { timeout: 3000 });
@@ -268,9 +275,10 @@ async function runInteractions(
     const copyClicked = await page.evaluate(() => {
       const el = document.querySelector(
         'button.clean-btn[aria-label*="copy" i], button[class*="copyButton"], ' +
-        '[class*="copy"], button[aria-label*="copy" i], button[title*="copy" i], ' +
+        'button[aria-label*="copy" i], button[title*="copy" i], ' +
         '.md-clipboard, .md-code__button[title="Copy to clipboard"], ' +
-        '.vp-code-copy, button.copy[title*="Copy"]'
+        '.vp-code-copy, button.copy[title*="Copy"], ' +
+        '.expressive-code .copy button'
       );
       if (el) { (el as HTMLElement).click(); return true; }
       return false;
@@ -439,7 +447,12 @@ const EXPECTED_EVENTS: Record<string, EventExpectation> = {
   section_visible: { min: 1 },
 };
 
+// Frameworks confirmed to have a page-level feedback widget on their test pages.
 const FEEDBACK_REQUIRED = new Set(['mkdocs-material']);
+
+// Frameworks whose test pages have no documentation-level expandable content.
+// expand_collapse events on these pages indicate a false positive in do11y
+// (e.g. a sidebar nav toggle being mis-classified), so we assert max: 0.
 const EXPAND_NONE = new Set(['nextra']);
 
 function validateEvents(

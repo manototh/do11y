@@ -4,12 +4,12 @@
  *
  * Framework-agnostic documentation observability. Works with any static-site
  * generator or docs framework including Mintlify, Docusaurus, Nextra,
- * GitBook, MkDocs Material, VitePress, and plain HTML.
+ * MkDocs Material, VitePress, Starlight (Astro), and plain HTML.
  *
  * Set the `framework` config option to your docs framework. Supported
- * values: 'mintlify', 'docusaurus', 'nextra', 'gitbook', 'mkdocs-material',
- * 'vitepress'. Set to 'custom' and provide your own selectors if your
- * framework is not listed.
+ * values: 'mintlify', 'docusaurus', 'nextra', 'mkdocs-material',
+ * 'vitepress', 'starlight'. Set to 'custom' and provide your own selectors
+ * if your framework is not listed.
  *
  * This script collects anonymous usage data without:
  * - Cookies (uses sessionStorage only - cleared when browser closes)
@@ -41,9 +41,9 @@ export type FrameworkPreset =
   | 'mintlify'
   | 'docusaurus'
   | 'nextra'
-  | 'gitbook'
   | 'mkdocs-material'
   | 'vitepress'
+  | 'starlight'
   | 'custom';
 
 export interface FrameworkSelectors {
@@ -131,7 +131,7 @@ declare global {
   }
 }
 
-const VERSION = '0.0.3';
+const VERSION = '0.0.4';
 
 // Prevent double-initialization in SPA frameworks (React strict mode,
 // Next.js/Nextra re-renders, etc.) where the script tag may be re-evaluated.
@@ -185,7 +185,7 @@ const config: Do11yConfig = {
 const FRAMEWORK_PRESETS: Record<string, FrameworkSelectors> = {
   mintlify: {
     searchSelector: '#search-bar-entry, #search-bar-entry-mobile, [class*="search"]',
-    copyButtonSelector: '[class*="copy"], button[aria-label*="copy" i]',
+    copyButtonSelector: 'button[class*="copy"], button[aria-label*="copy" i]',
     codeBlockSelector: 'pre, [class*="code"]',
     navigationSelector: 'nav, [role="navigation"], #navbar, #sidebar, [class*="nav"], [class*="sidebar"]',
     footerSelector: 'footer, [role="contentinfo"], [class*="footer"]',
@@ -216,17 +216,6 @@ const FRAMEWORK_PRESETS: Record<string, FrameworkSelectors> = {
     tocSelector: '.nextra-toc, [class*="toc"]',
     feedbackSelector: '[class*="feedback"], [class*="helpful"]',
   },
-  gitbook: {
-    searchSelector: '[data-testid*="search"], button[aria-label*="search" i]',
-    copyButtonSelector: '[class*="copy"], button[aria-label*="copy" i]',
-    codeBlockSelector: 'pre, code, [class*="code"]',
-    navigationSelector: 'nav, [role="navigation"], [class*="nav"], [class*="sidebar"]',
-    footerSelector: 'footer, [role="contentinfo"], [class*="footer"]',
-    contentSelector: 'main, article, [role="main"], [class*="content"]',
-    tabContainerSelector: '[role="tablist"], [class*="tab"]',
-    tocSelector: '[class*="table-of-contents"], [class*="toc"], [class*="page-outline"]',
-    feedbackSelector: '[class*="feedback"], [class*="helpful"], [class*="rating"]',
-  },
   'mkdocs-material': {
     searchSelector: '.md-search__input',
     copyButtonSelector: '.md-clipboard, .md-code__button[title="Copy to clipboard"]',
@@ -247,6 +236,17 @@ const FRAMEWORK_PRESETS: Record<string, FrameworkSelectors> = {
     contentSelector: 'main, article, [role="main"], .VPContent, [class*="content"]',
     tabContainerSelector: '.vp-code-group .tabs, [role="tablist"]',
     tocSelector: '.VPDocAsideOutline, .VPLocalNavOutlineDropdown, a.outline-link',
+    feedbackSelector: '[class*="feedback"], [class*="helpful"]',
+  },
+  starlight: {
+    searchSelector: 'site-search button[data-open-modal], sl-doc-search .DocSearch-Button, button[aria-label*="search" i]',
+    copyButtonSelector: '.expressive-code .copy button, .copy button[data-code]',
+    codeBlockSelector: '.expressive-code pre, pre',
+    navigationSelector: 'nav, [role="navigation"], [class*="sidebar"]',
+    footerSelector: 'footer, [role="contentinfo"], [class*="footer"]',
+    contentSelector: 'main, .sl-markdown-content, [role="main"]',
+    tabContainerSelector: 'starlight-tabs [role="tablist"], [role="tablist"]',
+    tocSelector: '.right-sidebar-panel, starlight-toc, mobile-starlight-toc',
     feedbackSelector: '[class*="feedback"], [class*="helpful"]',
   },
 };
@@ -387,6 +387,22 @@ function extractCodeLanguage(start: Element | null): string {
     const langSpan = el.querySelector(':scope > span.lang');
     const langText = langSpan?.textContent?.trim();
     if (langText) return langText;
+
+    // Broader search: any descendant with language metadata
+    // (catches cases where language is nested deeper in the subtree,
+    //  e.g. Mintlify's <pre language="mdx"> / <code language="mdx">).
+    const deepLang = el.querySelector(
+      '[data-language], [data-lang], [data-code-lang], [class*="language-"], [language]'
+    );
+    if (deepLang) {
+      const dl =
+        deepLang.getAttribute('language') ??
+        deepLang.getAttribute('data-language') ??
+        deepLang.getAttribute('data-lang') ??
+        deepLang.getAttribute('data-code-lang') ??
+        languageFromClassName(getElementClassName(deepLang));
+      if (dl) return dl;
+    }
   }
 
   return 'unknown';
@@ -411,7 +427,8 @@ function resolveTocContainer(link: Element): Element | null {
   const selector =
     validateSelector(config.tocSelector) ??
     '.table-of-contents, .VPDocAsideOutline, .VPLocalNavOutlineDropdown, ' +
-    '[class*="toc"], [class*="TableOfContents"], [class*="page-outline"]';
+    '[class*="toc"], [class*="TableOfContents"], [class*="page-outline"], ' +
+    '.right-sidebar-panel, starlight-toc';
 
   let container = link.closest(selector);
   if (!container) return null;
@@ -419,7 +436,7 @@ function resolveTocContainer(link: Element): Element | null {
   // Avoid treating the link itself as the container (for example a.outline-link).
   if (container === link || container.tagName === 'A') {
     container =
-      link.closest('.VPDocAsideOutline, .VPLocalNavOutlineDropdown, nav, aside') ??
+      link.closest('.VPDocAsideOutline, .VPLocalNavOutlineDropdown, nav, aside, .right-sidebar-panel, starlight-toc') ??
       container.parentElement;
   }
 
@@ -1101,7 +1118,7 @@ function findScrollableAncestor(el: Element): Element | null {
 /**
  * Track scroll depth.
  *
- * Some frameworks (GitBook/HonKit, MkDocs Material) use container-based
+ * Some frameworks (MkDocs Material) use container-based
  * scrolling where the window itself never scrolls. We detect the scrollable
  * container by walking up from the content element and listen on it in
  * addition to the window.
@@ -1251,12 +1268,14 @@ function setupEngagementTracking(): void {
 // ============================================================
 
 function setupSearchTracking(): void {
+  // Use capture phase so the handler fires before framework event handlers
+  // (e.g. Starlight's <site-search>) can call stopPropagation().
   document.addEventListener('click', (e) => {
     const searchTrigger = (e.target as Element).closest(config.searchSelector!);
     if (searchTrigger) {
       queueEvent('search_opened', {});
     }
-  });
+  }, true);
 
   document.addEventListener('keydown', (e) => {
     if ((e.metaKey || e.ctrlKey) && e.key === 'k') {
@@ -1287,8 +1306,12 @@ function setupCopyTracking(): void {
     const copyButton = (e.target as Element).closest(config.copyButtonSelector!);
     if (copyButton) {
       const codeBlock: Element | null =
-        copyButton.closest('[class*="language-"]') ??
+        copyButton.closest('[class*="language-"], [language]') ??
         copyButton.closest(config.codeBlockSelector!) ??
+        // For Starlight / Expressive Code: the <pre> is a sibling, not
+        // an ancestor, of the copy button's container. Look for it
+        // inside the .expressive-code wrapper.
+        copyButton.closest('.expressive-code')?.querySelector('pre') ??
         copyButton.closest('div, section')?.querySelector('pre') ??
         copyButton.parentElement?.querySelector('pre') ??
         null;
@@ -1296,7 +1319,7 @@ function setupCopyTracking(): void {
       const codeEl: Element | null = codeBlock
         ? (codeBlock.tagName === 'PRE'
           ? codeBlock.querySelector('code')
-          : codeBlock.querySelector('code[class*="language-"]') ?? codeBlock.querySelector('code'))
+          : codeBlock.querySelector('code[class*="language-"], code[language]') ?? codeBlock.querySelector('code'))
         : null;
 
       const language = extractCodeLanguage(codeEl ?? codeBlock ?? copyButton);
