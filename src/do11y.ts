@@ -25,6 +25,7 @@
  *    <meta name="do11y-key" content="sb_publishable_...">
  *    <meta name="do11y-table" content="do11y_events">
  *    <meta name="do11y-framework" content="mintlify">
+ *    <meta name="do11y-otlp-endpoint" content="https://YOUR_OTEL_COLLECTOR:4318">
  * 2. window.Do11yConfig object (set in a separate script before this file):
  *    window.Do11yConfig = { supabaseUrl: '...', supabaseKey: 'sb_publishable_...', framework: 'mintlify' };
  * 3. The config object below (defaults).
@@ -58,7 +59,7 @@ export interface FrameworkSelectors {
   feedbackSelector: string;
 }
 
-export type Destination = 'supabase' | 'http';
+export type Destination = 'supabase' | 'http' | 'otlp';
 
 export interface Do11yConfig {
   destination: Destination;
@@ -67,6 +68,8 @@ export interface Do11yConfig {
   supabaseTable: string;
   httpEndpoint: string;
   httpHeaders: Record<string, string>;
+  otlpEndpoint: string;
+  otlpHeaders: Record<string, string>;
   debug: boolean;
   flushInterval: number;
   maxBatchSize: number;
@@ -148,6 +151,8 @@ const config: Do11yConfig = {
   supabaseTable: 'do11y_events',
   httpEndpoint: '',
   httpHeaders: {},
+  otlpEndpoint: '',
+  otlpHeaders: {},
   debug: false,
   flushInterval: 5000,
   maxBatchSize: 10,
@@ -800,6 +805,16 @@ function validateHttpEndpoint(url: string): boolean {
   }
 }
 
+function validateOtlpEndpoint(url: string): boolean {
+  try {
+    const parsed = new URL(url);
+    if (parsed.protocol !== 'https:') return false;
+    return true;
+  } catch {
+    return false;
+  }
+}
+
 function validateConfig(): boolean {
   if (config.destination === 'supabase') {
     if (!config.supabaseUrl) {
@@ -851,10 +866,136 @@ function validateConfig(): boolean {
     return true;
   }
 
+  if (config.destination === 'otlp') {
+    if (!config.otlpEndpoint) {
+      if (config.debug) {
+        console.warn('[Do11y] No OTLP endpoint configured');
+      }
+      return false;
+    }
+
+    if (!validateOtlpEndpoint(config.otlpEndpoint)) {
+      if (config.debug) {
+        console.warn('[Do11y] Invalid OTLP endpoint. Must be HTTPS.');
+      }
+      return false;
+    }
+
+    return true;
+  }
+
   if (config.debug) {
     console.warn('[Do11y] Unknown destination:', config.destination);
   }
   return false;
+}
+
+// ============================================================
+// OTLP Export (Minimal Inline Encoder)
+// ============================================================
+// Uses OTLP/HTTP JSON encoding (application/json) — no protobuf
+// dependency needed. Follows the OTLP protobuf JSON mapping spec.
+// -------------------------------------------------------------------
+// Each Do11yEvent is mapped to an OTLP LogRecord:
+//   - eventType → body.stringValue
+//   - _time     → timeUnixNano / observedTimeUnixNano
+//   - all other fields → attributes[]
+// -------------------------------------------------------------------
+
+const OTLP_SERVICE_NAME = 'do11y';
+const OTLP_SEVERITY_INFO = 9; // SEVERITY_NUMBER_INFO
+
+/**
+ * Convert an ISO-8601 timestamp string to nanoseconds since Unix epoch.
+ * Returns the nanosecond timestamp as a string (OTLP JSON requires
+ * string-encoded 64-bit integers for timeUnixNano).
+ */
+function isoToNanos(iso: string): string {
+  const ms = new Date(iso).getTime();
+  if (isNaN(ms)) return '0';
+  return String(ms * 1_000_000);
+}
+
+/**
+ * Convert an event field value to an OTLP AnyValue.
+ * Numbers become intValue or doubleValue; booleans become boolValue;
+ * null/undefined become stringValue(""); everything else stringValue.
+ */
+function toOtlpValue(value: unknown): Record<string, unknown> {
+  if (value === null || value === undefined) return { stringValue: '' };
+  if (typeof value === 'boolean') return { boolValue: value };
+  if (typeof value === 'number') {
+    if (Number.isInteger(value)) return { intValue: String(value) };
+    return { doubleValue: value };
+  }
+  if (typeof value === 'string') return { stringValue: value };
+  // Arrays and objects — stringify
+  try {
+    return { stringValue: JSON.stringify(value) };
+  } catch {
+    return { stringValue: '' };
+  }
+}
+
+/**
+ * Map a single Do11yEvent to an OTLP LogRecord JSON object.
+ * Skips the _time field from attributes since it becomes timeUnixNano.
+ */
+function eventToOtlpLogRecord(event: Do11yEvent): Record<string, unknown> {
+  const nanos = isoToNanos(event._time);
+  const attributes: Array<Record<string, unknown>> = [];
+
+  for (const key of Object.keys(event)) {
+    if (key === '_time') continue; // mapped to timestamp
+    const value = event[key];
+    if (value === undefined) continue;
+    attributes.push({ key, value: toOtlpValue(value) });
+  }
+
+  return {
+    timeUnixNano: nanos,
+    observedTimeUnixNano: nanos,
+    severityNumber: OTLP_SEVERITY_INFO,
+    severityText: 'Info',
+    body: { stringValue: event.eventType },
+    attributes,
+  };
+}
+
+/**
+ * Build the full OTLP/HTTP JSON request payload.
+ * Wraps LogRecords in the standard ResourceLogs → ScopeLogs envelope.
+ */
+function buildOtlpPayload(events: Do11yEvent[]): Record<string, unknown> {
+  const logRecords = events.map(eventToOtlpLogRecord);
+
+  return {
+    resourceLogs: [
+      {
+        resource: {
+          attributes: [
+            {
+              key: 'service.name',
+              value: { stringValue: OTLP_SERVICE_NAME },
+            },
+            {
+              key: 'service.version',
+              value: { stringValue: VERSION },
+            },
+          ],
+        },
+        scopeLogs: [
+          {
+            scope: {
+              name: OTLP_SERVICE_NAME,
+              version: VERSION,
+            },
+            logRecords,
+          },
+        ],
+      },
+    ],
+  };
 }
 
 function buildRequest(events: Do11yEvent[]): { url: string; headers: Record<string, string>; body: string } {
@@ -869,6 +1010,18 @@ function buildRequest(events: Do11yEvent[]): { url: string; headers: Record<stri
         'Prefer': 'return=minimal',
       },
       body: JSON.stringify(events.map((e) => ({ payload: e }))),
+    };
+  }
+
+  if (config.destination === 'otlp') {
+    const endpoint = config.otlpEndpoint.replace(/\/$/, '') + '/v1/logs';
+    return {
+      url: endpoint,
+      headers: {
+        'Content-Type': 'application/json',
+        ...config.otlpHeaders,
+      },
+      body: JSON.stringify(buildOtlpPayload(events)),
     };
   }
 
@@ -1608,7 +1761,7 @@ function init(): void {
   const metaDestination = document.querySelector('meta[name="do11y-destination"]');
   if (metaDestination) {
     const dest = metaDestination.getAttribute('content');
-    if (dest === 'supabase' || dest === 'http') config.destination = dest;
+    if (dest === 'supabase' || dest === 'http' || dest === 'otlp') config.destination = dest;
   }
 
   const metaUrl = document.querySelector('meta[name="do11y-url"]');
@@ -1622,6 +1775,9 @@ function init(): void {
 
   const metaHttpEndpoint = document.querySelector('meta[name="do11y-http-endpoint"]');
   if (metaHttpEndpoint) config.httpEndpoint = metaHttpEndpoint.getAttribute('content') ?? config.httpEndpoint;
+
+  const metaOtlpEndpoint = document.querySelector('meta[name="do11y-otlp-endpoint"]');
+  if (metaOtlpEndpoint) config.otlpEndpoint = metaOtlpEndpoint.getAttribute('content') ?? config.otlpEndpoint;
 
   const metaDebug = document.querySelector('meta[name="do11y-debug"]');
   if (metaDebug && metaDebug.getAttribute('content') === 'true') config.debug = true;
@@ -1642,9 +1798,13 @@ function init(): void {
   applyFrameworkSelectors();
 
   if (config.debug) {
+    const hasCreds =
+      config.destination === 'supabase' ? !!config.supabaseKey :
+      config.destination === 'otlp' ? !!config.otlpEndpoint :
+      !!config.httpEndpoint;
     console.log('[Do11y] Initializing with config:', {
       destination: config.destination,
-      hasCredentials: config.destination === 'supabase' ? !!config.supabaseKey : !!config.httpEndpoint,
+      hasCredentials: hasCreds,
       framework: config.framework,
       allowedDomains: config.allowedDomains,
       respectDNT: config.respectDNT,
@@ -1657,11 +1817,20 @@ function init(): void {
     return;
   }
 
-  const hasDestination = config.destination === 'supabase' ? !!config.supabaseKey : !!config.httpEndpoint;
+  const hasDestination =
+    config.destination === 'supabase' ? !!config.supabaseKey :
+    config.destination === 'otlp' ? !!config.otlpEndpoint :
+    !!config.httpEndpoint;
   if (!hasDestination) {
     if (config.debug) {
       console.warn('[Do11y] No destination configured. Events will not be sent.');
-      console.warn('[Do11y] Add <meta name="do11y-url"> and <meta name="do11y-key"> to enable.');
+      if (config.destination === 'supabase') {
+        console.warn('[Do11y] Add <meta name="do11y-url"> and <meta name="do11y-key"> to enable.');
+      } else if (config.destination === 'otlp') {
+        console.warn('[Do11y] Add <meta name="do11y-otlp-endpoint"> to enable.');
+      } else {
+        console.warn('[Do11y] Add <meta name="do11y-http-endpoint"> to enable.');
+      }
     }
   }
 
@@ -1753,13 +1922,21 @@ if (!_alreadyLoaded) {
 window.Do11y = window.Do11y ?? {
   getConfig: () => ({
     destination: config.destination,
-    hasCredentials: config.destination === 'supabase' ? !!config.supabaseKey : !!config.httpEndpoint,
+    hasCredentials:
+      config.destination === 'supabase' ? !!config.supabaseKey :
+      config.destination === 'otlp' ? !!config.otlpEndpoint :
+      !!config.httpEndpoint,
     isDisabled,
     allowedDomains: config.allowedDomains,
     respectDNT: config.respectDNT,
   }),
   flush,
-  isEnabled: () => !isDisabled && (config.destination === 'supabase' ? !!config.supabaseKey : !!config.httpEndpoint),
+  isEnabled: () => {
+    if (isDisabled) return false;
+    if (config.destination === 'supabase') return !!config.supabaseKey;
+    if (config.destination === 'otlp') return !!config.otlpEndpoint;
+    return !!config.httpEndpoint;
+  },
   getQueueSize: () => eventQueue.length,
   version: VERSION,
 };

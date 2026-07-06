@@ -16,11 +16,11 @@ Set all options via `window.Do11yConfig` using an inline script or a separate co
 
 ## Destination
 
-Do11y supports two destinations for event data: Supabase (default) and generic HTTP.
+Do11y supports three destinations for event data: Supabase (default), generic HTTP, and OTLP (OpenTelemetry Protocol).
 
 | Option | Default | Description |
 |---|---|---|
-| `destination` | `'supabase'` | Where to send events. `'supabase'` or `'http'`. |
+| `destination` | `'supabase'` | Where to send events. `'supabase'`, `'http'`, or `'otlp'`. |
 
 ### Supabase
 
@@ -29,6 +29,17 @@ Do11y supports two destinations for event data: Supabase (default) and generic H
 | `supabaseUrl` | `''` | Your Supabase project URL. For example: `https://abc123.supabase.co` |
 | `supabaseKey` | `''` | Publishable key. For example: `sb_publishable_1234567890` |
 | `supabaseTable` | `'do11y_events'` | Name of the table to insert events into. |
+
+### OTLP
+
+Send events to any OpenTelemetry-compatible backend via the OTLP/HTTP JSON protocol. Do11y uses a minimal inline encoder without protobuf dependencies and maps each event to an OTLP LogRecord with standard resource and scope attributes.
+
+| Option | Default | Description |
+|---|---|---|
+| `otlpEndpoint` | `''` | Your OTLP collector endpoint. For example: `https://otlp.grafana.com/otlp` |
+| `otlpHeaders` | `{}` | Custom headers for the OTLP request. For example, authorization. |
+
+Do11y appends `/v1/logs` to the endpoint automatically. Events are sent as OTLP/HTTP JSON (`Content-Type: application/json`).
 
 ### Generic HTTP
 

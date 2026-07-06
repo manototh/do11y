@@ -47,6 +47,20 @@ This SQL script creates a table that accepts event data from Do11y and allows an
 
 The default table name is `do11y_events`. If you use a different name, add the `supabaseTable` parameter to your Do11y configuration.
 
+### Alternative: OTLP destination
+
+To send events to any OpenTelemetry-compatible backend, set `destination` to `'otlp'`:
+
+```js
+window.Do11yConfig = {
+  destination: 'otlp',
+  otlpEndpoint: 'OTLP_ENDPOINT',
+  otlpHeaders: {
+    'Authorization': 'Bearer API_TOKEN',
+  },
+};
+```
+
 ### Alternative: Generic HTTP destination
 
 To send events to your own backend or a different analytics service, set `destination` to `'http'`:
