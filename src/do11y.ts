@@ -25,7 +25,7 @@
  *    <meta name="do11y-key" content="sb_publishable_...">
  *    <meta name="do11y-table" content="do11y_events">
  *    <meta name="do11y-framework" content="mintlify">
- *    <meta name="do11y-otlp-endpoint" content="https://YOUR_OTEL_COLLECTOR:4318">
+ *    <meta name="do11y-otlp-endpoint" content="https://otlp.grafana.com/otlp">
  * 2. window.Do11yConfig object (set in a separate script before this file):
  *    window.Do11yConfig = { supabaseUrl: '...', supabaseKey: 'sb_publishable_...', framework: 'mintlify' };
  * 3. The config object below (defaults).
