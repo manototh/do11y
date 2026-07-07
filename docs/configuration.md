@@ -39,7 +39,9 @@ Send events to any OpenTelemetry-compatible backend via the OTLP/HTTP JSON proto
 | `otlpEndpoint` | `''` | Your OTLP collector endpoint. For example: `https://otlp.grafana.com/otlp` |
 | `otlpHeaders` | `{}` | Custom headers for the OTLP request. For example, authorization. |
 
-Do11y appends `/v1/logs` to the endpoint automatically. Events are sent as OTLP/HTTP JSON (`Content-Type: application/json`).
+Do11y appends `/v1/logs` to the endpoint automatically. The endpoint must use HTTPS.
+
+Do11y sends events as OTLP/HTTP JSON, not binary protobuf. Most cloud backends accept JSON. If your collector requires protobuf, use a proxy to translate.
 
 ### Generic HTTP
 

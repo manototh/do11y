@@ -61,9 +61,9 @@ window.Do11yConfig = {
 };
 ```
 
-Replace `OTLP_ENDPOINT` and `API_TOKEN` with your own values. Do11y appends `/v1/logs` to the endpoint automatically.
+Replace `OTLP_ENDPOINT` and `API_TOKEN` with your own values. Do11y appends `/v1/logs` to the endpoint automatically. The endpoint must use HTTPS.
 
-Do11y sends events as OTLP/HTTP JSON. The endpoint must use HTTPS.
+Do11y sends events as OTLP/HTTP JSON, not binary protobuf. Most cloud backends accept JSON. If your collector requires protobuf, use a proxy to translate.
 
 ### Alternative: Generic HTTP destination
 
