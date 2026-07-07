@@ -61,6 +61,10 @@ window.Do11yConfig = {
 };
 ```
 
+Replace `OTLP_ENDPOINT` and `API_TOKEN` with your own values. Do11y appends `/v1/logs` to the endpoint automatically.
+
+Do11y sends events as OTLP/HTTP JSON. The endpoint must use HTTPS.
+
 ### Alternative: Generic HTTP destination
 
 To send events to your own backend or a different analytics service, set `destination` to `'http'`:
@@ -75,7 +79,9 @@ window.Do11yConfig = {
 };
 ```
 
-Events are POSTed as a JSON array to the endpoint. The endpoint must be HTTPS.
+Replace `BACKEND_URL` and `API_TOKEN` with your own values.
+
+Do11y sends events as a JSON array. The endpoint must use HTTPS.
 
 ## Add Do11y to your documentation site
 

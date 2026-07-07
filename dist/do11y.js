@@ -615,6 +615,11 @@
 	/**
 	* Map a single Do11yEvent to an OTLP LogRecord JSON object.
 	* Skips the _time field from attributes since it becomes timeUnixNano.
+	*
+	* The body is set to a JSON string containing all event fields so that
+	* the log line in Grafana / Loki is a parseable JSON object and works
+	* with LogQL's `| json` parser. Attributes are preserved as structured
+	* metadata for indexing and filtering.
 	*/
 	function eventToOtlpLogRecord(event) {
 		const nanos = isoToNanos(event._time);
@@ -628,12 +633,17 @@
 				value: toOtlpValue(value)
 			});
 		}
+		const bodyFields = {};
+		for (const key of Object.keys(event)) {
+			if (key === "_time") continue;
+			bodyFields[key] = event[key];
+		}
 		return {
 			timeUnixNano: nanos,
 			observedTimeUnixNano: nanos,
 			severityNumber: OTLP_SEVERITY_INFO,
 			severityText: "Info",
-			body: { stringValue: event.eventType },
+			body: { stringValue: JSON.stringify(bodyFields) },
 			attributes
 		};
 	}
