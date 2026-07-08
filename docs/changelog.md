@@ -12,6 +12,17 @@ head:
 
 # Changelog
 
+## v0.0.5
+
+**Release date:** 2026-07-08
+
+- **OTLP export improvements.** The inline OTLP encoder now follows the OTel Logs Data Model more closely:
+  - Adds `eventName` field (maps `eventType` to the OTel Event name)
+  - Adds rich resource attributes including `telemetry.sdk.*`, `browser.*`, `device.*`, and `user_agent.*`
+  - Adds `droppedAttributesCount: 0` per the OTLP protobuf JSON mapping spec
+  - CORS-aware transport with diagnostics and `navigator.sendBeacon` fallback on page unload
+- **CORS documentation.** Documents that cloud OTLP endpoints (Grafana, Datadog, etc.) do not support CORS and recommends running an OTel Collector as a proxy. See [configuration docs](/configuration#otlp) for a sample collector config.
+
 ## v0.0.4
 
 **Release date:** 2026-07-03

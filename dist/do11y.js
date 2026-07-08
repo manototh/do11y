@@ -584,6 +584,44 @@
 	const OTLP_SERVICE_NAME = "do11y";
 	const OTLP_SEVERITY_INFO = 9;
 	/**
+	* Detect browser environment for OTel resource attributes.
+	* Matches the convention used by opentelemetry-browser-detector.
+	*/
+	function getOtlpBrowserAttributes() {
+		const attrs = [];
+		const ua = navigator.userAgent;
+		attrs.push({
+			key: "user_agent.original",
+			value: { stringValue: ua }
+		});
+		let browser = "Other";
+		if (ua.includes("Firefox")) browser = "Firefox";
+		else if (ua.includes("Edg")) browser = "Edge";
+		else if (ua.includes("Chrome")) browser = "Chrome";
+		else if (ua.includes("Safari")) browser = "Safari";
+		attrs.push({
+			key: "browser.family",
+			value: { stringValue: browser }
+		});
+		let deviceType = "desktop";
+		if (/Mobile|Android|iPhone/.test(ua)) deviceType = /iPad|Tablet/.test(ua) ? "tablet" : "mobile";
+		attrs.push({
+			key: "device.type",
+			value: { stringValue: deviceType }
+		});
+		const lang = (navigator.language || "").split("-")[0] || "unknown";
+		attrs.push({
+			key: "browser.language",
+			value: { stringValue: lang }
+		});
+		const platform = navigator.userAgentData?.platform ?? navigator.platform ?? "unknown";
+		attrs.push({
+			key: "browser.platform",
+			value: { stringValue: platform }
+		});
+		return attrs;
+	}
+	/**
 	* Convert an ISO-8601 timestamp string to nanoseconds since Unix epoch.
 	* Returns the nanosecond timestamp as a string (OTLP JSON requires
 	* string-encoded 64-bit integers for timeUnixNano).
@@ -614,18 +652,19 @@
 	}
 	/**
 	* Map a single Do11yEvent to an OTLP LogRecord JSON object.
-	* Skips the _time field from attributes since it becomes timeUnixNano.
 	*
-	* The body is set to a JSON string containing all event fields so that
-	* the log line in Grafana / Loki is a parseable JSON object and works
-	* with LogQL's `| json` parser. Attributes are preserved as structured
-	* metadata for indexing and filtering.
+	* Per the OTel Logs Data Model:
+	*   - eventName  → identifies the class/type of event (maps eventType)
+	*   - body       → set to a JSON string of all fields so Loki/Grafana
+	*                  can parse it with LogQL's `| json` parser
+	*   - attributes → structured metadata for indexing and filtering
+	*   - _time      → becomes timeUnixNano / observedTimeUnixNano
 	*/
 	function eventToOtlpLogRecord(event) {
 		const nanos = isoToNanos(event._time);
 		const attributes = [];
 		for (const key of Object.keys(event)) {
-			if (key === "_time") continue;
+			if (key === "_time" || key === "eventType") continue;
 			const value = event[key];
 			if (value === void 0) continue;
 			attributes.push({
@@ -643,24 +682,51 @@
 			observedTimeUnixNano: nanos,
 			severityNumber: OTLP_SEVERITY_INFO,
 			severityText: "Info",
+			eventName: event.eventType,
 			body: { stringValue: JSON.stringify(bodyFields) },
-			attributes
+			attributes,
+			droppedAttributesCount: 0
 		};
 	}
 	/**
 	* Build the full OTLP/HTTP JSON request payload.
-	* Wraps LogRecords in the standard ResourceLogs → ScopeLogs envelope.
+	* Wraps LogRecords in the standard ResourceLogs → ScopeLogs envelope
+	* with telemetry SDK and browser resource attributes.
+	*
+	* Resource attributes follow OTel semantic conventions:
+	*   service.name / service.version   – application identity
+	*   telemetry.sdk.*                  – SDK identification
+	*   browser.* / device.* / user_agent.* – browser environment
 	*/
 	function buildOtlpPayload(events) {
 		const logRecords = events.map(eventToOtlpLogRecord);
 		return { resourceLogs: [{
-			resource: { attributes: [{
-				key: "service.name",
-				value: { stringValue: OTLP_SERVICE_NAME }
-			}, {
-				key: "service.version",
-				value: { stringValue: VERSION }
-			}] },
+			resource: {
+				attributes: [
+					{
+						key: "service.name",
+						value: { stringValue: OTLP_SERVICE_NAME }
+					},
+					{
+						key: "service.version",
+						value: { stringValue: VERSION }
+					},
+					{
+						key: "telemetry.sdk.name",
+						value: { stringValue: "do11y" }
+					},
+					{
+						key: "telemetry.sdk.language",
+						value: { stringValue: "javascript" }
+					},
+					{
+						key: "telemetry.sdk.version",
+						value: { stringValue: VERSION }
+					},
+					...getOtlpBrowserAttributes()
+				],
+				droppedAttributesCount: 0
+			},
 			scopeLogs: [{
 				scope: {
 					name: OTLP_SERVICE_NAME,
@@ -710,12 +776,28 @@
 		eventQueue = [];
 		sendEvents(buildRequest(events), events, retries);
 	}
+	/**
+	* Check whether a request URL is cross-origin relative to the current page.
+	* Cross-origin OTLP requests require the server to include CORS headers
+	* (Access-Control-Allow-Origin). Most cloud OTLP backends (Grafana, etc.)
+	* do NOT support CORS — in that case you need an OTel Collector proxy.
+	*/
+	function isCrossOrigin(url) {
+		try {
+			return new URL(url).origin !== window.location.origin;
+		} catch {
+			return false;
+		}
+	}
 	function sendEvents(req, events, retriesLeft) {
+		const crossOrigin = isCrossOrigin(req.url);
+		if (config.debug && crossOrigin) console.log("[Do11y] Cross-origin request to", new URL(req.url).origin, "- requires CORS headers on the server");
 		fetch(req.url, {
 			method: "POST",
 			headers: req.headers,
 			body: req.body,
-			keepalive: true
+			keepalive: true,
+			mode: crossOrigin ? "cors" : "same-origin"
 		}).then((response) => {
 			if (response.ok) {
 				if (config.debug) console.log("[Do11y] Flushed", events.length, "events");
@@ -730,25 +812,40 @@
 				return;
 			}
 			if (config.debug) response.text().then((text) => {
-				console.error("[Do11y] Ingest failed:", response.status, text);
+				const msg = `[Do11y] Ingest failed: ${response.status}`;
+				if (response.status === 0 && response.type === "opaque") console.error(msg, "- CORS error: server did not return Access-Control-Allow-Origin");
+				else console.error(msg, text);
 			}).catch(() => {});
 		}).catch((err) => {
 			if (retriesLeft > 0) {
-				if (config.debug) console.log("[Do11y] Network error, retrying:", err.message);
+				if (config.debug) {
+					const hint = crossOrigin ? " (this may be a CORS issue — try using an OTel Collector proxy)" : "";
+					console.log("[Do11y] Network error, retrying:", err.message + hint);
+				}
 				eventQueue = events.concat(eventQueue);
 				setTimeout(() => {
 					flush(retriesLeft - 1);
 				}, config.retryDelay * (config.maxRetries - retriesLeft + 1));
-			} else if (config.debug) console.error("[Do11y] Failed to send events:", err);
+			} else if (config.debug) console.error("[Do11y] Failed to send events:", err.message);
 		});
 	}
+	/**
+	* Synchronous flush used on `beforeunload`. For OTLP, falls back to
+	* navigator.sendBeacon when available — this avoids CORS preflight for
+	* same-origin collectors and is the only reliable way to send data during
+	* page unload.
+	*/
 	function flushSync() {
 		if (eventQueue.length === 0) return;
 		if (!validateConfig()) return;
 		const events = eventQueue;
 		eventQueue = [];
 		const req = buildRequest(events);
-		try {
+		if (config.destination === "otlp" && navigator.sendBeacon) try {
+			const blob = new Blob([req.body], { type: "application/json" });
+			navigator.sendBeacon(req.url, blob);
+		} catch {}
+		else try {
 			fetch(req.url, {
 				method: "POST",
 				headers: req.headers,

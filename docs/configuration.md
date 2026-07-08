@@ -16,13 +16,15 @@ Set all options via `window.Do11yConfig` using an inline script or a separate co
 
 ## Destination
 
-Do11y supports three destinations for event data: Supabase (default), generic HTTP, and OTLP (OpenTelemetry Protocol).
+Do11y supports three destinations for event data: Supabase (default), generic HTTP, and OTLP via the OpenTelemetry Browser SDK.
 
 | Option | Default | Description |
 |---|---|---|
 | `destination` | `'supabase'` | Where to send events. `'supabase'`, `'http'`, or `'otlp'`. |
 
-### Supabase
+### Supabase (default)
+
+The `supabase` destination is implemented as a preset over the `http` destination. It automatically configures the endpoint, headers, and body transform for Supabase's REST API.
 
 | Option | Default | Description |
 |---|---|---|
@@ -30,29 +32,68 @@ Do11y supports three destinations for event data: Supabase (default), generic HT
 | `supabaseKey` | `''` | Publishable key. For example: `sb_publishable_1234567890` |
 | `supabaseTable` | `'do11y_events'` | Name of the table to insert events into. |
 
-### OTLP
+Under the hood, this sets:
+- `endpoint` to `<supabaseUrl>/rest/v1/<supabaseTable>`
+- `headers` with Supabase REST headers
+- `bodyTransform` to `(events) => events.map(e => ({ payload: e }))`
 
-Send events to any OpenTelemetry-compatible backend via the OTLP/HTTP JSON protocol. Do11y uses a minimal inline encoder without protobuf dependencies and maps each event to an OTLP LogRecord with standard resource and scope attributes.
+### HTTP
 
-| Option | Default | Description |
-|---|---|---|
-| `otlpEndpoint` | `''` | Your OTLP collector endpoint. For example: `https://otlp.grafana.com/otlp` |
-| `otlpHeaders` | `{}` | Custom headers for the OTLP request. For example, authorization. |
-
-Do11y appends `/v1/logs` to the endpoint automatically. The endpoint must use HTTPS.
-
-Do11y sends events as OTLP/HTTP JSON, not binary protobuf. Most cloud backends accept JSON. If your collector requires protobuf, use a proxy to translate.
-
-### Generic HTTP
-
-Send events to any HTTPS endpoint. This is useful for custom backends, webhook relays, or other analytics platforms.
+Send events to any HTTPS endpoint. Events are sent as a JSON array with `Content-Type: application/json`.
 
 | Option | Default | Description |
 |---|---|---|
-| `httpEndpoint` | `''` | Full URL to POST events to. Must be HTTPS. |
-| `httpHeaders` | `{}` | Custom headers to include (for example, authorization). |
+| `endpoint` | `''` | Full URL to POST events to. Must be HTTPS. |
+| `headers` | `{}` | Custom headers to include (for example, authorization). |
+| `bodyTransform` | `undefined` | Optional function to transform the event array before sending. Receives the events array and returns whatever should be serialized as JSON. Example: `(events) => ({ events })`. |
 
-When using HTTP, Do11y sends events as a JSON array in the POST body and automatically sets the `Content-Type: application/json` header.
+### OTLP (OpenTelemetry Protocol)
+
+Send events to any OpenTelemetry-compatible backend. Do11y dynamically loads the [OpenTelemetry Browser SDK](https://github.com/open-telemetry/opentelemetry-browser) and creates a standard `LoggerProvider` → `BatchLogRecordProcessor` → `OTLPLogExporter` pipeline. Events are emitted as properly-structured OTel LogRecords.
+
+| Option | Default | Description |
+|---|---|---|
+| `otelSdkEndpoint` | `''` | Your OTLP collector URL. For example: `https://otlp.grafana.com/otlp`. The `/v1/logs` path is appended automatically. |
+| `otelSdkHeaders` | `{}` | Custom headers for the OTLP request (e.g., authorization). |
+| `otelSdkServiceName` | `'do11y'` | Value of the `service.name` resource attribute. |
+| `otelSdkResourceAttributes` | `{}` | Extra resource attributes to attach to every exported LogRecord. |
+| `otelSdkCdnUrl` | `'https://esm.sh/'` | CDN base URL for dynamically importing OTel SDK packages. Override for self-hosted or mirrored packages. |
+| `useOtelBrowserInstrumentations` | `false` | When `true`, also registers standard OTel Browser instrumentations (navigation, user action, web vitals, errors). |
+
+#### CORS and the OTel Collector
+
+OTLP endpoints are designed for backend-to-backend communication and most cloud services (Grafana, Datadog, etc.) do **not** return CORS headers, which means browsers block cross-origin requests directly to them.
+
+The standard OTel solution is to run a local **[OpenTelemetry Collector](https://opentelemetry.io/docs/collector/)** that accepts CORS requests from your docs domain and forwards them to your backend. The collector can be configured with a [CORS HTTP receiver](https://github.com/open-telemetry/opentelemetry-collector-contrib/tree/main/receiver/corsreceiver):
+
+```yaml
+receivers:
+  otlp:
+    protocols:
+      http:
+        cors:
+          allowed_origins:
+            - https://docs.example.com
+            - https://your-docs-domain.com
+            - http://localhost:*
+          allowed_headers:
+            - Content-Type
+            - Authorization
+
+exporters:
+  otlphttp:
+    endpoint: https://otlp.grafana.com/otlp
+
+service:
+  pipelines:
+    logs:
+      receivers: [otlp]
+      exporters: [otlphttp]
+```
+
+Set `otelSdkEndpoint` to your collector (e.g. `https://collector.example.com:4318`). The collector handles authentication and forwarding to your cloud backend.
+
+If you cannot run a collector, you can also use a lightweight CORS proxy (e.g., [cors-anywhere](https://github.com/Rob--W/cors-anywhere) or a Cloudflare Worker) that adds the required headers.
 
 ## Behavior
 
