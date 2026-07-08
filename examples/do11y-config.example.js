@@ -12,7 +12,7 @@
  * See the README for the full list.
  */
 window.Do11yConfig = {
-  // Destination: 'supabase' (default) or 'http'
+  // Destination: 'supabase' (default), 'http', or 'otlp'
   destination: 'supabase',
 
   // Required: Supabase project URL.
@@ -37,4 +37,9 @@ window.Do11yConfig = {
   // destination: 'http',
   // httpEndpoint: 'https://your-endpoint.com/events',
   // httpHeaders: { 'Authorization': 'Bearer your-token' },
+
+  // --- Alternative: OTLP destination ---
+  // destination: 'otlp',
+  // otlpEndpoint: 'https://otlp.grafana.com/otlp',
+  // otlpHeaders: { 'Authorization': 'Bearer your-token' },
 };
