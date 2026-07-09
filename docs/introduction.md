@@ -12,7 +12,7 @@ head:
 
 # Introduction
 
-Do11y is a documentation observability tool. It turns documentation usage into structured event data by streaming behavioral events from your docs site to [Supabase](https://supabase.com) (or any HTTP endpoint) in real time.
+Do11y is a documentation observability tool. It turns documentation usage into structured event data by streaming behavioral events from your docs site to [Supabase](https://supabase.com), any HTTP endpoint, or any OpenTelemetry-compatible backend via OTLP in real time.
 
 Do11y is built for humans and machines alike. It emits observability data that is easy to query with SQL and easy to feed into automated insights pipelines.
 

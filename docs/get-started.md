@@ -47,6 +47,26 @@ This SQL script creates a table that accepts event data from Do11y and allows an
 
 The default table name is `do11y_events`. If you use a different name, add the `supabaseTable` parameter to your Do11y configuration.
 
+### Alternative: OTLP destination
+
+To send events to an OpenTelemetry-compatible backend, set `destination` to `'otlp'`:
+
+```js
+window.Do11yConfig = {
+  destination: 'otlp',
+  otelSdkEndpoint: 'OTLP_ENDPOINT',
+  otelSdkHeaders: {
+    'Authorization': 'Bearer API_TOKEN',
+  },
+};
+```
+
+Replace `OTLP_ENDPOINT` and `API_TOKEN` with your own values. Do11y uses the official OpenTelemetry Browser SDK loaded dynamically from a CDN.
+
+#### CORS
+
+Cloud OTLP endpoints (Grafana, Datadog, Honeycomb, etc.) don't return CORS headers. This means that browsers block direct cross-origin POSTs. To use send Do11y data to cloud OTLP endpoints, run an [OpenTelemetry Collector](https://opentelemetry.io/docs/collector/) with a CORS HTTP receiver on your own domain, or use a lightweight CORS proxy. See the [configuration docs](/configuration#otlp) for a sample collector config.
+
 ### Alternative: Generic HTTP destination
 
 To send events to your own backend or a different analytics service, set `destination` to `'http'`:
@@ -54,14 +74,16 @@ To send events to your own backend or a different analytics service, set `destin
 ```js
 window.Do11yConfig = {
   destination: 'http',
-  httpEndpoint: 'BACKEND_URL',
-  httpHeaders: {
+  endpoint: 'BACKEND_URL',
+  headers: {
     'Authorization': 'Bearer API_TOKEN',
   },
 };
 ```
 
-Events are POSTed as a JSON array to the endpoint. The endpoint must be HTTPS.
+Replace `BACKEND_URL` and `API_TOKEN` with your own values.
+
+Do11y sends events as a JSON array of OTel-conformant event objects. The endpoint must use HTTPS.
 
 ## Add Do11y to your documentation site
 
