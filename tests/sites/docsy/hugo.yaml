@@ -1,18 +1,41 @@
 baseURL: "http://localhost:4007/"
 title: "Do11y Test - Hugo Docsy"
 theme: docsy
-themesDir: node_modules
 disableKinds: ["RSS", "sitemap", "404", "taxonomy", "term"]
 
+module:
+  imports:
+    - path: github.com/twbs/bootstrap
+      disable: true
+    - path: github.com/FortAwesome/Font-Awesome
+      disable: true
+
 params:
+  copyright:
+    authors: Do11y Authors
+    from_year: 2026
+  github_repo: https://github.com/manototh/do11y
+  github_branch: main
   offlineSearch: true
   ui:
+    navbar_logo: false
     feedback:
       enable: true
       yes: "Glad to hear it!"
       no: "Sorry to hear that."
+    sidebar_menu_compact: true
+    sidebar_search_disable: false
+  links:
+    user:
+      - name: GitHub
+        url: https://github.com/manototh/do11y
+        icon: fab fa-github
+        desc: Do11y on GitHub
 
 markup:
+  goldmark:
+    renderer:
+      unsafe: true
   highlight:
     codeFences: true
     guessSyntax: false

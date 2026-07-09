@@ -1,11 +1,17 @@
 {
   "name": "do11y-test-docsy",
   "description": "Do11y integration test site for Hugo Docsy",
-  "scripts": {},
+  "scripts": {
+    "serve": "hugo server --buildDrafts --minify"
+  },
   "devDependencies": {
     "autoprefixer": "^10.5.2",
     "hugo-extended": "^0.164.0",
     "postcss": "^8.5.16",
     "postcss-cli": "^11.0.1"
+  },
+  "dependencies": {
+    "@fortawesome/fontawesome-free": "^6.7.2",
+    "bootstrap": "^5.3.8"
   }
 }
