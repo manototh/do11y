@@ -470,10 +470,10 @@ function validateEvents(
   const lines: string[] = [];
 
   for (const [type, exp] of Object.entries(EXPECTED_EVENTS)) {
-    const min = (type === 'feedback'        && FEEDBACK_REQUIRED.has(framework)) ? 1
-              : (type === 'expand_collapse' && EXPAND_NONE.has(framework))       ? 0
+    const min = (type === 'browser.do11y.feedback'        && FEEDBACK_REQUIRED.has(framework)) ? 1
+              : (type === 'browser.do11y.expand_collapse' && EXPAND_NONE.has(framework))       ? 0
               : exp.min;
-    const max = (type === 'expand_collapse' && EXPAND_NONE.has(framework))       ? 0
+    const max = (type === 'browser.do11y.expand_collapse' && EXPAND_NONE.has(framework))       ? 0
               : exp.max;
     const count = byType[type] ?? 0;
     const ok    = count >= min && (max === undefined || count <= max);
