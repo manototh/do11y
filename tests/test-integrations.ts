@@ -48,7 +48,7 @@ const SITES_DIR = path.join(__dirname, 'sites');
 
 interface Framework {
   port: number;
-  type: 'npm' | 'pip' | 'static';
+  type: 'npm' | 'pip' | 'static' | 'hugo';
   dir: string;
   staticDir?: string;
   do11yDest: string;
@@ -154,6 +154,17 @@ const FRAMEWORKS: Record<string, Framework> = {
     startPage: '/',
     guidePage: '/guide/',
   },
+  docsy: {
+    port: 4007,
+    type: 'hugo',
+    dir: path.join(SITES_DIR, 'docsy'),
+    do11yDest: path.join(SITES_DIR, 'docsy', 'static', 'do11y.js'),
+    startCmd: 'hugo',
+    startArgs: ['server', '-p', '4007', '--bind', '127.0.0.1', '--disableLiveReload', '-D'],
+    readyPattern: /localhost:4007|Web Server|watching/i,
+    startPage: '/',
+    guidePage: '/guide/',
+  },
 };
 
 // ─── Helpers ────────────────────────────────────────────────────────────────
@@ -244,7 +255,7 @@ function startStaticServer(dir: string, port: number): Promise<http.Server> {
 }
 
 function installDeps(fw: Framework): void {
-  if (fw.type === 'npm') {
+  if (fw.type === 'npm' || fw.type === 'hugo') {
     if (!SKIP_INSTALL && (FORCE_INSTALL || !fs.existsSync(path.join(fw.dir, 'node_modules')))) {
       log(`  Installing npm dependencies…`);
       execSync('npm install', { cwd: fw.dir, stdio: 'pipe' });
@@ -287,6 +298,11 @@ function startDevServer(fw: Framework): DevHandle {
   if (fw.type === 'pip') {
     const extraPath = getPythonUserBins().join(':');
     if (extraPath) env.PATH = extraPath + ':' + (env.PATH ?? '');
+  } else if (fw.type === 'hugo') {
+    const binDir = path.join(fw.dir, 'node_modules', '.bin');
+    if (fs.existsSync(binDir)) {
+      env.PATH = binDir + ':' + (env.PATH ?? '');
+    }
   }
   const proc = spawn(fw.startCmd!, fw.startArgs!, {
     cwd: fw.dir,
@@ -327,6 +343,8 @@ async function runInteractions(browser: Browser, baseUrl: string, fw: Framework)
     '.md-sidebar--secondary .md-nav', // MkDocs Material
     '.right-sidebar-panel',          // Starlight
     'starlight-toc',                 // Starlight (custom element)
+    '.td-toc',                       // Docsy
+    'nav[id="TableOfContents"]',    // Docsy
     '[class*="toc"]',
     '[class*="TableOfContents"]',
     'aside.toc',
@@ -363,7 +381,8 @@ async function runInteractions(browser: Browser, baseUrl: string, fw: Framework)
     '#search-bar-entry, .DocSearch-Button, .nextra-search input, ' +
     '[data-testid*="search"], .md-search__input, .VPNavBarSearchButton, ' +
     'site-search button[data-open-modal], ' +
-    'button[aria-label*="search" i]';
+    'button[aria-label*="search" i], ' +
+    '.td-search input, .td-search__input';
   try {
     await page.waitForSelector(SEARCH_SEL, { timeout: 3000 });
     await page.click(SEARCH_SEL);
