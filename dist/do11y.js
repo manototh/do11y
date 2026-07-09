@@ -183,6 +183,17 @@
 			tabContainerSelector: "starlight-tabs [role=\"tablist\"], [role=\"tablist\"]",
 			tocSelector: ".right-sidebar-panel, starlight-toc, mobile-starlight-toc",
 			feedbackSelector: "[class*=\"feedback\"], [class*=\"helpful\"]"
+		},
+		docsy: {
+			searchSelector: ".td-search input, .td-search__input, #docsearch-0, #docsearch-1",
+			copyButtonSelector: "button[aria-label*=\"copy\" i], button[title*=\"copy\" i]",
+			codeBlockSelector: ".highlight, pre.chroma, pre",
+			navigationSelector: "nav, [role=\"navigation\"], .td-sidebar, .td-navbar, [class*=\"sidebar\"]",
+			footerSelector: "footer, [role=\"contentinfo\"], .td-footer, [class*=\"footer\"]",
+			contentSelector: "main, article, [role=\"main\"], .td-content, [class*=\"content\"]",
+			tabContainerSelector: ".nav-tabs[role=\"tablist\"], [role=\"tablist\"], .tab-content",
+			tocSelector: ".td-toc, nav[id=\"TableOfContents\"], [class*=\"toc\"]",
+			feedbackSelector: ".feedback--answer, [class*=\"feedback\"], [class*=\"helpful\"]"
 		}
 	};
 	const SELECTOR_KEYS = [

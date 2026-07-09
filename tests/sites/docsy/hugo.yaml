@@ -1,0 +1,19 @@
+baseURL: "http://localhost:4007/"
+title: "Do11y Test - Hugo Docsy"
+theme: docsy
+themesDir: node_modules
+disableKinds: ["RSS", "sitemap", "404", "taxonomy", "term"]
+
+params:
+  offlineSearch: true
+  ui:
+    feedback:
+      enable: true
+      yes: "Glad to hear it!"
+      no: "Sorry to hear that."
+
+markup:
+  highlight:
+    codeFences: true
+    guessSyntax: false
+    lineNos: false
