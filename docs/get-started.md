@@ -49,7 +49,7 @@ The default table name is `do11y_events`. If you use a different name, add the `
 
 ### Alternative: OTLP destination
 
-To send events to any OpenTelemetry-compatible backend, set `destination` to `'otlp'`:
+To send events to an OpenTelemetry-compatible backend, set `destination` to `'otlp'`:
 
 ```js
 window.Do11yConfig = {
@@ -65,7 +65,7 @@ Replace `OTLP_ENDPOINT` and `API_TOKEN` with your own values. Do11y uses the off
 
 #### CORS
 
-Cloud OTLP endpoints (Grafana, Datadog, Honeycomb, etc.) do not return CORS headers, so browsers block direct cross-origin POSTs. To use OTLP from a browser, run an [OpenTelemetry Collector](https://opentelemetry.io/docs/collector/) with a CORS HTTP receiver on your own domain, or use a lightweight CORS proxy. See the [configuration docs](/configuration#otlp) for a sample collector config.
+Cloud OTLP endpoints (Grafana, Datadog, Honeycomb, etc.) don't return CORS headers. This means that browsers block direct cross-origin POSTs. To use send Do11y data to cloud OTLP endpoints, run an [OpenTelemetry Collector](https://opentelemetry.io/docs/collector/) with a CORS HTTP receiver on your own domain, or use a lightweight CORS proxy. See the [configuration docs](/configuration#otlp) for a sample collector config.
 
 ### Alternative: Generic HTTP destination
 

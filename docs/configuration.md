@@ -24,7 +24,7 @@ Do11y supports three destinations for event data: Supabase (default), generic HT
 
 ### Supabase (default)
 
-The `supabase` destination is implemented as a preset over the `http` destination. It automatically configures the endpoint, headers, and body transform for Supabase's REST API.
+The `supabase` destination is a preset over the `http` destination. It automatically configures the endpoint, headers, and body transform for Supabase's REST API.
 
 | Option | Default | Description |
 |---|---|---|
@@ -39,22 +39,28 @@ Under the hood, this sets:
 
 ### HTTP
 
-Send events to any HTTPS endpoint. Events are sent as a JSON array with `Content-Type: application/json`.
+To send events to a HTTPS endpoint, set `destination` to `'http'`, and provide the `endpoint` and optional `headers` and `bodyTransform`. Do11y sends the events as a JSON array with `Content-Type: application/json`.
 
 | Option | Default | Description |
 |---|---|---|
 | `endpoint` | `''` | Full URL to POST events to. Must be HTTPS. |
 | `headers` | `{}` | Custom headers to include (for example, authorization). |
-| `bodyTransform` | `undefined` | Optional function to transform the event array before sending. Receives the events array and returns whatever should be serialized as JSON. Example: `(events) => ({ events })`. |
+| `bodyTransform` | `undefined` | Optional function to transform the event array before sending. Receives the events array and returns what you want to serialize as JSON. Example: `(events) => ({ events })`. |
 
 ### OTLP (OpenTelemetry Protocol)
 
-Send events to any OpenTelemetry-compatible backend. Do11y dynamically loads the [OpenTelemetry Browser SDK](https://github.com/open-telemetry/opentelemetry-browser) and creates a standard `LoggerProvider` → `BatchLogRecordProcessor` → `OTLPLogExporter` pipeline. Events are emitted as properly-structured OTel LogRecords.
+To send events to an OpenTelemetry-compatible backend, set `destination` to `'otlp'`. 
+
+::: tip NOTE
+
+If you use the OTLP destination, your Do11y implementation relies on external dependencies. Do11y dynamically loads the [OpenTelemetry Browser SDK](https://github.com/open-telemetry/opentelemetry-browser) via a CDN, and creates a standard `LoggerProvider` → `BatchLogRecordProcessor` → `OTLPLogExporter` pipeline, and sends events as properly-structured OTel LogRecords.
+
+:::
 
 | Option | Default | Description |
 |---|---|---|
 | `otelSdkEndpoint` | `''` | Your OTLP collector URL. For example: `https://otlp.grafana.com/otlp`. The `/v1/logs` path is appended automatically. |
-| `otelSdkHeaders` | `{}` | Custom headers for the OTLP request (e.g., authorization). |
+| `otelSdkHeaders` | `{}` | Custom headers for the OTLP request (for example, authorization). |
 | `otelSdkServiceName` | `'do11y'` | Value of the `service.name` resource attribute. |
 | `otelSdkResourceAttributes` | `{}` | Extra resource attributes to attach to every exported LogRecord. |
 | `otelSdkCdnUrl` | `'https://esm.sh/'` | CDN base URL for dynamically importing OTel SDK packages. Override for self-hosted or mirrored packages. |
@@ -62,9 +68,9 @@ Send events to any OpenTelemetry-compatible backend. Do11y dynamically loads the
 
 #### CORS and the OTel Collector
 
-OTLP endpoints are designed for backend-to-backend communication and most cloud services (Grafana, Datadog, etc.) do **not** return CORS headers, which means browsers block cross-origin requests directly to them.
+OTLP endpoints are designed for backend-to-backend communication and most cloud services (Grafana, Datadog, etc.) don't return CORS headers, which means browsers block cross-origin requests directly to them.
 
-The standard OTel solution is to run a local **[OpenTelemetry Collector](https://opentelemetry.io/docs/collector/)** that accepts CORS requests from your docs domain and forwards them to your backend. The collector can be configured with a [CORS HTTP receiver](https://github.com/open-telemetry/opentelemetry-collector-contrib/tree/main/receiver/corsreceiver):
+The standard OTel solution is to run a local [OpenTelemetry Collector](https://opentelemetry.io/docs/collector/) that accepts CORS requests from your docs domain and forwards them to your backend. You can configure the collector with a [CORS HTTP receiver](https://github.com/open-telemetry/opentelemetry-collector-contrib/tree/main/receiver/corsreceiver):
 
 ```yaml
 receivers:
@@ -91,9 +97,9 @@ service:
       exporters: [otlphttp]
 ```
 
-Set `otelSdkEndpoint` to your collector (e.g. `https://collector.example.com:4318`). The collector handles authentication and forwarding to your cloud backend.
+Set `otelSdkEndpoint` to your collector (for example, `https://collector.example.com:4318`). The collector handles authentication and forwarding to your cloud backend.
 
-If you cannot run a collector, you can also use a lightweight CORS proxy (e.g., [cors-anywhere](https://github.com/Rob--W/cors-anywhere) or a Cloudflare Worker) that adds the required headers.
+If you cannot run a collector, use a lightweight CORS proxy (such as [cors-anywhere](https://github.com/Rob--W/cors-anywhere) or a Cloudflare Worker) that adds the required headers.
 
 ## Behavior
 
