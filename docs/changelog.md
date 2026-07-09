@@ -12,16 +12,18 @@ head:
 
 # Changelog
 
-## v0.0.5
+## v0.1.0
 
-**Release date:** 2026-07-08
+**Release date:** 2026-07-09
 
-- **OTLP export improvements.** The inline OTLP encoder now follows the OTel Logs Data Model more closely:
-  - Adds `eventName` field (maps `eventType` to the OTel Event name)
-  - Adds rich resource attributes including `telemetry.sdk.*`, `browser.*`, `device.*`, and `user_agent.*`
-  - Adds `droppedAttributesCount: 0` per the OTLP protobuf JSON mapping spec
-  - CORS-aware transport with diagnostics and `navigator.sendBeacon` fallback on page unload
-- **CORS documentation.** Documents that cloud OTLP endpoints (Grafana, Datadog, etc.) do not support CORS and recommends running an OTel Collector as a proxy. See [configuration docs](/configuration#otlp) for a sample collector config.
+- **OTel semantic convention alignment.** All event and attribute names now follow [OpenTelemetry semantic conventions](https://opentelemetry.io/docs/specs/semconv/).
+  - Event names use the `browser.do11y.*` namespace (e.g., `browser.do11y.page_view`, `browser.do11y.link_click`)
+  - Attribute names use OTel standard keys where available (`session.id`, `url.path`, `device.type`, `browser.family`)
+  - Custom do11y attributes use `browser.do11y.*` prefix (e.g., `browser.do11y.referrer_category`, `browser.do11y.scroll.threshold`)
+- **OTLP destination rebuilt with OTel Browser SDK.** The inline OTLP encoder has been replaced with the official OpenTelemetry Browser SDK, loaded dynamically from a CDN. The SDK provides proper batching, retries, and backpressure via `BatchLogRecordProcessor`.
+- **`bodyTransform` hook for HTTP destinations.** The `http` destination now accepts a `bodyTransform` function to shape the request body. The `supabase` destination uses this internally.
+- **Renamed config options.** `httpEndpoint` → `endpoint`, `httpHeaders` → `headers`, `otlpEndpoint` → `otelSdkEndpoint`, `otlpHeaders` → `otelSdkHeaders`.
+- **Breaking changes.** No backward compatibility. See the [migration guide](/configuration) for details.
 
 ## v0.0.4
 

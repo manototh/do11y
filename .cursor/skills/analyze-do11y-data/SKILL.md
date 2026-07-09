@@ -40,15 +40,15 @@ Find the secret key under **Project settings > API Keys > Secret keys**.
 
 PostgREST does not run raw SQL. `scripts/analyze.ts` fetches all events in one REST call and aggregates in memory. The SQL blocks below document what the script computes.
 
-Events are stored as JSONB in the `payload` column. Relevant fields:
+Events are stored as JSONB in the `payload` column. All field names follow [OpenTelemetry semantic conventions](https://opentelemetry.io/docs/specs/semconv/). Relevant fields:
 
 | Field | Used for |
 |---|---|
-| `eventType` | Filter by event kind (`page_view`, `page_exit`, etc.) |
-| `path` | Page-level grouping |
+| `eventName` | Filter by event kind (`browser.do11y.page_view`, `browser.do11y.page_exit`, etc.) |
+| `url.path` | Page-level grouping |
 | `_time` | Time range filter |
-| `activeTimeSeconds`, `maxScrollDepth` | Engagement on `page_exit` |
-| `isFirstPage`, `referrerCategory` | Entry points and traffic sources |
+| `browser.do11y.page_exit.active_time_seconds`, `browser.do11y.page_exit.max_scroll_depth` | Engagement on `page_exit` |
+| `browser.do11y.is_first_page`, `browser.do11y.referrer_category` | Entry points and traffic sources |
 | `testFramework`, `testRunId` | Integration test detection |
 
 ## Pitfalls
@@ -106,12 +106,12 @@ Replace `TABLE` with the Supabase table name. Implemented by `scripts/analyze.ts
 
 ```sql
 select
-  split_part(payload->>'path', '/', 3) as section,
+  split_part(payload->>'url.path', '/', 3) as section,
   count(*) as visits,
-  avg((payload->>'activeTimeSeconds')::numeric) as avg_time,
-  avg((payload->>'maxScrollDepth')::numeric) as avg_scroll
+  avg((payload->>'browser.do11y.page_exit.active_time_seconds')::numeric) as avg_time,
+  avg((payload->>'browser.do11y.page_exit.max_scroll_depth')::numeric) as avg_scroll
 from TABLE
-where payload->>'eventType' = 'page_exit'
+where payload->>'eventName' = 'browser.do11y.page_exit'
 group by 1
 order by visits desc
 ```
@@ -119,9 +119,9 @@ order by visits desc
 ### 2. Top entry points
 
 ```sql
-select payload->>'path' as path, count(*) as entries
+select payload->>'url.path' as path, count(*) as entries
 from TABLE
-where payload->>'eventType' = 'page_view' and (payload->>'isFirstPage')::boolean = true
+where payload->>'eventName' = 'browser.do11y.page_view' and (payload->>'browser.do11y.is_first_page')::boolean = true
 group by 1
 order by entries desc
 limit 25
@@ -131,14 +131,14 @@ limit 25
 
 ```sql
 select
-  payload->>'path' as path,
-  count(*) filter (where payload->>'eventType' = 'page_view') as page_views,
-  count(*) filter (where payload->>'eventType' = 'search_opened') as searches,
-  round(100.0 * count(*) filter (where payload->>'eventType' = 'search_opened')
-    / count(*) filter (where payload->>'eventType' = 'page_view'), 1) as search_rate
+  payload->>'url.path' as path,
+  count(*) filter (where payload->>'eventName' = 'browser.do11y.page_view') as page_views,
+  count(*) filter (where payload->>'eventName' = 'browser.do11y.search_opened') as searches,
+  round(100.0 * count(*) filter (where payload->>'eventName' = 'browser.do11y.search_opened')
+    / count(*) filter (where payload->>'eventName' = 'browser.do11y.page_view'), 1) as search_rate
 from TABLE
 group by 1
-having count(*) filter (where payload->>'eventType' = 'page_view') > 10
+having count(*) filter (where payload->>'eventName' = 'browser.do11y.page_view') > 10
 order by search_rate desc
 limit 20
 ```
@@ -147,16 +147,16 @@ limit 20
 
 ```sql
 select
-  payload->>'path' as path,
-  avg((payload->>'activeTimeSeconds')::numeric) as avg_time,
-  avg((payload->>'maxScrollDepth')::numeric) as avg_scroll,
+  payload->>'url.path' as path,
+  avg((payload->>'browser.do11y.page_exit.active_time_seconds')::numeric) as avg_time,
+  avg((payload->>'browser.do11y.page_exit.max_scroll_depth')::numeric) as avg_scroll,
   count(*) as visits
 from TABLE
-where payload->>'eventType' = 'page_exit'
+where payload->>'eventName' = 'browser.do11y.page_exit'
 group by 1
 having count(*) > 5
-  and avg((payload->>'activeTimeSeconds')::numeric) < 10
-  and avg((payload->>'maxScrollDepth')::numeric) < 25
+  and avg((payload->>'browser.do11y.page_exit.active_time_seconds')::numeric) < 10
+  and avg((payload->>'browser.do11y.page_exit.max_scroll_depth')::numeric) < 25
 order by visits desc
 ```
 
@@ -164,14 +164,14 @@ order by visits desc
 
 ```sql
 select
-  payload->>'path' as path,
+  payload->>'url.path' as path,
   count(*) as visits,
-  avg((payload->>'maxScrollDepth')::numeric) as avg_scroll,
-  avg((payload->>'activeTimeSeconds')::numeric) as avg_time
+  avg((payload->>'browser.do11y.page_exit.max_scroll_depth')::numeric) as avg_scroll,
+  avg((payload->>'browser.do11y.page_exit.active_time_seconds')::numeric) as avg_time
 from TABLE
-where payload->>'eventType' = 'page_exit'
+where payload->>'eventName' = 'browser.do11y.page_exit'
 group by 1
-having count(*) > 20 and avg((payload->>'maxScrollDepth')::numeric) < 30
+having count(*) > 20 and avg((payload->>'browser.do11y.page_exit.max_scroll_depth')::numeric) < 30
 order by visits desc
 ```
 
@@ -179,13 +179,13 @@ order by visits desc
 
 ```sql
 select
-  payload->>'path' as path,
+  payload->>'url.path' as path,
   count(*) as total,
-  count(*) filter (where (payload->>'maxScrollDepth')::numeric >= 90) as completed,
-  round(100.0 * count(*) filter (where (payload->>'maxScrollDepth')::numeric >= 90)
+  count(*) filter (where (payload->>'browser.do11y.page_exit.max_scroll_depth')::numeric >= 90) as completed,
+  round(100.0 * count(*) filter (where (payload->>'browser.do11y.page_exit.max_scroll_depth')::numeric >= 90)
     / count(*), 1) as completion_rate
 from TABLE
-where payload->>'eventType' = 'page_exit'
+where payload->>'eventName' = 'browser.do11y.page_exit'
 group by 1
 having count(*) > 10
 order by completion_rate desc
@@ -196,15 +196,15 @@ limit 20
 
 ```sql
 select
-  payload->>'path' as path,
-  count(*) filter (where payload->>'eventType' = 'toc_click') as toc_clicks,
-  count(*) filter (where payload->>'eventType' = 'page_view') as views,
-  round(100.0 * count(*) filter (where payload->>'eventType' = 'toc_click')
-    / count(*) filter (where payload->>'eventType' = 'page_view'), 1) as toc_rate
+  payload->>'url.path' as path,
+  count(*) filter (where payload->>'eventName' = 'browser.do11y.toc_click') as toc_clicks,
+  count(*) filter (where payload->>'eventName' = 'browser.do11y.page_view') as views,
+  round(100.0 * count(*) filter (where payload->>'eventName' = 'browser.do11y.toc_click')
+    / count(*) filter (where payload->>'eventName' = 'browser.do11y.page_view'), 1) as toc_rate
 from TABLE
-where payload->>'eventType' in ('toc_click', 'page_view')
+where payload->>'eventName' in ('browser.do11y.toc_click', 'browser.do11y.page_view')
 group by 1
-having count(*) filter (where payload->>'eventType' = 'page_view') > 10
+having count(*) filter (where payload->>'eventName' = 'browser.do11y.page_view') > 10
 order by toc_rate desc
 limit 20
 ```
@@ -212,9 +212,9 @@ limit 20
 ### 8. Tab switch preferences
 
 ```sql
-select payload->>'tabLabel' as tab_label, count(*) as switches
+select payload->>'browser.do11y.tab.label' as tab_label, count(*) as switches
 from TABLE
-where payload->>'eventType' = 'tab_switch' and (payload->>'isDefault')::boolean = false
+where payload->>'eventName' = 'browser.do11y.tab_switch' and (payload->>'browser.do11y.tab.is_default')::boolean = false
 group by 1
 order by switches desc
 limit 20
@@ -224,13 +224,13 @@ limit 20
 
 ```sql
 select
-  payload->>'path' as path,
+  payload->>'url.path' as path,
   count(*) as total,
-  count(*) filter (where payload->>'rating' = 'yes') as helpful,
-  count(*) filter (where payload->>'rating' = 'no') as not_helpful,
-  round(count(*) filter (where payload->>'rating' = 'yes') * 100.0 / count(*), 1) as helpful_pct
+  count(*) filter (where payload->>'browser.do11y.feedback.rating' = 'yes') as helpful,
+  count(*) filter (where payload->>'browser.do11y.feedback.rating' = 'no') as not_helpful,
+  round(count(*) filter (where payload->>'browser.do11y.feedback.rating' = 'yes') * 100.0 / count(*), 1) as helpful_pct
 from TABLE
-where payload->>'eventType' = 'feedback'
+where payload->>'eventName' = 'browser.do11y.feedback'
 group by 1
 having count(*) >= 3
 order by helpful_pct asc
@@ -241,9 +241,9 @@ Also check `instrumentation.feedback_ratings` in the script output.
 ### 10. Traffic sources
 
 ```sql
-select payload->>'referrerCategory' as referrer_category, count(*) as sessions
+select payload->>'browser.do11y.referrer_category' as referrer_category, count(*) as sessions
 from TABLE
-where payload->>'eventType' = 'page_view' and (payload->>'isFirstPage')::boolean = true
+where payload->>'eventName' = 'browser.do11y.page_view' and (payload->>'browser.do11y.is_first_page')::boolean = true
 group by 1
 order by sessions desc
 ```
@@ -254,8 +254,8 @@ Read from `instrumentation` in the script output, or check manually:
 
 | Check | How to spot it | Likely cause |
 |---|---|---|
-| Referrer tracking blind | > 90% null `referrerCategory` | Referrer classification not running before first `page_view` fires |
-| Code language unknown | > 90% `language: "unknown"` in `code_copied` events | `language` attribute not read from code block's CSS class |
+| Referrer tracking blind | > 90% null `browser.do11y.referrer_category` | Referrer classification not running before first `page_view` fires |
+| Code language unknown | > 90% `browser.do11y.code.language` is `"unknown"` in `code_copied` events | Code block language not detected from CSS class or attribute |
 | TOC clicks near zero | Zero or near-zero `toc_click` events despite traffic | TOC element selector doesn't match site markup |
 | Section dwell all identical | Every row returns the same `visibleSeconds` | IntersectionObserver timer resetting on visibility change rather than accumulating |
 | No feedback events | Zero `feedback` events despite traffic | Feedback widget not rendered or selector not matched |

@@ -32,19 +32,19 @@ if (!SUPABASE_SECRET_KEY) {
 
 interface EventPayload {
   _time: string;
-  eventType: string;
-  path: string;
-  activeTimeSeconds?: number;
-  maxScrollDepth?: number;
-  isFirstPage?: boolean;
-  referrerCategory?: string;
-  tabLabel?: string;
-  isDefault?: boolean;
-  rating?: string;
-  language?: string;
+  eventName: string;
+  'url.path'?: string;
+  'browser.do11y.page_exit.active_time_seconds'?: number;
+  'browser.do11y.page_exit.max_scroll_depth'?: number;
+  'browser.do11y.is_first_page'?: boolean;
+  'browser.do11y.referrer_category'?: string;
+  'browser.do11y.tab.label'?: string;
+  'browser.do11y.tab.is_default'?: boolean;
+  'browser.do11y.feedback.rating'?: string;
+  'browser.do11y.code.language'?: string;
   testFramework?: string;
   testRunId?: string;
-  sessionId?: string;
+  'session.id'?: string;
   [key: string]: unknown;
 }
 
@@ -63,11 +63,12 @@ function isEngagementExcludedPath(path: string): boolean {
 /** Drop scroll/engagement events for non-doc paths such as tracking pixels. */
 function filterEngagementEvents(events: EventPayload[]): EventPayload[] {
   return events.filter((e) => {
-    if (!isEngagementExcludedPath(e.path)) return true;
+    const path = e['url.path'] || '';
+    if (!isEngagementExcludedPath(path)) return true;
     return (
-      e.eventType !== 'page_exit' &&
-      e.eventType !== 'scroll_depth' &&
-      e.eventType !== 'section_visible'
+      e.eventName !== 'browser.do11y.page_exit' &&
+      e.eventName !== 'browser.do11y.scroll_depth' &&
+      e.eventName !== 'browser.do11y.section_visible'
     );
   });
 }
@@ -108,20 +109,21 @@ async function fetchAllEvents(): Promise<EventPayload[]> {
 
 function eventTypeCounts(events: EventPayload[]): Record<string, number> {
   const counts = new Map<string, number>();
-  for (const e of events) counts.set(e.eventType, (counts.get(e.eventType) || 0) + 1);
+  for (const e of events) counts.set(e.eventName, (counts.get(e.eventName) || 0) + 1);
   return Object.fromEntries([...counts.entries()].sort((a, b) => b[1] - a[1]));
 }
 
 function sectionTraffic(events: EventPayload[]) {
   const bySection = new Map<string, { visits: number; times: number[]; scrolls: number[] }>();
-  for (const e of events.filter((ev) => ev.eventType === 'page_exit')) {
-    const parts = e.path.split('/').filter(Boolean);
+  for (const e of events.filter((ev) => ev.eventName === 'browser.do11y.page_exit')) {
+    const path = e['url.path'] || '';
+    const parts = path.split('/').filter(Boolean);
     const section = parts[2] || parts[0] || '(root)';
     if (!bySection.has(section)) bySection.set(section, { visits: 0, times: [], scrolls: [] });
     const s = bySection.get(section)!;
     s.visits++;
-    if (typeof e.activeTimeSeconds === 'number') s.times.push(e.activeTimeSeconds);
-    if (typeof e.maxScrollDepth === 'number') s.scrolls.push(e.maxScrollDepth);
+    if (typeof e['browser.do11y.page_exit.active_time_seconds'] === 'number') s.times.push(e['browser.do11y.page_exit.active_time_seconds']);
+    if (typeof e['browser.do11y.page_exit.max_scroll_depth'] === 'number') s.scrolls.push(e['browser.do11y.page_exit.max_scroll_depth']);
   }
   return [...bySection.entries()]
     .map(([section, d]) => ({
@@ -135,11 +137,12 @@ function sectionTraffic(events: EventPayload[]) {
 
 function exitsByPath(events: EventPayload[]) {
   const map = new Map<string, { times: number[]; scrolls: number[] }>();
-  for (const e of events.filter((ev) => ev.eventType === 'page_exit')) {
-    if (!map.has(e.path)) map.set(e.path, { times: [], scrolls: [] });
-    const p = map.get(e.path)!;
-    if (typeof e.activeTimeSeconds === 'number') p.times.push(e.activeTimeSeconds);
-    if (typeof e.maxScrollDepth === 'number') p.scrolls.push(e.maxScrollDepth);
+  for (const e of events.filter((ev) => ev.eventName === 'browser.do11y.page_exit')) {
+    const path = e['url.path'] || '';
+    if (!map.has(path)) map.set(path, { times: [], scrolls: [] });
+    const p = map.get(path)!;
+    if (typeof e['browser.do11y.page_exit.active_time_seconds'] === 'number') p.times.push(e['browser.do11y.page_exit.active_time_seconds']);
+    if (typeof e['browser.do11y.page_exit.max_scroll_depth'] === 'number') p.scrolls.push(e['browser.do11y.page_exit.max_scroll_depth']);
   }
   return map;
 }
@@ -147,11 +150,12 @@ function exitsByPath(events: EventPayload[]) {
 function pathViewsAndSearches(events: EventPayload[]) {
   const map = new Map<string, { views: number; searches: number }>();
   for (const e of events) {
-    if (!e.path) continue;
-    if (!map.has(e.path)) map.set(e.path, { views: 0, searches: 0 });
-    const p = map.get(e.path)!;
-    if (e.eventType === 'page_view') p.views++;
-    if (e.eventType === 'search_opened') p.searches++;
+    const path = e['url.path'] || '';
+    if (!path) continue;
+    if (!map.has(path)) map.set(path, { views: 0, searches: 0 });
+    const p = map.get(path)!;
+    if (e.eventName === 'browser.do11y.page_view') p.views++;
+    if (e.eventName === 'browser.do11y.search_opened') p.searches++;
   }
   return map;
 }
@@ -174,8 +178,9 @@ async function main() {
     .sort((a, b) => b.visits - a.visits);
 
   const tocByPath = new Map<string, number>();
-  for (const e of events.filter((ev) => ev.eventType === 'toc_click')) {
-    tocByPath.set(e.path, (tocByPath.get(e.path) || 0) + 1);
+  for (const e of events.filter((ev) => ev.eventName === 'browser.do11y.toc_click')) {
+    const path = e['url.path'] || '';
+    tocByPath.set(path, (tocByPath.get(path) || 0) + 1);
   }
 
   const testFrameworks = new Map<string, number>();
@@ -184,14 +189,15 @@ async function main() {
   }
   const isIntegrationTestData = testFrameworks.size > 0 || events.some((e) => e.testRunId);
 
-  const codeCopied = events.filter((e) => e.eventType === 'code_copied');
-  const unknownLang = codeCopied.filter((e) => e.language === 'unknown' || !e.language).length;
-  const firstPageViews = events.filter((e) => e.eventType === 'page_view' && e.isFirstPage);
-  const nullReferrer = firstPageViews.filter((e) => !e.referrerCategory).length;
+  const codeCopied = events.filter((e) => e.eventName === 'browser.do11y.code_copied');
+  const unknownLang = codeCopied.filter((e) => (e['browser.do11y.code.language'] === 'unknown' || !e['browser.do11y.code.language'])).length;
+  const firstPageViews = events.filter((e) => e.eventName === 'browser.do11y.page_view' && e['browser.do11y.is_first_page']);
+  const nullReferrer = firstPageViews.filter((e) => !e['browser.do11y.referrer_category']).length;
 
   const sessionPages = new Map<string, number>();
-  for (const e of events.filter((ev) => ev.eventType === 'page_view')) {
-    if (e.sessionId) sessionPages.set(e.sessionId, (sessionPages.get(e.sessionId) || 0) + 1);
+  for (const e of events.filter((ev) => ev.eventName === 'browser.do11y.page_view')) {
+    const sid = e['session.id'];
+    if (sid) sessionPages.set(sid, (sessionPages.get(sid) || 0) + 1);
   }
   const pageCounts = [...sessionPages.values()];
 
@@ -216,19 +222,19 @@ async function main() {
         ? round((100 * unknownLang) / codeCopied.length)
         : 0,
       code_languages: Object.fromEntries(
-        [...new Set(codeCopied.map((e) => String(e.language || '(missing)')))]
-          .map((lang) => [lang, codeCopied.filter((e) => String(e.language || '(missing)') === lang).length]),
+        [...new Set(codeCopied.map((e) => String(e['browser.do11y.code.language'] || '(missing)')))]
+          .map((lang) => [lang, codeCopied.filter((e) => String(e['browser.do11y.code.language'] || '(missing)') === lang).length]),
       ),
-      feedback_events: events.filter((e) => e.eventType === 'feedback').length,
+      feedback_events: events.filter((e) => e.eventName === 'browser.do11y.feedback').length,
       feedback_ratings: Object.fromEntries(
-        [...new Set(events.filter((e) => e.eventType === 'feedback').map((e) => String(e.rating || '(missing)')))]
+        [...new Set(events.filter((e) => e.eventName === 'browser.do11y.feedback').map((e) => String(e['browser.do11y.feedback.rating'] || '(missing)')))]
           .map((r) => [
             r,
-            events.filter((e) => e.eventType === 'feedback' && String(e.rating || '(missing)') === r).length,
+            events.filter((e) => e.eventName === 'browser.do11y.feedback' && String(e['browser.do11y.feedback.rating'] || '(missing)') === r).length,
           ]),
       ),
-      toc_clicks: events.filter((e) => e.eventType === 'toc_click').length,
-      page_views: events.filter((e) => e.eventType === 'page_view').length,
+      toc_clicks: events.filter((e) => e.eventName === 'browser.do11y.toc_click').length,
+      page_views: events.filter((e) => e.eventName === 'browser.do11y.page_view').length,
     },
     sessions: {
       count: sessionPages.size,
@@ -239,16 +245,16 @@ async function main() {
     },
     section_traffic: sectionTraffic(events),
     top_entry_points: [...events
-      .filter((e) => e.eventType === 'page_view' && e.isFirstPage)
-      .reduce((m, e) => m.set(e.path, (m.get(e.path) || 0) + 1), new Map<string, number>())
+      .filter((e) => e.eventName === 'browser.do11y.page_view' && e['browser.do11y.is_first_page'])
+      .reduce((m, e) => m.set(e['url.path'] || '', (m.get(e['url.path'] || '') || 0) + 1), new Map<string, number>())
       .entries()]
       .map(([path, entries]) => ({ path, entries }))
       .sort((a, b) => b.entries - a.entries)
       .slice(0, 25),
     traffic_sources: [...events
-      .filter((e) => e.eventType === 'page_view' && e.isFirstPage)
+      .filter((e) => e.eventName === 'browser.do11y.page_view' && e['browser.do11y.is_first_page'])
       .reduce(
-        (m, e) => m.set(e.referrerCategory ?? '(null)', (m.get(e.referrerCategory ?? '(null)') || 0) + 1),
+        (m, e) => m.set(e['browser.do11y.referrer_category'] ?? '(null)', (m.get(e['browser.do11y.referrer_category'] ?? '(null)') || 0) + 1),
         new Map<string, number>(),
       )
       .entries()]
@@ -294,21 +300,22 @@ async function main() {
       .sort((a, b) => b.toc_rate - a.toc_rate)
       .slice(0, 20),
     tab_switches: [...events
-      .filter((e) => e.eventType === 'tab_switch' && e.isDefault === false && e.tabLabel)
-      .reduce((m, e) => m.set(e.tabLabel!, (m.get(e.tabLabel!) || 0) + 1), new Map<string, number>())
+      .filter((e) => e.eventName === 'browser.do11y.tab_switch' && e['browser.do11y.tab.is_default'] === false && e['browser.do11y.tab.label'])
+      .reduce((m, e) => m.set(e['browser.do11y.tab.label']!, (m.get(e['browser.do11y.tab.label']!) || 0) + 1), new Map<string, number>())
       .entries()]
       .map(([tab_label, switches]) => ({ tab_label, switches }))
       .sort((a, b) => b.switches - a.switches)
       .slice(0, 20),
     feedback_by_page: [...events
-      .filter((e) => e.eventType === 'feedback')
+      .filter((e) => e.eventName === 'browser.do11y.feedback')
       .reduce(
         (m, e) => {
-          if (!m.has(e.path)) m.set(e.path, { total: 0, yes: 0, no: 0 });
-          const f = m.get(e.path)!;
+          const path = e['url.path'] || '';
+          if (!m.has(path)) m.set(path, { total: 0, yes: 0, no: 0 });
+          const f = m.get(path)!;
           f.total++;
-          if (e.rating === 'yes') f.yes++;
-          if (e.rating === 'no') f.no++;
+          if (e['browser.do11y.feedback.rating'] === 'yes') f.yes++;
+          if (e['browser.do11y.feedback.rating'] === 'no') f.no++;
           return m;
         },
         new Map<string, { total: number; yes: number; no: number }>(),
@@ -327,10 +334,10 @@ async function main() {
       if (!e.testFramework) return m;
       if (!m.has(e.testFramework)) m.set(e.testFramework, { views: 0, exits: 0, toc: 0, search: 0 });
       const x = m.get(e.testFramework)!;
-      if (e.eventType === 'page_view') x.views++;
-      if (e.eventType === 'page_exit') x.exits++;
-      if (e.eventType === 'toc_click') x.toc++;
-      if (e.eventType === 'search_opened') x.search++;
+      if (e.eventName === 'browser.do11y.page_view') x.views++;
+      if (e.eventName === 'browser.do11y.page_exit') x.exits++;
+      if (e.eventName === 'browser.do11y.toc_click') x.toc++;
+      if (e.eventName === 'browser.do11y.search_opened') x.search++;
       return m;
     }, new Map<string, { views: number; exits: number; toc: number; search: number }>())
       .entries()]

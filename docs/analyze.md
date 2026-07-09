@@ -23,10 +23,10 @@ Open your project in the Supabase dashboard and go to the **SQL Editor**. Events
 
 ```sql
 select
-  payload->>'path' as path,
+  payload->>'url.path' as path,
   count(*) as views
 from do11y_events
-where payload->>'eventType' = 'page_view'
+where payload->>'eventName' = 'browser.do11y.page_view'
 group by 1
 order by views desc
 limit 20;
@@ -42,13 +42,13 @@ select
   id,
   created_at,
   (payload->>'_time')::timestamptz as event_time,
-  payload->>'eventType' as event_type,
-  payload->>'path' as path,
-  payload->>'sessionId' as session_id,
-  (payload->>'sessionPageCount')::int as session_page_count,
-  payload->>'viewportCategory' as viewport_category,
-  payload->>'browserFamily' as browser_family,
-  payload->>'deviceType' as device_type,
+  payload->>'eventName' as event_name,
+  payload->>'url.path' as path,
+  payload->>'session.id' as session_id,
+  (payload->>'browser.do11y.session_page_count')::int as session_page_count,
+  payload->>'browser.do11y.viewport_category' as viewport_category,
+  payload->>'browser.family' as browser_family,
+  payload->>'device.type' as device_type,
   payload
 from do11y_events;
 ```
@@ -56,7 +56,7 @@ from do11y_events;
 Then query with standard column access:
 
 ```sql
-select path, count(*) as views from do11y where event_type = 'page_view' group by 1;
+select path, count(*) as views from do11y where event_name = 'browser.do11y.page_view' group by 1;
 ```
 
 ## What the data tells you
