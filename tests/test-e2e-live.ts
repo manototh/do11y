@@ -84,6 +84,10 @@ const LIVE_SITES: Record<string, LiveSite> = {
     startUrl:  'https://starlight.astro.build/getting-started/',
     secondUrl: 'https://starlight.astro.build/guides/pages/',
   },
+  docsy: {
+    startUrl:  'https://www.docsy.dev/docs/content/iconsimages/',
+    secondUrl: 'https://www.docsy.dev/docs/get-started/other-options/',
+  },
 };
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
@@ -215,6 +219,8 @@ async function runInteractions(
     '.md-sidebar--secondary .md-nav',
     '.right-sidebar-panel',          // Starlight
     'starlight-toc',                 // Starlight (custom element)
+    '.td-toc',                       // Docsy
+    'nav[id="TableOfContents"]',    // Docsy
     '[class*="toc"]',
     '[class*="TableOfContents"]',
     'aside.toc',
@@ -251,7 +257,8 @@ async function runInteractions(
     '#search-bar-entry, .DocSearch-Button, .nextra-search input, ' +
     '[data-testid*="search"], .md-search__input, .VPNavBarSearchButton, ' +
     'site-search button[data-open-modal], ' +
-    'button[aria-label*="search" i]';
+    'button[aria-label*="search" i], ' +
+    '.td-search input, .td-search__input';
   try {
     await page.waitForSelector(SEARCH_SEL, { timeout: 3000 });
     const clicked = await page.evaluate((sel: string) => {

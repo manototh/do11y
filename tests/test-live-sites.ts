@@ -120,7 +120,7 @@ const TEST_SITES: Record<string, string> = {
   'mkdocs-material': 'https://squidfunk.github.io/mkdocs-material/reference/admonitions',
   vitepress:         'https://vitepress.dev/guide/markdown',
   starlight:         'https://starlight.astro.build/getting-started/',
-  docsy:             'https://www.docsy.dev/docs/get-started/',
+  docsy:             'https://www.docsy.dev/docs/content/iconsimages/',
 };
 
 const SELECTOR_KEYS: Array<keyof FrameworkSelectors> = [
