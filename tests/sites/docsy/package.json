@@ -1,15 +1,11 @@
 {
   "name": "do11y-test-docsy",
-  "private": true,
   "description": "Do11y integration test site for Hugo Docsy",
-  "scripts": {
-    "postinstall": "node -e \"var fs=require('fs'),cp=require('child_process');[['docsy'],['@google','docsy']].forEach(function(p){var d='node_modules'+'/'+p.join('/');if(fs.existsSync(d+'/package.json')){try{cp.execSync('npm install --omit=peer',{cwd:d,stdio:'pipe'});}catch(e){console.log('Docsy deps setup:',e.message);}}});\"",
-    "start": "hugo server -p 4007 --bind 127.0.0.1 --disableLiveReload -D"
-  },
+  "scripts": {},
   "devDependencies": {
-    "autoprefixer": "^10.4.0",
-    "hugo-extended": "latest",
-    "docsy": "github:google/docsy#v0.15.0",
-    "postcss-cli": "^11.0.0"
+    "autoprefixer": "^10.5.2",
+    "hugo-extended": "^0.164.0",
+    "postcss": "^8.5.16",
+    "postcss-cli": "^11.0.1"
   }
 }
