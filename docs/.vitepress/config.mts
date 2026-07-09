@@ -69,6 +69,7 @@ export default defineConfig({
           { text: 'VitePress', link: '/install/vitepress' },
           { text: 'MkDocs Material', link: '/install/mkdocs-material' },
           { text: 'Starlight (Astro)', link: '/install/starlight' },
+          { text: 'Docsy', link: '/install/docsy' },
           { text: 'Manual setup', link: '/install/manual' },
         ],
       },

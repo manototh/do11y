@@ -25,8 +25,6 @@ Create `layouts/partials/hooks/head-end.html` in your Hugo project with the foll
 
 Replace `SUPABASE_PROJECT_URL` and `SUPABASE_PUBLISHABLE_KEY` with your [Supabase credentials](/get-started).
 
-Docsy includes a `hooks/head-end.html` placeholder partial that gets injected just before the closing `</head>` tag on every page. By creating your own version of this partial in `layouts/partials/hooks/head-end.html`, your code is automatically included site-wide.
-
 ## Advanced configuration
 
 To use options beyond the basic credentials, add an inline config script before the main script in `layouts/partials/hooks/head-end.html`:
