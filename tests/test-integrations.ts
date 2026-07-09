@@ -283,7 +283,7 @@ function getPythonUserBins(): string[] {
 }
 
 function startDevServer(fw: Framework): DevHandle {
-  const env = { ...process.env, BROWSER: 'none', NODE_ENV: 'development' };
+  const env: NodeJS.ProcessEnv = { ...process.env, BROWSER: 'none', NODE_ENV: 'development' };
   if (fw.type === 'pip') {
     const extraPath = getPythonUserBins().join(':');
     if (extraPath) env.PATH = extraPath + ':' + (env.PATH ?? '');
