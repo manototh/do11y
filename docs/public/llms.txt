@@ -25,3 +25,4 @@ Privacy: no cookies, no PII, no device fingerprinting, no cross-site tracking. U
 - [npm](https://www.npmjs.com/package/do11y): Package published as do11y.
 - [Supabase](https://supabase.com): The platform that stores Do11y event data (PostgreSQL).
 - [OTLP destination](https://docservable.com/configuration#otlp): Send events to any OpenTelemetry-compatible backend via OTLP/HTTP JSON. Supports Grafana, Loki, and other OTel receivers. Requires an OTel Collector or CORS proxy for browser use.
+- [CORS setup](https://docservable.com/cors): How to set up an OpenTelemetry Collector or Cloudflare Worker to use the OTLP destination from a browser.
