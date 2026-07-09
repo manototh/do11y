@@ -45,7 +45,7 @@ interface LiveSite {
 
 interface SupabaseRow {
   payload: {
-    eventType?: string;
+    eventName?: string;
     testFramework?: string;
     testRunId?: string;
     [key: string]: unknown;
@@ -435,16 +435,16 @@ async function querySupabase(testRunId: string): Promise<SupabaseRow[]> {
 // ─── Validation ───────────────────────────────────────────────────────────────
 
 const EXPECTED_EVENTS: Record<string, EventExpectation> = {
-  page_view:       { min: 2 },
-  scroll_depth:    { min: 1 },
-  search_opened:   { min: 0 },
-  code_copied:     { min: 1 },
-  link_click:      { min: 1 },
-  page_exit:       { min: 1 },
-  expand_collapse: { min: 1 },
-  toc_click:       { min: 1 },
-  feedback:        { min: 0 },
-  section_visible: { min: 1 },
+  'browser.do11y.page_view':       { min: 2 },
+  'browser.do11y.scroll_depth':    { min: 1 },
+  'browser.do11y.search_opened':   { min: 0 },
+  'browser.do11y.code_copied':     { min: 1 },
+  'browser.do11y.link_click':      { min: 1 },
+  'browser.do11y.page_exit':       { min: 1 },
+  'browser.do11y.expand_collapse': { min: 1 },
+  'browser.do11y.toc_click':       { min: 1 },
+  'browser.do11y.feedback':        { min: 0 },
+  'browser.do11y.section_visible': { min: 1 },
 };
 
 // Frameworks confirmed to have a page-level feedback widget on their test pages.
@@ -461,8 +461,8 @@ function validateEvents(
 ): { pass: number; fail: number; lines: string[] } {
   const byType: Record<string, number> = {};
   for (const row of rows) {
-    const eventType = row.payload?.eventType;
-    if (eventType) byType[eventType] = (byType[eventType] ?? 0) + 1;
+    const eventName = row.payload?.eventName;
+    if (eventName) byType[eventName] = (byType[eventName] ?? 0) + 1;
   }
 
   let pass = 0;
