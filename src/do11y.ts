@@ -985,7 +985,7 @@ function validateConfig(): boolean {
 async function initOtelSdk(): Promise<void> {
   if (_otelLogger) return; // already initialized
 
-  const cdnBase = config.otelSdkCdnUrl.replace(/\/$/, '');
+  const cdnBase = config.otelSdkCdnUrl.replace(/\/+$/, '') + '/';
   const apiLogs = await import(/* @vite-ignore */ `${cdnBase}@opentelemetry/api-logs`);
   const sdkLogs = await import(/* @vite-ignore */ `${cdnBase}@opentelemetry/sdk-logs`);
   const otlpExporter = await import(/* @vite-ignore */ `${cdnBase}@opentelemetry/exporter-logs-otlp-http`);

@@ -653,7 +653,7 @@
 	*/
 	async function initOtelSdk() {
 		if (_otelLogger) return;
-		const cdnBase = config.otelSdkCdnUrl.replace(/\/$/, "");
+		const cdnBase = config.otelSdkCdnUrl.replace(/\/+$/, "") + "/";
 		const apiLogs = await import(
 			/* @vite-ignore */
 			`${cdnBase}@opentelemetry/api-logs`
