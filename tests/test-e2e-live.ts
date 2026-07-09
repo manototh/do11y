@@ -254,7 +254,12 @@ async function runInteractions(
     'button[aria-label*="search" i]';
   try {
     await page.waitForSelector(SEARCH_SEL, { timeout: 3000 });
-    await page.click(SEARCH_SEL);
+    const clicked = await page.evaluate((sel: string) => {
+      const el = document.querySelector(sel);
+      if (el) { (el as HTMLElement).click(); return true; }
+      return false;
+    }, SEARCH_SEL);
+    if (!clicked) throw new Error('querySelector returned null');
   } catch { warn(`  ⚠ No search element found on ${framework}, skipping`); }
   await sleep(500);
   await page.keyboard.press('Escape');
@@ -437,7 +442,7 @@ async function querySupabase(testRunId: string): Promise<SupabaseRow[]> {
 const EXPECTED_EVENTS: Record<string, EventExpectation> = {
   'browser.do11y.page_view':       { min: 2 },
   'browser.do11y.scroll_depth':    { min: 1 },
-  'browser.do11y.search_opened':   { min: 0 },
+  'browser.do11y.search_opened':   { min: 1 },
   'browser.do11y.code_copied':     { min: 1 },
   'browser.do11y.link_click':      { min: 1 },
   'browser.do11y.page_exit':       { min: 1 },
