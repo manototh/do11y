@@ -107,7 +107,7 @@ async function fetchAllEvents(): Promise<EventPayload[]> {
   return rows.map((r) => r.payload);
 }
 
-function eventTypeCounts(events: EventPayload[]): Record<string, number> {
+function eventNameCounts(events: EventPayload[]): Record<string, number> {
   const counts = new Map<string, number>();
   for (const e of events) counts.set(e.eventName, (counts.get(e.eventName) || 0) + 1);
   return Object.fromEntries([...counts.entries()].sort((a, b) => b[1] - a[1]));
@@ -212,7 +212,7 @@ async function main() {
       is_integration_test_data: isIntegrationTestData,
       test_frameworks: Object.fromEntries(testFrameworks),
     },
-    event_types: eventTypeCounts(events),
+    event_names: eventNameCounts(events),
     instrumentation: {
       null_referrer_pct: firstPageViews.length
         ? round((100 * nullReferrer) / firstPageViews.length)
