@@ -438,11 +438,14 @@ async function runInteractions(browser: Browser, baseUrl: string, fw: Framework)
   log('  → feedback');
   try {
     const feedbackClicked = await page.evaluate(() => {
-      const container = document.querySelector(
+      const candidates = document.querySelectorAll(
         '[class*="feedback"], [class*="helpful"], [data-feedback]'
       );
-      if (container) {
-        const btn = container.querySelector('button[data-value], button');
+      for (const el of candidates) {
+        if (el.tagName === 'BUTTON') {
+          (el as HTMLElement).click(); return true;
+        }
+        const btn = el.querySelector('button');
         if (btn) { (btn as HTMLElement).click(); return true; }
       }
       return false;
