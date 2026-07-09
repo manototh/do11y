@@ -394,19 +394,29 @@ async function runInteractions(browser: Browser, baseUrl: string, fw: Framework)
   // 5. Click copy button
   log('  → code_copied');
   try {
-    const copyClicked = await page.evaluate(() => {
-      const el = document.querySelector(
-        'button.clean-btn[aria-label*="copy" i], button[class*="copyButton"], ' +
-        'button[aria-label*="copy" i], button[title*="copy" i], ' +
-        '.md-clipboard, .md-code__button[title="Copy to clipboard"], ' +
-        '.vp-code-copy, button.copy[title*="Copy"], ' +
-        '.expressive-code .copy button'
-      );
+    const copyBtnSel = [
+      'button.clean-btn[aria-label*="copy" i]',
+      'button[class*="copyButton"]',
+      'button[aria-label*="copy" i]',
+      'button[title*="copy" i]',
+      '.td-click-to-copy',
+      'button.fa-copy',
+      '.md-clipboard',
+      '.md-code__button[title="Copy to clipboard"]',
+      '.vp-code-copy',
+      'button.copy[title*="Copy"]',
+      '.expressive-code .copy button',
+    ].join(', ');
+
+    const copyClicked = await page.evaluate((sel) => {
+      const el = document.querySelector(sel);
       if (el) { (el as HTMLElement).click(); return true; }
       return false;
-    });
+    }, copyBtnSel);
     if (!copyClicked) warn('  ⚠ No copy button found, skipping');
-  } catch { /* ignore */ }
+  } catch (err) {
+    warn(`  ⚠ Copy button interaction error: ${(err as Error).message}`);
+  }
   await sleep(500);
 
   // 6. Expand a <details> element

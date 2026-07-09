@@ -186,7 +186,7 @@
 		},
 		docsy: {
 			searchSelector: ".td-search input, .td-search__input, #docsearch-0, #docsearch-1",
-			copyButtonSelector: "button[aria-label*=\"copy\" i], button[title*=\"copy\" i]",
+			copyButtonSelector: "button[aria-label*=\"copy\" i], button[title*=\"copy\" i], .td-click-to-copy",
 			codeBlockSelector: ".highlight, pre.chroma, pre",
 			navigationSelector: "nav, [role=\"navigation\"], .td-sidebar, .td-navbar, [class*=\"sidebar\"]",
 			footerSelector: "footer, [role=\"contentinfo\"], .td-footer, [class*=\"footer\"]",
