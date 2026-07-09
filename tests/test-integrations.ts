@@ -162,8 +162,8 @@ const FRAMEWORKS: Record<string, Framework> = {
     startCmd: 'hugo',
     startArgs: ['server', '-p', '4007', '--bind', '127.0.0.1', '--disableLiveReload', '-D'],
     readyPattern: /localhost:4007|Web Server|watching/i,
-    startPage: '/',
-    guidePage: '/guide/',
+    startPage: '/docs/',
+    guidePage: '/docs/guide/',
   },
 };
 
