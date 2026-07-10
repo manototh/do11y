@@ -228,9 +228,18 @@ const VERSION = '0.1.0';
 const _alreadyLoaded = !!window.__do11yInitialized;
 window.__do11yInitialized = true;
 
+// Skip if running in a sub-frame (iframes, about:blank children, etc.).
+// In production (script tag), do11y only runs on pages that explicitly include it.
+// In environments like Puppeteer's evaluateOnNewDocument, this prevents events
+// from reCAPTCHA iframes, embedded widgets, and other child frames.
+const _isInIframe = window.self !== window.top;
+if (_isInIframe && !_alreadyLoaded) {
+  window.__do11yInitialized = false; // allow re-init if this frame becomes top
+}
+
 // ============================================================
 // Configuration
-// ============================================================
+//============================================================
 const config: Do11yConfig = {
   destination: 'supabase',
   supabaseUrl: '',
@@ -1191,6 +1200,9 @@ function flushSync(): void {
 // ============================================================
 
 function trackPageView(): void {
+  // Reset the page_exit guard so the new page can emit its exit cleanly.
+  pageExited = false;
+
   const session = updatePageSequence(window.location.pathname);
 
   const referrerDomain = getReferrerDomain();
@@ -1434,8 +1446,15 @@ let pageLoadTime = Date.now();
 let lastActivityTime = Date.now();
 let totalActiveTime = 0;
 let isPageVisible = true;
+let pageExited = false;
 
 function emitPageExit(): void {
+  // Prevent duplicate page_exit when both the MutationObserver (path change)
+  // and the beforeunload event fire for the same navigation. The flag is
+  // reset by trackPageView() when the next page starts.
+  if (pageExited) return;
+  pageExited = true;
+
   if (isPageVisible) {
     totalActiveTime += Date.now() - lastActivityTime;
   }
@@ -1985,7 +2004,7 @@ function cleanup(): void {
   flushSync();
 }
 
-if (!_alreadyLoaded) {
+if (!_alreadyLoaded && !_isInIframe) {
   // Initialize when DOM is ready
   if (document.readyState === 'loading') {
     document.addEventListener('DOMContentLoaded', init);

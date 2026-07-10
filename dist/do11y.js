@@ -69,6 +69,8 @@
 	const VERSION = "0.1.0";
 	const _alreadyLoaded = !!window.__do11yInitialized;
 	window.__do11yInitialized = true;
+	const _isInIframe = window.self !== window.top;
+	if (_isInIframe && !_alreadyLoaded) window.__do11yInitialized = false;
 	const config = {
 		destination: "supabase",
 		supabaseUrl: "",
@@ -805,6 +807,7 @@
 		if (config.debug) console.log("[Do11y] Sync flushed", events.length, "events");
 	}
 	function trackPageView() {
+		pageExited = false;
 		const session = updatePageSequence(window.location.pathname);
 		const referrerDomain = getReferrerDomain();
 		const referrerInfo = classifyReferrer(referrerDomain);
@@ -978,7 +981,10 @@
 	let lastActivityTime = Date.now();
 	let totalActiveTime = 0;
 	let isPageVisible = true;
+	let pageExited = false;
 	function emitPageExit() {
+		if (pageExited) return;
+		pageExited = true;
 		if (isPageVisible) totalActiveTime += Date.now() - lastActivityTime;
 		const totalTime = Date.now() - pageLoadTime;
 		const engagementRatio = totalTime > 0 ? totalActiveTime / totalTime : 0;
@@ -1323,7 +1329,7 @@
 		}
 		flushSync();
 	}
-	if (!_alreadyLoaded) if (document.readyState === "loading") document.addEventListener("DOMContentLoaded", init);
+	if (!_alreadyLoaded && !_isInIframe) if (document.readyState === "loading") document.addEventListener("DOMContentLoaded", init);
 	else init();
 	window.Do11y = window.Do11y ?? {
 		getConfig: () => ({
