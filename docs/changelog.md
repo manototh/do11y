@@ -12,6 +12,13 @@ head:
 
 # Changelog
 
+## v0.1.1
+
+**Release date:** 2026-07-10
+
+- **Docsy (Hugo) support:** You can now set up Do11y on Docsy documentation sites with a few meta tags. For more information, see [Install on Docsy](/install/docsy).
+- Fix duplicate page views on documentation sites with iframes.
+
 ## v0.1.0
 
 **Release date:** 2026-07-09
