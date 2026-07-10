@@ -84,9 +84,13 @@ const LIVE_SITES: Record<string, LiveSite> = {
     startUrl:  'https://starlight.astro.build/getting-started/',
     secondUrl: 'https://starlight.astro.build/guides/pages/',
   },
-  docsy: {
+  'docsy-dev': {
     startUrl:  'https://www.docsy.dev/docs/content/iconsimages/',
     secondUrl: 'https://www.docsy.dev/docs/content/lookandfeel/',
+  },
+  'docsy-otel': {
+    startUrl:  'https://opentelemetry.io/docs/languages/js/getting-started/nodejs/',
+    secondUrl: 'https://opentelemetry.io/docs/languages/js/getting-started/browser/',
   },
 };
 
@@ -477,7 +481,7 @@ const FEEDBACK_REQUIRED = new Set(['mkdocs-material']);
 // Frameworks whose test pages have no documentation-level expandable content.
 // expand_collapse events on these pages indicate a false positive in do11y
 // (e.g. a sidebar nav toggle being mis-classified), so we assert max: 0.
-const EXPAND_NONE = new Set(['nextra', 'docsy']);
+const EXPAND_NONE = new Set(['nextra', 'docsy-dev']);
 
 function validateEvents(
   framework: string,
