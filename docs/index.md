@@ -23,8 +23,8 @@ features:
     details: No cookies, no PII, no device fingerprinting, no cross-site tracking. You don't need a GDPR consent banner.
   - title: Zero dependencies
     details: A single dependency-free JavaScript file. Load it from the CDN or self-host. One script tag is all it takes.
-  - title: Six frameworks out of the box
-    details: Mintlify, Docusaurus, Nextra, MkDocs Material, Starlight (Astro), and VitePress are supported. For anything else, use manual setup with custom selectors.
+  - title: Seven frameworks out of the box
+    details: Mintlify, Docusaurus, Nextra, MkDocs Material, Starlight (Astro), VitePress, and Hugo Docsy are supported. For anything else, use manual setup with custom selectors.
   - title: Rich behavioral events
     details: Page views, scroll depth, link clicks, search queries, code-block copies, section reading time, tab switches, TOC clicks, feedback, and expand/collapse interactions.
   - title: AI-powered insights

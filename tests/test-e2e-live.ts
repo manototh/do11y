@@ -84,6 +84,14 @@ const LIVE_SITES: Record<string, LiveSite> = {
     startUrl:  'https://starlight.astro.build/getting-started/',
     secondUrl: 'https://starlight.astro.build/guides/pages/',
   },
+  'docsy-dev': {
+    startUrl:  'https://www.docsy.dev/docs/content/iconsimages/',
+    secondUrl: 'https://www.docsy.dev/docs/content/lookandfeel/',
+  },
+  'docsy-otel': {
+    startUrl:  'https://opentelemetry.io/docs/languages/js/getting-started/nodejs/',
+    secondUrl: 'https://opentelemetry.io/docs/languages/js/getting-started/browser/',
+  },
 };
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
@@ -215,6 +223,8 @@ async function runInteractions(
     '.md-sidebar--secondary .md-nav',
     '.right-sidebar-panel',          // Starlight
     'starlight-toc',                 // Starlight (custom element)
+    '.td-toc',                       // Docsy
+    'nav[id="TableOfContents"]',    // Docsy
     '[class*="toc"]',
     '[class*="TableOfContents"]',
     'aside.toc',
@@ -251,7 +261,8 @@ async function runInteractions(
     '#search-bar-entry, .DocSearch-Button, .nextra-search input, ' +
     '[data-testid*="search"], .md-search__input, .VPNavBarSearchButton, ' +
     'site-search button[data-open-modal], ' +
-    'button[aria-label*="search" i]';
+    'button[aria-label*="search" i], ' +
+    '.td-search input, .td-search__input';
   try {
     await page.waitForSelector(SEARCH_SEL, { timeout: 3000 });
     const clicked = await page.evaluate((sel: string) => {
@@ -270,26 +281,38 @@ async function runInteractions(
   try {
     await page.evaluate(() => {
       document.querySelector('pre')?.scrollIntoView({ block: 'center' });
-    });
-    const preEl = await page.$('pre');
-    if (preEl) {
-      await preEl.hover();
-      await sleep(400);
-    }
+    }).catch(() => {});
+    try {
+      const preEl = await page.$('pre');
+      if (preEl) {
+        await preEl.hover().catch(() => {});
+        await sleep(400);
+      }
+    } catch { /* hover non-fatal */ }
 
-    const copyClicked = await page.evaluate(() => {
-      const el = document.querySelector(
-        'button.clean-btn[aria-label*="copy" i], button[class*="copyButton"], ' +
-        'button[aria-label*="copy" i], button[title*="copy" i], ' +
-        '.md-clipboard, .md-code__button[title="Copy to clipboard"], ' +
-        '.vp-code-copy, button.copy[title*="Copy"], ' +
-        '.expressive-code .copy button'
-      );
+    const copyBtnSel = [
+      'button.clean-btn[aria-label*="copy" i]',
+      'button[class*="copyButton"]',
+      'button[aria-label*="copy" i]',
+      'button[title*="copy" i]',
+      '.td-click-to-copy',
+      'button.fa-copy',
+      '.md-clipboard',
+      '.md-code__button[title="Copy to clipboard"]',
+      '.vp-code-copy',
+      'button.copy[title*="Copy"]',
+      '.expressive-code .copy button',
+    ].join(', ');
+
+    const copyClicked = await page.evaluate((sel) => {
+      const el = document.querySelector(sel);
       if (el) { (el as HTMLElement).click(); return true; }
       return false;
-    });
+    }, copyBtnSel);
     if (!copyClicked) warn(`  ⚠ No copy button found on ${framework}, skipping`);
-  } catch { /* ignore */ }
+  } catch (err) {
+    warn(`  ⚠ Copy button interaction error on ${framework}: ${(err as Error).message}`);
+  }
   await sleep(500);
 
   // 6. Expand a <details> element
@@ -458,7 +481,7 @@ const FEEDBACK_REQUIRED = new Set(['mkdocs-material']);
 // Frameworks whose test pages have no documentation-level expandable content.
 // expand_collapse events on these pages indicate a false positive in do11y
 // (e.g. a sidebar nav toggle being mis-classified), so we assert max: 0.
-const EXPAND_NONE = new Set(['nextra']);
+const EXPAND_NONE = new Set(['nextra', 'docsy-dev']);
 
 function validateEvents(
   framework: string,

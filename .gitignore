@@ -18,3 +18,5 @@ build/
 .docusaurus/
 **/.vitepress/cache
 **/.vitepress/dist
+/tests/sites/docsy/public
+/tests/sites/docsy/resources

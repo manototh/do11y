@@ -66,9 +66,11 @@
 	const EVENT_TOC_CLICK = "browser.do11y.toc_click";
 	const EVENT_FEEDBACK = "browser.do11y.feedback";
 	const EVENT_EXPAND_COLLAPSE = "browser.do11y.expand_collapse";
-	const VERSION = "0.1.0";
+	const VERSION = "0.1.1";
 	const _alreadyLoaded = !!window.__do11yInitialized;
 	window.__do11yInitialized = true;
+	const _isInIframe = window.self !== window.top;
+	if (_isInIframe && !_alreadyLoaded) window.__do11yInitialized = false;
 	const config = {
 		destination: "supabase",
 		supabaseUrl: "",
@@ -183,6 +185,17 @@
 			tabContainerSelector: "starlight-tabs [role=\"tablist\"], [role=\"tablist\"]",
 			tocSelector: ".right-sidebar-panel, starlight-toc, mobile-starlight-toc",
 			feedbackSelector: "[class*=\"feedback\"], [class*=\"helpful\"]"
+		},
+		docsy: {
+			searchSelector: ".td-search input, .td-search__input, #docsearch-0, #docsearch-1",
+			copyButtonSelector: "button[aria-label*=\"copy\" i], button[title*=\"copy\" i], .td-click-to-copy",
+			codeBlockSelector: ".highlight, pre.chroma, pre",
+			navigationSelector: "nav, [role=\"navigation\"], .td-sidebar, .td-navbar, [class*=\"sidebar\"]",
+			footerSelector: "footer, [role=\"contentinfo\"], .td-footer, [class*=\"footer\"]",
+			contentSelector: "main, article, [role=\"main\"], .td-content, [class*=\"content\"]",
+			tabContainerSelector: ".nav-tabs[role=\"tablist\"], [role=\"tablist\"], .tab-content",
+			tocSelector: ".td-toc, nav[id=\"TableOfContents\"], [class*=\"toc\"]",
+			feedbackSelector: ".feedback--answer, [class*=\"feedback\"], [class*=\"helpful\"]"
 		}
 	};
 	const SELECTOR_KEYS = [
@@ -794,6 +807,7 @@
 		if (config.debug) console.log("[Do11y] Sync flushed", events.length, "events");
 	}
 	function trackPageView() {
+		pageExited = false;
 		const session = updatePageSequence(window.location.pathname);
 		const referrerDomain = getReferrerDomain();
 		const referrerInfo = classifyReferrer(referrerDomain);
@@ -967,7 +981,10 @@
 	let lastActivityTime = Date.now();
 	let totalActiveTime = 0;
 	let isPageVisible = true;
+	let pageExited = false;
 	function emitPageExit() {
+		if (pageExited) return;
+		pageExited = true;
 		if (isPageVisible) totalActiveTime += Date.now() - lastActivityTime;
 		const totalTime = Date.now() - pageLoadTime;
 		const engagementRatio = totalTime > 0 ? totalActiveTime / totalTime : 0;
@@ -1312,7 +1329,7 @@
 		}
 		flushSync();
 	}
-	if (!_alreadyLoaded) if (document.readyState === "loading") document.addEventListener("DOMContentLoaded", init);
+	if (!_alreadyLoaded && !_isInIframe) if (document.readyState === "loading") document.addEventListener("DOMContentLoaded", init);
 	else init();
 	window.Do11y = window.Do11y ?? {
 		getConfig: () => ({

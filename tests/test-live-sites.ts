@@ -98,6 +98,17 @@ const FRAMEWORK_PRESETS: Record<string, FrameworkSelectors> = {
     tocSelector: '.right-sidebar-panel, starlight-toc, mobile-starlight-toc',
     feedbackSelector: '[class*="feedback"], [class*="helpful"]',
   },
+  docsy: {
+    searchSelector: '.td-search input, .td-search__input, #docsearch-0, #docsearch-1',
+    copyButtonSelector: 'button[aria-label*="copy" i], button[title*="copy" i]',
+    codeBlockSelector: '.highlight, pre.chroma, pre',
+    navigationSelector: 'nav, [role="navigation"], .td-sidebar, .td-navbar, [class*="sidebar"]',
+    footerSelector: 'footer, [role="contentinfo"], .td-footer, [class*="footer"]',
+    contentSelector: 'main, article, [role="main"], .td-content, [class*="content"]',
+    tabContainerSelector: '.nav-tabs[role="tablist"], [role="tablist"], .tab-content',
+    tocSelector: '.td-toc, nav[id="TableOfContents"], [class*="toc"]',
+    feedbackSelector: '.feedback--answer, [class*="feedback"], [class*="helpful"]',
+  },
 };
 
 // Real documentation sites for each framework.
@@ -109,6 +120,7 @@ const TEST_SITES: Record<string, string> = {
   'mkdocs-material': 'https://squidfunk.github.io/mkdocs-material/reference/admonitions',
   vitepress:         'https://vitepress.dev/guide/markdown',
   starlight:         'https://starlight.astro.build/getting-started/',
+  docsy:             'https://www.docsy.dev/docs/content/iconsimages/',
 };
 
 const SELECTOR_KEYS: Array<keyof FrameworkSelectors> = [
@@ -130,6 +142,7 @@ const OPTIONAL_SELECTORS: Partial<Record<string, Array<keyof FrameworkSelectors>
   nextra:      ['feedbackSelector'],
   vitepress:   ['feedbackSelector'],
   starlight:   ['feedbackSelector', 'tabContainerSelector'],
+  docsy:       ['copyButtonSelector', 'feedbackSelector', 'tabContainerSelector'],
 };
 
 // ─── Test runner ─────────────────────────────────────────────────────────────

@@ -4,11 +4,11 @@
  *
  * Framework-agnostic documentation observability. Works with any static-site
  * generator or docs framework including Mintlify, Docusaurus, Nextra,
- * MkDocs Material, VitePress, Starlight (Astro), and plain HTML.
+ * MkDocs Material, VitePress, Starlight (Astro), Hugo Docsy, and plain HTML.
  *
  * Set the `framework` config option to your docs framework. Supported
  * values: 'mintlify', 'docusaurus', 'nextra', 'mkdocs-material',
- * 'vitepress', 'starlight'. Set to 'custom' and provide your own selectors
+ * 'vitepress', 'starlight', 'docsy'. Set to 'custom' and provide your own selectors
  * if your framework is not listed.
  *
  * This script collects anonymous usage data without:
@@ -50,6 +50,7 @@ export type FrameworkPreset =
   | 'mkdocs-material'
   | 'vitepress'
   | 'starlight'
+  | 'docsy'
   | 'custom';
 
 export interface FrameworkSelectors {
@@ -220,16 +221,25 @@ declare global {
   }
 }
 
-const VERSION = '0.1.0';
+const VERSION = '0.1.1';
 
 // Prevent double-initialization in SPA frameworks (React strict mode,
 // Next.js/Nextra re-renders, etc.) where the script tag may be re-evaluated.
 const _alreadyLoaded = !!window.__do11yInitialized;
 window.__do11yInitialized = true;
 
+// Skip if running in a sub-frame (iframes, about:blank children, etc.).
+// In production (script tag), do11y only runs on pages that explicitly include it.
+// In environments like Puppeteer's evaluateOnNewDocument, this prevents events
+// from reCAPTCHA iframes, embedded widgets, and other child frames.
+const _isInIframe = window.self !== window.top;
+if (_isInIframe && !_alreadyLoaded) {
+  window.__do11yInitialized = false; // allow re-init if this frame becomes top
+}
+
 // ============================================================
 // Configuration
-// ============================================================
+//============================================================
 const config: Do11yConfig = {
   destination: 'supabase',
   supabaseUrl: '',
@@ -344,6 +354,17 @@ const FRAMEWORK_PRESETS: Record<string, FrameworkSelectors> = {
     tabContainerSelector: 'starlight-tabs [role="tablist"], [role="tablist"]',
     tocSelector: '.right-sidebar-panel, starlight-toc, mobile-starlight-toc',
     feedbackSelector: '[class*="feedback"], [class*="helpful"]',
+  },
+  docsy: {
+    searchSelector: '.td-search input, .td-search__input, #docsearch-0, #docsearch-1',
+    copyButtonSelector: 'button[aria-label*="copy" i], button[title*="copy" i], .td-click-to-copy',
+    codeBlockSelector: '.highlight, pre.chroma, pre',
+    navigationSelector: 'nav, [role="navigation"], .td-sidebar, .td-navbar, [class*="sidebar"]',
+    footerSelector: 'footer, [role="contentinfo"], .td-footer, [class*="footer"]',
+    contentSelector: 'main, article, [role="main"], .td-content, [class*="content"]',
+    tabContainerSelector: '.nav-tabs[role="tablist"], [role="tablist"], .tab-content',
+    tocSelector: '.td-toc, nav[id="TableOfContents"], [class*="toc"]',
+    feedbackSelector: '.feedback--answer, [class*="feedback"], [class*="helpful"]',
   },
 };
 
@@ -1179,6 +1200,9 @@ function flushSync(): void {
 // ============================================================
 
 function trackPageView(): void {
+  // Reset the page_exit guard so the new page can emit its exit cleanly.
+  pageExited = false;
+
   const session = updatePageSequence(window.location.pathname);
 
   const referrerDomain = getReferrerDomain();
@@ -1422,8 +1446,15 @@ let pageLoadTime = Date.now();
 let lastActivityTime = Date.now();
 let totalActiveTime = 0;
 let isPageVisible = true;
+let pageExited = false;
 
 function emitPageExit(): void {
+  // Prevent duplicate page_exit when both the MutationObserver (path change)
+  // and the beforeunload event fire for the same navigation. The flag is
+  // reset by trackPageView() when the next page starts.
+  if (pageExited) return;
+  pageExited = true;
+
   if (isPageVisible) {
     totalActiveTime += Date.now() - lastActivityTime;
   }
@@ -1973,7 +2004,7 @@ function cleanup(): void {
   flushSync();
 }
 
-if (!_alreadyLoaded) {
+if (!_alreadyLoaded && !_isInIframe) {
   // Initialize when DOM is ready
   if (document.readyState === 'loading') {
     document.addEventListener('DOMContentLoaded', init);
