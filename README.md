@@ -2,7 +2,7 @@
 
 > Originally derived from [github.com/axiomhq/do11y](https://github.com/axiomhq/do11y)
 
-Do11y is a documentation observability tool. It streams behavioral events from your docs site to [Supabase](https://supabase.com) (or any HTTP endpoint) in real time:
+Do11y is a documentation observability tool. It streams behavioral events from your docs site to [Supabase](https://supabase.com) (or any HTTP endpoint or OpenTelemetry-compatible backend) in real time:
 
 - Page views
 - Scroll depth
@@ -42,6 +42,8 @@ Do11y supports the latest versions of the following frameworks:
 - Nextra
 - MkDocs Material
 - VitePress
+- Starlight (Astro)
+- Docsy (Hugo)
 
 For other frameworks, use manual setup with custom selectors.
 

@@ -95,5 +95,5 @@ Follow the install guide for your documentation framework:
 - [VitePress](/install/vitepress)
 - [MkDocs Material](/install/mkdocs-material)
 - [Starlight (Astro)](/install/starlight)
-- [Hugo Docsy](/install/docsy)
+- [Docsy (Hugo)](/install/docsy)
 - [Other frameworks](/install/manual)
