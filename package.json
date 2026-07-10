@@ -1,6 +1,6 @@
 {
   "name": "@manototh/do11y",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "description": "Documentation observability",
   "type": "module",
   "main": "./dist/do11y.min.js",

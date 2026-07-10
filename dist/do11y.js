@@ -66,7 +66,7 @@
 	const EVENT_TOC_CLICK = "browser.do11y.toc_click";
 	const EVENT_FEEDBACK = "browser.do11y.feedback";
 	const EVENT_EXPAND_COLLAPSE = "browser.do11y.expand_collapse";
-	const VERSION = "0.1.0";
+	const VERSION = "0.1.1";
 	const _alreadyLoaded = !!window.__do11yInitialized;
 	window.__do11yInitialized = true;
 	const _isInIframe = window.self !== window.top;
