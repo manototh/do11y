@@ -96,6 +96,18 @@ Create `SUPABASE_ACCESS_TOKEN` at [Account tokens](https://supabase.com/dashboar
 
 **`tests/test-integrations.ts`** installs each supported framework, injects `do11y.js`, starts a local dev server, drives user interactions via Puppeteer, and then queries the Supabase database to verify that events arrived correctly.
 
+#### Prerequisites
+
+| Software | Required for | Notes |
+|---|---|---|
+| **Node.js** ≥18 | Test runner, build step, all npm-based frameworks | Uses `tsx` for TypeScript execution. |
+| **npm** | Installing Node.js dependencies | Ships with Node.js. |
+| **Python 3** + **pip** | MkDocs Material framework | Install with `pip install mkdocs-material`. |
+| **Go** ≥1.12 | Docsy site (Hugo modules) | Docsy uses `github.com/google/docsy/theme` as a Hugo module via `go.mod`. Hugo delegates module resolution to Go. |
+| **Chromium** | Puppeteer browser automation | Install with `npx puppeteer browsers install chrome`. |
+
+#### Set up tests
+
 ```bash
 cd tests
 npm i
@@ -131,6 +143,8 @@ create policy "Allow anonymous inserts"
   with check (true);
 ```
 
+#### Run tests
+
 Run the full suite:
 
 ```bash
@@ -143,10 +157,16 @@ Run a subset of frameworks:
 FRAMEWORKS=mintlify,vitepress npm run test-integrations
 ```
 
-Skip dependency installation on repeat runs:
+Skip dependency installation on repeat runs (uses already-installed `node_modules` in each site folder):
 
 ```bash
 SKIP_INSTALL=1 npm run test-integrations
+```
+
+Skip the build step on repeat runs (uses existing `dist/do11y.js`):
+
+```bash
+SKIP_BUILD=1 npm run test-integrations
 ```
 
 ## Create release
