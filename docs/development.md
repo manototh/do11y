@@ -12,6 +12,31 @@ head:
 
 # Development
 
+## Project structure
+
+```
+src/
+  core/               ← Shared logic: types, constants, framework presets,
+  │                      DOM utilities, session management, context,
+  │                      and 11 tracking modules (scroll, links, tabs, etc.)
+  standalone/         ← Script-tag distribution. Adds event queue,
+  │                      batching, HTTP/Supabase/OTLP transport.
+  instrumentation/    ← npm OTel instrumentation. DocsInstrumentation
+                         extends InstrumentationBase from @opentelemetry/
+                         instrumentation.
+```
+
+The `src/standalone/` entry produces `dist/do11y.js` and `dist/do11y.min.js` (IIFE for script tags).  
+The `src/instrumentation/` entry produces `dist/instrumentation/index.js` (ESM for bundlers).
+
+## Build
+
+```bash
+npm run build              # Build all outputs
+npm run build:standalone   # Build only the standalone IIFE
+npm run build:instrumentation  # Build only the ESM instrumentation
+```
+
 ## Tests
 
 The `tests` folder contains multiple layers of testing. Each catches a different class of failure:

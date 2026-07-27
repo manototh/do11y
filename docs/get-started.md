@@ -12,10 +12,12 @@ head:
 
 # Get started
 
-Set up Do11y in two steps:
+Do11y offers two installation paths depending on your setup:
 
-1. [Set up a Supabase project](#set-up-a-supabase-project)
-1. [Add Do11y to your documentation site](#add-do11y-to-your-documentation-site)
+- **[Script tag](#add-do11y-to-your-documentation-site)** — drop a `<script>` into any HTML page. Zero build tooling required.
+- **[npm / OpenTelemetry instrumentation](#npm-opentelemetry-instrumentation)** — install as a dependency and register alongside `@opentelemetry/browser-sdk` for users who already bundle their site.
+
+Both paths need a destination to send events to. Start by setting up a [Supabase project](#set-up-a-supabase-project) or configuring an [OTLP endpoint](#alternative-otlp-destination).
 
 ## Set up a Supabase project
 
@@ -87,6 +89,8 @@ Do11y sends events as a JSON array of OTel-conformant event objects. The endpoin
 
 ## Add Do11y to your documentation site
 
+### Script tag (traditional)
+
 Follow the install guide for your documentation framework:
 
 - [Mintlify](/install/mintlify)
@@ -97,3 +101,36 @@ Follow the install guide for your documentation framework:
 - [Starlight (Astro)](/install/starlight)
 - [Docsy (Hugo)](/install/docsy)
 - [Other frameworks](/install/manual)
+
+### npm / OpenTelemetry instrumentation
+
+If you already bundle your site with a build tool (Vite, Webpack, etc.) and use the OpenTelemetry Browser SDK, install Do11y as an npm dependency:
+
+```bash
+npm install @manototh/do11y
+```
+
+Then register the `DocsInstrumentation` alongside your other instrumentations:
+
+```ts
+import { startBrowserSdk } from '@opentelemetry/browser-sdk';
+import { DocsInstrumentation } from '@manototh/do11y/instrumentation';
+
+startBrowserSdk({
+  serviceName: 'my-docs-site',
+  exportConfig: {
+    url: 'https://otel-collector.example.com/v1/logs',
+  },
+  instrumentations: [
+    new DocsInstrumentation({
+      framework: 'mintlify',
+      trackScrollDepth: true,
+    }),
+    // other instrumentations like FetchInstrumentation, etc.
+  ],
+});
+```
+
+This sends documentation-specific events (scroll depth, tab switches, code copies, feedback, etc.) through the same OTel pipeline as your browser auto-instrumentations. All events share the same `session.id`, making it easy to correlate docs behaviour with page load performance, API calls, and errors.
+
+The instrumentation class requires `@opentelemetry/instrumentation` (v0.57+) as a peer dependency. If you use `startBrowserSdk` or `startLogsSdk` from `@opentelemetry/browser-sdk`, these are already included.

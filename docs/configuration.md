@@ -12,7 +12,27 @@ head:
 
 # Configuration
 
-Set all options via `window.Do11yConfig` using an inline script or a separate config file, or via meta tags. When both are present, meta tags take precedence over `window.Do11yConfig`, which takes precedence over the defaults.
+There are two ways to configure Do11y, depending on how you installed it.
+
+### Script tag
+
+Set options via `window.Do11yConfig` using an inline script or a separate config file, or via meta tags. When both are present, meta tags take precedence over `window.Do11yConfig`, which takes precedence over the defaults.
+
+### npm / OTel instrumentation
+
+Pass configuration as a constructor argument to `DocsInstrumentation`:
+
+```ts
+import { DocsInstrumentation } from '@manototh/do11y/instrumentation';
+
+new DocsInstrumentation({
+  framework: 'vitepress',
+  trackScrollDepth: true,
+  trackSectionVisibility: true,
+});
+```
+
+The instrumentation class accepts a subset of the full configuration — primarily framework selection, tracking toggles, and optional custom selectors. Transport-level options (endpoint, headers, API keys) are configured through the OTel SDK, not through Do11y.
 
 ## Destination
 
@@ -49,13 +69,15 @@ To send events to a HTTPS endpoint, set `destination` to `'http'`, and provide t
 
 ### OTLP (OpenTelemetry Protocol)
 
-To send events to an OpenTelemetry-compatible backend, set `destination` to `'otlp'`. 
+To send events to an OpenTelemetry-compatible backend, set `destination` to `'otlp'` (script-tag path) or use the `DocsInstrumentation` class (npm path).
 
-::: tip NOTE
+#### Script tag (CDN)
 
-If you use the OTLP destination, your Do11y implementation relies on external dependencies. Do11y dynamically loads the [OpenTelemetry Browser SDK](https://github.com/open-telemetry/opentelemetry-browser) via a CDN, and creates a standard `LoggerProvider` → `BatchLogRecordProcessor` → `OTLPLogExporter` pipeline, and sends events as properly-structured OTel LogRecords.
+Do11y dynamically loads the [OpenTelemetry Browser SDK](https://github.com/open-telemetry/opentelemetry-browser) via a CDN, and creates a standard `LoggerProvider` → `BatchLogRecordProcessor` → `OTLPLogExporter` pipeline, sending events as properly-structured OTel LogRecords.
 
-:::
+#### npm (bundled)
+
+When using the npm package, the `@opentelemetry/browser-sdk` handles the OTel pipeline entirely. Do11y only provides the `DocsInstrumentation` class that emits log records through the OTel API. No CDN loading is needed.
 
 | Option | Default | Description |
 |---|---|---|

@@ -18,7 +18,10 @@ Do11y is built for humans and machines alike. It emits observability data that i
 
 Do11y is agent-native. It detects AI platform referrers so you can understand how agents and humans engage with your content differently.
 
-The runtime artifact is a single dependency-free JavaScript file built from TypeScript with [rolldown](https://rolldown.rs). Load it from a CDN or self-host it.
+Do11y offers two installation paths:
+
+- **Script tag** — A single dependency-free JavaScript file built from TypeScript with [rolldown](https://rolldown.rs). Load it from a CDN or self-host it. Zero build tooling required.
+- **npm / OTel instrumentation** — Install as a dependency for users who bundle their site. The `DocsInstrumentation` class plugs into `@opentelemetry/browser-sdk` and sends docs-specific events through your existing OTel pipeline.
 
 ## Why documentation observability
 
