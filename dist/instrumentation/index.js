@@ -1,0 +1,1039 @@
+import { InstrumentationBase } from "@opentelemetry/instrumentation";
+import { logs } from "@opentelemetry/api-logs";
+//#region src/core/constants.ts
+/**
+* Do11y — Documentation Observability
+*
+* OTel semantic convention attribute keys and event names.
+*
+* Standard attrs from https://opentelemetry.io/docs/specs/semconv/.
+* Custom do11y attrs use the `browser.do11y.*` namespace.
+*/
+const VERSION = "0.1.1";
+const ATTR_URL_PATH = "url.path";
+const ATTR_URL_FRAGMENT = "url.fragment";
+const ATTR_URL_QUERY = "url.query";
+const ATTR_DEVICE_TYPE = "device.type";
+const ATTR_BROWSER_FAMILY = "browser.family";
+const ATTR_BROWSER_LANGUAGE = "browser.language";
+const ATTR_DO11Y_PAGE_TITLE = "browser.do11y.page_title";
+const ATTR_DO11Y_VIEWPORT_CATEGORY = "browser.do11y.viewport_category";
+const ATTR_DO11Y_TIMEZONE_OFFSET = "browser.do11y.timezone_offset";
+const ATTR_DO11Y_REFERRER_CATEGORY = "browser.do11y.referrer_category";
+const ATTR_DO11Y_AI_PLATFORM = "browser.do11y.ai_platform";
+const ATTR_DO11Y_IS_FIRST_PAGE = "browser.do11y.is_first_page";
+const ATTR_DO11Y_PREVIOUS_PATH = "browser.do11y.previous_path";
+const ATTR_DO11Y_REFERRER_DOMAIN = "browser.do11y.referrer_domain";
+const ATTR_DO11Y_LINK_TYPE = "browser.do11y.link.type";
+const ATTR_DO11Y_LINK_TARGET_URL = "browser.do11y.link.target_url";
+const ATTR_DO11Y_LINK_TARGET_DOMAIN = "browser.do11y.link.target_domain";
+const ATTR_DO11Y_LINK_TEXT = "browser.do11y.link.text";
+const ATTR_DO11Y_LINK_CONTEXT = "browser.do11y.link.context";
+const ATTR_DO11Y_LINK_SECTION = "browser.do11y.link.section";
+const ATTR_DO11Y_LINK_INDEX = "browser.do11y.link.index";
+const ATTR_DO11Y_SCROLL_THRESHOLD = "browser.do11y.scroll.threshold";
+const ATTR_DO11Y_SCROLL_PERCENT = "browser.do11y.scroll.percent";
+const ATTR_DO11Y_TOTAL_TIME_SECONDS = "browser.do11y.page_exit.total_time_seconds";
+const ATTR_DO11Y_ACTIVE_TIME_SECONDS = "browser.do11y.page_exit.active_time_seconds";
+const ATTR_DO11Y_ENGAGEMENT_RATIO = "browser.do11y.page_exit.engagement_ratio";
+const ATTR_DO11Y_MAX_SCROLL_DEPTH = "browser.do11y.page_exit.max_scroll_depth";
+const ATTR_DO11Y_SEARCH_TRIGGER = "browser.do11y.search.trigger";
+const ATTR_DO11Y_CODE_LANGUAGE = "browser.do11y.code.language";
+const ATTR_DO11Y_CODE_SECTION = "browser.do11y.code.section";
+const ATTR_DO11Y_CODE_INDEX = "browser.do11y.code.index";
+const ATTR_DO11Y_SECTION_HEADING = "browser.do11y.section.heading";
+const ATTR_DO11Y_SECTION_HEADING_LEVEL = "browser.do11y.section.heading_level";
+const ATTR_DO11Y_SECTION_VISIBLE_SECONDS = "browser.do11y.section.visible_seconds";
+const ATTR_DO11Y_TAB_LABEL = "browser.do11y.tab.label";
+const ATTR_DO11Y_TAB_GROUP = "browser.do11y.tab.group";
+const ATTR_DO11Y_TAB_IS_DEFAULT = "browser.do11y.tab.is_default";
+const ATTR_DO11Y_TOC_HEADING = "browser.do11y.toc.heading";
+const ATTR_DO11Y_TOC_HEADING_LEVEL = "browser.do11y.toc.heading_level";
+const ATTR_DO11Y_TOC_POSITION = "browser.do11y.toc.position";
+const ATTR_DO11Y_FEEDBACK_RATING = "browser.do11y.feedback.rating";
+const ATTR_DO11Y_EXPAND_SUMMARY = "browser.do11y.expand.summary";
+const ATTR_DO11Y_EXPAND_ACTION = "browser.do11y.expand.action";
+const ATTR_DO11Y_EXPAND_SECTION = "browser.do11y.expand.section";
+const EVENT_PAGE_VIEW = "browser.do11y.page_view";
+const EVENT_PAGE_EXIT = "browser.do11y.page_exit";
+const EVENT_SCROLL_DEPTH = "browser.do11y.scroll_depth";
+const EVENT_LINK_CLICK = "browser.do11y.link_click";
+const EVENT_SEARCH_OPENED = "browser.do11y.search_opened";
+const EVENT_CODE_COPIED = "browser.do11y.code_copied";
+const EVENT_SECTION_VISIBLE = "browser.do11y.section_visible";
+const EVENT_TAB_SWITCH = "browser.do11y.tab_switch";
+const EVENT_TOC_CLICK = "browser.do11y.toc_click";
+const EVENT_FEEDBACK = "browser.do11y.feedback";
+const EVENT_EXPAND_COLLAPSE = "browser.do11y.expand_collapse";
+const SELECTOR_KEYS = [
+	"searchSelector",
+	"copyButtonSelector",
+	"codeBlockSelector",
+	"navigationSelector",
+	"footerSelector",
+	"contentSelector",
+	"tabContainerSelector",
+	"tocSelector",
+	"feedbackSelector"
+];
+//#endregion
+//#region src/core/presets.ts
+const FRAMEWORK_PRESETS = {
+	mintlify: {
+		searchSelector: "#search-bar-entry, #search-bar-entry-mobile, [class*=\"search\"]",
+		copyButtonSelector: "button[class*=\"copy\"], button[aria-label*=\"copy\" i]",
+		codeBlockSelector: "pre, [class*=\"code\"]",
+		navigationSelector: "nav, [role=\"navigation\"], #navbar, #sidebar, [class*=\"nav\"], [class*=\"sidebar\"]",
+		footerSelector: "footer, [role=\"contentinfo\"], [class*=\"footer\"]",
+		contentSelector: "main, article, [role=\"main\"], [class*=\"content\"]",
+		tabContainerSelector: "[role=\"tablist\"], [class*=\"tab\"]",
+		tocSelector: "#table-of-contents, [data-testid=\"table-of-contents\"], [class*=\"table-of-contents\"], [class*=\"toc\"]",
+		feedbackSelector: "[class*=\"feedback\"], [class*=\"helpful\"]"
+	},
+	docusaurus: {
+		searchSelector: ".DocSearch, .DocSearch-Button",
+		copyButtonSelector: "button.clean-btn[aria-label*=\"copy\" i], button[class*=\"copyButton\"]",
+		codeBlockSelector: "pre, [class*=\"code\"]",
+		navigationSelector: "nav, [role=\"navigation\"], .navbar, .sidebar, [class*=\"nav\"], [class*=\"sidebar\"]",
+		footerSelector: "footer, [role=\"contentinfo\"], [class*=\"footer\"]",
+		contentSelector: "main, article, [role=\"main\"], [class*=\"content\"]",
+		tabContainerSelector: ".tabs[role=\"tablist\"], [class*=\"tabs\"]",
+		tocSelector: ".table-of-contents, [class*=\"toc\"]",
+		feedbackSelector: "[class*=\"feedback\"], [class*=\"helpful\"]"
+	},
+	nextra: {
+		searchSelector: ".nextra-search input, input[placeholder*=\"search\" i], button[aria-label*=\"search\" i]",
+		copyButtonSelector: "button[class*=\"copy\"], button[aria-label*=\"copy\" i], button[title*=\"copy\" i]",
+		codeBlockSelector: "pre, [class*=\"code\"]",
+		navigationSelector: "nav, [role=\"navigation\"], [class*=\"nav\"], [class*=\"sidebar\"]",
+		footerSelector: "footer, [role=\"contentinfo\"], [class*=\"footer\"]",
+		contentSelector: "main, article, [role=\"main\"], [class*=\"content\"]",
+		tabContainerSelector: "[role=\"tablist\"], [class*=\"tab\"]",
+		tocSelector: ".nextra-toc, [class*=\"toc\"]",
+		feedbackSelector: "[class*=\"feedback\"], [class*=\"helpful\"]"
+	},
+	"mkdocs-material": {
+		searchSelector: ".md-search__input",
+		copyButtonSelector: ".md-clipboard, .md-code__button[title=\"Copy to clipboard\"]",
+		codeBlockSelector: "pre, code, [class*=\"code\"]",
+		navigationSelector: "nav, [role=\"navigation\"], .md-nav, .md-sidebar",
+		footerSelector: "footer, [role=\"contentinfo\"], .md-footer",
+		contentSelector: "main, article, [role=\"main\"], .md-content",
+		tabContainerSelector: ".tabbed-labels, .md-typeset .tabbed-set",
+		tocSelector: ".md-sidebar--secondary .md-nav, [class*=\"toc\"]",
+		feedbackSelector: "[class*=\"feedback\"], [class*=\"helpful\"]"
+	},
+	vitepress: {
+		searchSelector: ".VPNavBarSearch button, .VPNavBarSearchButton, #local-search",
+		copyButtonSelector: "button.copy, .vp-code-copy, button.copy[title*=\"Copy\"]",
+		codeBlockSelector: "div[class*=\"language-\"], pre, [class*=\"code\"]",
+		navigationSelector: "nav, [role=\"navigation\"], .VPNav, .VPSidebar, [class*=\"nav\"], [class*=\"sidebar\"]",
+		footerSelector: "footer, [role=\"contentinfo\"], .VPFooter, [class*=\"footer\"]",
+		contentSelector: "main, article, [role=\"main\"], .VPContent, [class*=\"content\"]",
+		tabContainerSelector: ".vp-code-group .tabs, [role=\"tablist\"]",
+		tocSelector: ".VPDocAsideOutline, .VPLocalNavOutlineDropdown, a.outline-link",
+		feedbackSelector: "[class*=\"feedback\"], [class*=\"helpful\"]"
+	},
+	starlight: {
+		searchSelector: "site-search button[data-open-modal], sl-doc-search .DocSearch-Button, button[aria-label*=\"search\" i]",
+		copyButtonSelector: ".expressive-code .copy button, .copy button[data-code]",
+		codeBlockSelector: ".expressive-code pre, pre",
+		navigationSelector: "nav, [role=\"navigation\"], [class*=\"sidebar\"]",
+		footerSelector: "footer, [role=\"contentinfo\"], [class*=\"footer\"]",
+		contentSelector: "main, .sl-markdown-content, [role=\"main\"]",
+		tabContainerSelector: "starlight-tabs [role=\"tablist\"], [role=\"tablist\"]",
+		tocSelector: ".right-sidebar-panel, starlight-toc, mobile-starlight-toc",
+		feedbackSelector: "[class*=\"feedback\"], [class*=\"helpful\"]"
+	},
+	docsy: {
+		searchSelector: ".td-search input, .td-search__input, #docsearch-0, #docsearch-1",
+		copyButtonSelector: "button[aria-label*=\"copy\" i], button[title*=\"copy\" i], .td-click-to-copy",
+		codeBlockSelector: ".highlight, pre.chroma, pre",
+		navigationSelector: "nav, [role=\"navigation\"], .td-sidebar, .td-navbar, [class*=\"sidebar\"]",
+		footerSelector: "footer, [role=\"contentinfo\"], .td-footer, [class*=\"footer\"]",
+		contentSelector: "main, article, [role=\"main\"], .td-content, [class*=\"content\"]",
+		tabContainerSelector: ".nav-tabs[role=\"tablist\"], [role=\"tablist\"], .tab-content",
+		tocSelector: ".td-toc, nav[id=\"TableOfContents\"], [class*=\"toc\"]",
+		feedbackSelector: ".feedback--answer, [class*=\"feedback\"], [class*=\"helpful\"]"
+	}
+};
+/**
+* Apply framework-specific selectors to the config.
+* For 'custom', uses whatever the user set in config; for named
+* frameworks, loads the preset and lets explicit config values override.
+*/
+function applyFrameworkSelectors(config) {
+	const preset = FRAMEWORK_PRESETS[config.framework];
+	if (preset) SELECTOR_KEYS.forEach((key) => {
+		if (!config[key]) config[key] = preset[key];
+	});
+	else if (config.framework !== "custom") {
+		if (config.debug) console.warn(`[Do11y] Unknown framework "${config.framework}". Falling back to generic selectors. Supported: ` + Object.keys(FRAMEWORK_PRESETS).join(", ") + ", custom");
+	}
+	const fallback = FRAMEWORK_PRESETS.mintlify;
+	if (!fallback) return;
+	SELECTOR_KEYS.forEach((key) => {
+		if (!config[key]) config[key] = fallback[key];
+	});
+}
+//#endregion
+//#region src/core/privacy.ts
+/**
+* Validate a CSS selector string supplied through user configuration.
+* Returns the selector unchanged if it is syntactically valid, or null
+* if it is not. This prevents CSS selector injection from attacker-
+* controlled config values (window.Do11yConfig / meta tags) reaching
+* querySelectorAll / closest calls.
+*/
+function validateSelector(selector) {
+	if (!selector || typeof selector !== "string") return null;
+	try {
+		document.querySelector(selector);
+		return selector;
+	} catch {
+		return null;
+	}
+}
+//#endregion
+//#region src/core/dom-utils.ts
+function getElementClassName(el) {
+	if (typeof el.className === "string") return el.className;
+	const svgClass = el.className;
+	if (svgClass && typeof svgClass.baseVal === "string") return svgClass.baseVal;
+	return "";
+}
+function languageFromClassName(className) {
+	const match = className.match(/(?:^|\s)language-([\w-]+)(?:\s|$)/);
+	return match ? match[1] : null;
+}
+/**
+* Read the code block language from the element and its ancestors.
+* Frameworks often put `language-*` on a wrapper div (VitePress, Prism)
+* rather than on the pre/code element itself.
+*/
+function extractCodeLanguage(start) {
+	if (!start) return "unknown";
+	let el = start;
+	for (let depth = 0; el && depth < 12; depth++, el = el.parentElement) {
+		for (const attr of [
+			"language",
+			"data-language",
+			"data-lang",
+			"data-code-lang"
+		]) {
+			const value = el.getAttribute(attr);
+			if (value) return value;
+		}
+		const fromClass = languageFromClassName(getElementClassName(el));
+		if (fromClass) return fromClass;
+		const langText = el.querySelector(":scope > span.lang")?.textContent?.trim();
+		if (langText) return langText;
+		const deepLang = el.querySelector("[data-language], [data-lang], [data-code-lang], [class*=\"language-\"], [language]");
+		if (deepLang) {
+			const dl = deepLang.getAttribute("language") ?? deepLang.getAttribute("data-language") ?? deepLang.getAttribute("data-lang") ?? deepLang.getAttribute("data-code-lang") ?? languageFromClassName(getElementClassName(deepLang));
+			if (dl) return dl;
+		}
+	}
+	return "unknown";
+}
+function resolveTocHash(href) {
+	if (href.startsWith("#")) return href;
+	const hashIndex = href.indexOf("#");
+	if (hashIndex === -1) return null;
+	const pathPart = href.slice(0, hashIndex);
+	if (!pathPart || pathPart === window.location.pathname || pathPart === `${window.location.pathname}${window.location.search}`) return href.slice(hashIndex);
+	return null;
+}
+function resolveTocContainer(link, config) {
+	const selector = validateSelector(config.tocSelector) ?? ".table-of-contents, .VPDocAsideOutline, .VPLocalNavOutlineDropdown, [class*=\"toc\"], [class*=\"TableOfContents\"], [class*=\"page-outline\"], .right-sidebar-panel, starlight-toc";
+	let container = link.closest(selector);
+	if (!container) return null;
+	if (container === link || container.tagName === "A") container = link.closest(".VPDocAsideOutline, .VPLocalNavOutlineDropdown, nav, aside, .right-sidebar-panel, starlight-toc") ?? container.parentElement;
+	return container;
+}
+function getNearestHeading(element) {
+	let current = element;
+	while (current && current !== document.body) {
+		let sibling = current.previousElementSibling;
+		while (sibling) {
+			if (/^H[1-6]$/.test(sibling.tagName)) return sibling.textContent?.trim().substring(0, 100) ?? null;
+			const headings = sibling.querySelectorAll("h1, h2, h3, h4, h5, h6");
+			if (headings.length > 0) return headings[headings.length - 1].textContent?.trim().substring(0, 100) ?? null;
+			sibling = sibling.previousElementSibling;
+		}
+		current = current.parentElement;
+	}
+	return null;
+}
+function sanitizeText(text, maxLength) {
+	if (!text || typeof text !== "string") return null;
+	const limit = maxLength ?? 100;
+	let sanitized = text;
+	sanitized = sanitized.replace(/[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}/g, "[email]");
+	sanitized = sanitized.replace(/\b\d{3}[-.]?\d{3}[-.]?\d{4}\b/g, "[phone]");
+	sanitized = sanitized.replace(/\b\d{3}-\d{2}-\d{4}\b/g, "[redacted]");
+	sanitized = sanitized.replace(/\b(?:\d[ -]?){13,19}\b/g, "[card]");
+	sanitized = sanitized.replace(/eyJ[A-Za-z0-9_-]+\.eyJ[A-Za-z0-9_-]+\.[A-Za-z0-9_-]+/g, "[token]");
+	sanitized = sanitized.replace(/\bxa[a-z]{2}-[A-Za-z0-9_-]{20,}/g, "[token]");
+	sanitized = sanitized.replace(/\b[0-9a-fA-F]{32,}\b/g, "[redacted]");
+	return sanitized.trim().substring(0, limit);
+}
+//#endregion
+//#region src/core/context.ts
+function categorizeViewport() {
+	const width = window.innerWidth;
+	if (width < 640) return "mobile";
+	if (width < 1024) return "tablet";
+	if (width < 1440) return "desktop";
+	return "large-desktop";
+}
+function getBrowserFamily() {
+	const ua = navigator.userAgent;
+	if (ua.includes("Firefox")) return "Firefox";
+	if (ua.includes("Edg")) return "Edge";
+	if (ua.includes("Chrome")) return "Chrome";
+	if (ua.includes("Safari")) return "Safari";
+	return "Other";
+}
+function getDeviceType() {
+	const ua = navigator.userAgent;
+	if (/Mobile|Android|iPhone|iPad/.test(ua)) {
+		if (/iPad|Tablet/.test(ua)) return "tablet";
+		return "mobile";
+	}
+	return "desktop";
+}
+function getBrowserContext() {
+	return {
+		[ATTR_DO11Y_VIEWPORT_CATEGORY]: categorizeViewport(),
+		[ATTR_BROWSER_FAMILY]: getBrowserFamily(),
+		[ATTR_DEVICE_TYPE]: getDeviceType(),
+		[ATTR_BROWSER_LANGUAGE]: (navigator.language || "").split("-")[0] || "unknown",
+		[ATTR_DO11Y_TIMEZONE_OFFSET]: (/* @__PURE__ */ new Date()).getTimezoneOffset() / 60
+	};
+}
+/**
+* Known AI platform referrer patterns.
+* Each entry maps a substring found in the referrer hostname to an AI
+* platform label. Order matters: first match wins.
+*/
+const AI_REFERRER_PATTERNS = [
+	{
+		match: "chatgpt",
+		platform: "ChatGPT"
+	},
+	{
+		match: "chat.com",
+		platform: "ChatGPT"
+	},
+	{
+		match: "openai",
+		platform: "ChatGPT"
+	},
+	{
+		match: "perplexity",
+		platform: "Perplexity"
+	},
+	{
+		match: "claude.ai",
+		platform: "Claude"
+	},
+	{
+		match: "anthropic",
+		platform: "Claude"
+	},
+	{
+		match: "gemini",
+		platform: "Gemini"
+	},
+	{
+		match: "copilot",
+		platform: "Copilot"
+	},
+	{
+		match: "deepseek",
+		platform: "DeepSeek"
+	},
+	{
+		match: "meta.ai",
+		platform: "Meta AI"
+	},
+	{
+		match: "grok",
+		platform: "Grok"
+	},
+	{
+		match: "x.ai",
+		platform: "Grok"
+	},
+	{
+		match: "mistral",
+		platform: "Mistral"
+	},
+	{
+		match: "you.com",
+		platform: "You.com"
+	},
+	{
+		match: "phind",
+		platform: "Phind"
+	}
+];
+/**
+* Classify a referrer hostname into a traffic source category.
+* Returns { referrerCategory, aiPlatform } where aiPlatform is null
+* for non-AI traffic.
+*/
+function classifyReferrer(hostname) {
+	if (!hostname || hostname === "direct") return {
+		referrerCategory: "direct",
+		aiPlatform: null
+	};
+	if (hostname === "internal") return {
+		referrerCategory: "internal",
+		aiPlatform: null
+	};
+	if (hostname === "unknown") return {
+		referrerCategory: "unknown",
+		aiPlatform: null
+	};
+	const h = hostname.toLowerCase();
+	for (const pattern of AI_REFERRER_PATTERNS) if (h.indexOf(pattern.match) !== -1) return {
+		referrerCategory: "ai",
+		aiPlatform: pattern.platform
+	};
+	if (/google\.|bing\.|baidu\.|yandex\.|duckduckgo\.|yahoo\./.test(h)) return {
+		referrerCategory: "search-engine",
+		aiPlatform: null
+	};
+	if (/github\.|gitlab\.|bitbucket\./.test(h)) return {
+		referrerCategory: "code-host",
+		aiPlatform: null
+	};
+	if (/stackoverflow\.|stackexchange\.|reddit\.|news\.ycombinator\./.test(h)) return {
+		referrerCategory: "community",
+		aiPlatform: null
+	};
+	if (/twitter\.|x\.com|linkedin\.|facebook\.|threads\.net/.test(h)) return {
+		referrerCategory: "social",
+		aiPlatform: null
+	};
+	return {
+		referrerCategory: "other",
+		aiPlatform: null
+	};
+}
+function getReferrerDomain() {
+	try {
+		if (!document.referrer) return "direct";
+		const url = new URL(document.referrer);
+		if (url.hostname === window.location.hostname) return "internal";
+		return url.hostname;
+	} catch {
+		return "unknown";
+	}
+}
+function getPageInfo() {
+	return {
+		[ATTR_URL_PATH]: window.location.pathname,
+		[ATTR_URL_FRAGMENT]: window.location.hash || null,
+		[ATTR_URL_QUERY]: window.location.search ? "has_params" : null,
+		[ATTR_DO11Y_PAGE_TITLE]: sanitizeText(document.title, 150)
+	};
+}
+//#endregion
+//#region src/core/session.ts
+function generateSessionId() {
+	if (window.crypto && typeof window.crypto.randomUUID === "function") return window.crypto.randomUUID();
+	if (window.crypto && typeof window.crypto.getRandomValues === "function") {
+		const arr = new Uint8Array(16);
+		window.crypto.getRandomValues(arr);
+		arr[6] = arr[6] & 15 | 64;
+		arr[8] = arr[8] & 63 | 128;
+		const hex = Array.from(arr, (b) => b.toString(16).padStart(2, "0")).join("");
+		return hex.slice(0, 8) + "-" + hex.slice(8, 12) + "-" + hex.slice(12, 16) + "-" + hex.slice(16, 20) + "-" + hex.slice(20);
+	}
+	return "no-crypto-00-0000-0000-000000000000";
+}
+function isValidSessionData(value) {
+	if (!value || typeof value !== "object") return false;
+	const v = value;
+	return typeof v.id === "string" && v.id.length > 0 && typeof v.startTime === "string" && Array.isArray(v.pageSequence) && typeof v.pageCount === "number";
+}
+function getSession() {
+	let session = null;
+	try {
+		const stored = sessionStorage.getItem("do11y_session");
+		if (stored) {
+			const parsed = JSON.parse(stored);
+			if (isValidSessionData(parsed)) session = parsed;
+		}
+	} catch {}
+	if (!session) {
+		session = {
+			id: generateSessionId(),
+			startTime: (/* @__PURE__ */ new Date()).toISOString(),
+			pageSequence: [],
+			pageCount: 0,
+			referrerCategory: null,
+			aiPlatform: null
+		};
+		saveSession$1(session);
+	}
+	return session;
+}
+function saveSession$1(session) {
+	try {
+		sessionStorage.setItem("do11y_session", JSON.stringify(session));
+	} catch {}
+}
+function updatePageSequence(path) {
+	const session = getSession();
+	session.pageCount++;
+	session.pageSequence.push({
+		path,
+		timestamp: (/* @__PURE__ */ new Date()).toISOString(),
+		index: session.pageCount
+	});
+	if (session.pageSequence.length > 50) session.pageSequence = session.pageSequence.slice(-50);
+	saveSession$1(session);
+	return session;
+}
+//#endregion
+//#region src/core/tracking/page-view.ts
+function trackPageView(config, emit) {
+	const session = updatePageSequence(window.location.pathname);
+	const referrerDomain = getReferrerDomain();
+	const referrerInfo = classifyReferrer(referrerDomain);
+	if (session.pageCount === 1) {
+		session.referrerCategory = referrerInfo.referrerCategory;
+		session.aiPlatform = referrerInfo.aiPlatform;
+		saveSession(session);
+	}
+	emit(EVENT_PAGE_VIEW, {
+		[ATTR_DO11Y_REFERRER_DOMAIN]: referrerDomain,
+		[ATTR_DO11Y_REFERRER_CATEGORY]: referrerInfo.referrerCategory,
+		[ATTR_DO11Y_AI_PLATFORM]: referrerInfo.aiPlatform,
+		[ATTR_DO11Y_IS_FIRST_PAGE]: session.pageCount === 1,
+		[ATTR_DO11Y_PREVIOUS_PATH]: session.pageSequence.length > 1 ? session.pageSequence[session.pageSequence.length - 2].path : null
+	});
+}
+function saveSession(session) {
+	try {
+		sessionStorage.setItem("do11y_session", JSON.stringify(session));
+	} catch {}
+}
+//#endregion
+//#region src/core/tracking/links.ts
+function getLinkContext(link, config) {
+	if (link.closest(config.navigationSelector)) return "navigation";
+	if (link.closest(config.footerSelector)) return "footer";
+	if (link.closest(config.contentSelector)) return "content";
+	return "other";
+}
+function getLinkIndex(link, href) {
+	if (typeof CSS === "undefined" || typeof CSS.escape !== "function") return 1;
+	try {
+		const allLinks = document.querySelectorAll("a[href=\"" + CSS.escape(href) + "\"]");
+		for (let i = 0; i < allLinks.length; i++) if (allLinks[i] === link) return i + 1;
+	} catch {}
+	return 1;
+}
+function setupLinkTracking(config, emit) {
+	document.addEventListener("click", (e) => {
+		const link = e.target.closest("a");
+		if (!link) return;
+		const href = link.getAttribute("href");
+		if (!href) return;
+		let linkType = "other";
+		let targetDomain = null;
+		try {
+			if (href.startsWith("#")) linkType = "anchor";
+			else if (href.startsWith("/") || href.startsWith("./") || href.startsWith("../")) linkType = "internal";
+			else if (href.startsWith("http")) {
+				const url = new URL(href);
+				if (url.hostname === window.location.hostname) linkType = "internal";
+				else {
+					linkType = "external";
+					targetDomain = url.hostname;
+				}
+			} else if (href.startsWith("mailto:")) linkType = "email";
+		} catch {}
+		if (linkType === "internal" && !config.trackInternalLinks) return;
+		if (linkType === "external" && !config.trackOutboundLinks) return;
+		emit(EVENT_LINK_CLICK, {
+			[ATTR_DO11Y_LINK_TYPE]: linkType,
+			[ATTR_DO11Y_LINK_TARGET_URL]: href,
+			[ATTR_DO11Y_LINK_TARGET_DOMAIN]: targetDomain,
+			[ATTR_DO11Y_LINK_TEXT]: sanitizeText(link.textContent, 100),
+			[ATTR_DO11Y_LINK_CONTEXT]: getLinkContext(link, config),
+			[ATTR_DO11Y_LINK_SECTION]: sanitizeText(getNearestHeading(link), 100),
+			[ATTR_DO11Y_LINK_INDEX]: getLinkIndex(link, href)
+		});
+	}, true);
+}
+//#endregion
+//#region src/core/tracking/scroll.ts
+let trackedScrollDepths = /* @__PURE__ */ new Set();
+let scrollContainer = null;
+function findScrollableAncestor(el) {
+	let current = el;
+	while (current && current !== document.body && current !== document.documentElement) {
+		const overflowY = window.getComputedStyle(current).overflowY;
+		if ((overflowY === "auto" || overflowY === "scroll") && current.scrollHeight > current.clientHeight) return current;
+		current = current.parentElement;
+	}
+	return null;
+}
+/**
+* Check and track scroll depth thresholds.
+* Reads from the detected scroll container when present, otherwise
+* falls back to the window/document.
+*
+* If the page fits entirely in the viewport (no scrollbar), all
+* thresholds are marked as reached since the user can see 100% of
+* the content without scrolling.
+*/
+function checkScrollDepth(config, emit) {
+	let scrollTop;
+	let totalHeight;
+	let viewportHeight;
+	if (scrollContainer && scrollContainer.scrollHeight > scrollContainer.clientHeight) {
+		scrollTop = scrollContainer.scrollTop;
+		totalHeight = scrollContainer.scrollHeight;
+		viewportHeight = scrollContainer.clientHeight;
+	} else {
+		scrollTop = window.scrollY || document.documentElement.scrollTop;
+		totalHeight = document.documentElement.scrollHeight;
+		viewportHeight = window.innerHeight;
+	}
+	const docHeight = totalHeight - viewportHeight;
+	if (docHeight <= 0) {
+		config.scrollThresholds.forEach((threshold) => {
+			if (!trackedScrollDepths.has(threshold)) {
+				trackedScrollDepths.add(threshold);
+				emit(EVENT_SCROLL_DEPTH, {
+					[ATTR_DO11Y_SCROLL_THRESHOLD]: threshold,
+					[ATTR_DO11Y_SCROLL_PERCENT]: 100
+				});
+			}
+		});
+		return;
+	}
+	const scrollPercent = Math.round(scrollTop / docHeight * 100);
+	config.scrollThresholds.forEach((threshold) => {
+		if (scrollPercent >= threshold && !trackedScrollDepths.has(threshold)) {
+			trackedScrollDepths.add(threshold);
+			emit(EVENT_SCROLL_DEPTH, {
+				[ATTR_DO11Y_SCROLL_THRESHOLD]: threshold,
+				[ATTR_DO11Y_SCROLL_PERCENT]: scrollPercent
+			});
+		}
+	});
+}
+function setupScrollTracking(config, emit) {
+	if (!config.trackScrollDepth) return;
+	if (config.contentSelector) {
+		const contentEl = document.querySelector(config.contentSelector);
+		if (contentEl) scrollContainer = findScrollableAncestor(contentEl);
+	}
+	let ticking = false;
+	function onScroll() {
+		if (!ticking) {
+			window.requestAnimationFrame(() => {
+				checkScrollDepth(config, emit);
+				ticking = false;
+			});
+			ticking = true;
+		}
+	}
+	window.addEventListener("scroll", onScroll);
+	if (scrollContainer) {
+		scrollContainer.addEventListener("scroll", onScroll);
+		if (config.debug) {
+			const sc = scrollContainer;
+			console.log("[do11y] Using container-based scroll tracking:", sc.className || sc.tagName);
+		}
+	}
+	checkScrollDepth(config, emit);
+}
+function getTrackedScrollDepths() {
+	return trackedScrollDepths;
+}
+//#endregion
+//#region src/core/tracking/sections.ts
+let sectionObserver = null;
+let sectionTimers = {};
+function setupSectionVisibilityTracking(config, emit) {
+	if (!config.trackSectionVisibility) return;
+	if (typeof IntersectionObserver === "undefined") return;
+	const threshold = config.sectionVisibleThreshold * 1e3;
+	sectionObserver = new IntersectionObserver((entries) => {
+		entries.forEach((entry) => {
+			const id = entry.target.getAttribute("data-do11y-section-id");
+			if (!id) return;
+			if (entry.isIntersecting) {
+				if (!sectionTimers[id]) sectionTimers[id] = {
+					start: Date.now(),
+					reported: false
+				};
+			} else {
+				if (sectionTimers[id] && !sectionTimers[id].reported) {
+					const elapsed = Date.now() - sectionTimers[id].start;
+					if (elapsed >= threshold) {
+						const heading = entry.target.textContent?.trim() ?? "";
+						emit(EVENT_SECTION_VISIBLE, {
+							[ATTR_DO11Y_SECTION_HEADING]: sanitizeText(heading, 100),
+							[ATTR_DO11Y_SECTION_HEADING_LEVEL]: parseInt(entry.target.tagName.charAt(1), 10),
+							[ATTR_DO11Y_SECTION_VISIBLE_SECONDS]: Math.round(elapsed / 1e3)
+						});
+						sectionTimers[id].reported = true;
+					}
+				}
+				delete sectionTimers[id];
+			}
+		});
+	}, { threshold: .5 });
+	observeHeadings();
+}
+function observeHeadings() {
+	if (!sectionObserver) return;
+	document.querySelectorAll("h2, h3").forEach((h, i) => {
+		h.setAttribute("data-do11y-section-id", "section-" + i);
+		sectionObserver.observe(h);
+	});
+}
+function flushVisibleSections(config, emit) {
+	if (!sectionObserver) return;
+	const now = Date.now();
+	const threshold = config.sectionVisibleThreshold * 1e3;
+	Object.keys(sectionTimers).forEach((id) => {
+		const timer = sectionTimers[id];
+		if (timer && !timer.reported) {
+			const elapsed = now - timer.start;
+			if (elapsed >= threshold) {
+				const escapedId = typeof CSS !== "undefined" && typeof CSS.escape === "function" ? CSS.escape(id) : id.replace(/["\\]/g, "\\$&");
+				const el = document.querySelector("[data-do11y-section-id=\"" + escapedId + "\"]");
+				if (el) emit(EVENT_SECTION_VISIBLE, {
+					[ATTR_DO11Y_SECTION_HEADING]: sanitizeText(el.textContent?.trim() ?? "", 100),
+					[ATTR_DO11Y_SECTION_HEADING_LEVEL]: parseInt(el.tagName.charAt(1), 10),
+					[ATTR_DO11Y_SECTION_VISIBLE_SECONDS]: Math.round(elapsed / 1e3)
+				});
+			}
+		}
+	});
+	sectionTimers = {};
+}
+function disconnectSectionObserver() {
+	if (sectionObserver) {
+		flushVisibleSections({
+			trackSectionVisibility: false,
+			sectionVisibleThreshold: 0
+		}, () => {});
+		sectionObserver.disconnect();
+		sectionObserver = null;
+	}
+}
+//#endregion
+//#region src/core/tracking/engagement.ts
+let pageLoadTime = Date.now();
+let lastActivityTime = Date.now();
+let totalActiveTime = 0;
+let isPageVisible = true;
+let pageExited = false;
+function emitPageExit(config, emit) {
+	if (pageExited) return;
+	pageExited = true;
+	if (isPageVisible) totalActiveTime += Date.now() - lastActivityTime;
+	const totalTime = Date.now() - pageLoadTime;
+	const engagementRatio = totalTime > 0 ? totalActiveTime / totalTime : 0;
+	let maxScroll = 0;
+	getTrackedScrollDepths().forEach((depth) => {
+		if (depth > maxScroll) maxScroll = depth;
+	});
+	flushVisibleSections(config, emit);
+	const session = getSession();
+	emit(EVENT_PAGE_EXIT, {
+		[ATTR_DO11Y_TOTAL_TIME_SECONDS]: Math.round(totalTime / 1e3),
+		[ATTR_DO11Y_ACTIVE_TIME_SECONDS]: Math.round(totalActiveTime / 1e3),
+		[ATTR_DO11Y_ENGAGEMENT_RATIO]: Math.round(engagementRatio * 100) / 100,
+		[ATTR_DO11Y_MAX_SCROLL_DEPTH]: maxScroll,
+		[ATTR_DO11Y_REFERRER_CATEGORY]: session.referrerCategory,
+		[ATTR_DO11Y_AI_PLATFORM]: session.aiPlatform
+	});
+}
+function setupEngagementTracking(config, emit) {
+	document.addEventListener("visibilitychange", () => {
+		if (document.hidden) {
+			if (isPageVisible) {
+				totalActiveTime += Date.now() - lastActivityTime;
+				isPageVisible = false;
+			}
+		} else {
+			lastActivityTime = Date.now();
+			isPageVisible = true;
+		}
+	});
+	window.addEventListener("beforeunload", () => {
+		emitPageExit(config, emit);
+	});
+}
+//#endregion
+//#region src/core/tracking/search.ts
+function setupSearchTracking(config, emit) {
+	document.addEventListener("click", (e) => {
+		if (e.target.closest(config.searchSelector)) emit(EVENT_SEARCH_OPENED, {});
+	}, true);
+	document.addEventListener("keydown", (e) => {
+		if ((e.metaKey || e.ctrlKey) && e.key === "k") emit(EVENT_SEARCH_OPENED, { [ATTR_DO11Y_SEARCH_TRIGGER]: "keyboard" });
+	});
+}
+//#endregion
+//#region src/core/tracking/copy.ts
+function getCodeBlockIndex(codeBlock, config) {
+	if (!codeBlock) return 1;
+	try {
+		const allBlocks = document.querySelectorAll(config.codeBlockSelector);
+		for (let i = 0; i < allBlocks.length; i++) if (allBlocks[i] === codeBlock) return i + 1;
+	} catch {}
+	return 1;
+}
+function setupCopyTracking(config, emit) {
+	document.addEventListener("click", (e) => {
+		const copyButton = e.target.closest(config.copyButtonSelector);
+		if (copyButton) {
+			const codeBlock = copyButton.closest("[class*=\"language-\"], [language]") ?? copyButton.closest(config.codeBlockSelector) ?? copyButton.closest(".expressive-code")?.querySelector("pre") ?? copyButton.closest("div, section")?.querySelector("pre") ?? copyButton.parentElement?.querySelector("pre") ?? null;
+			const language = extractCodeLanguage((codeBlock ? codeBlock.tagName === "PRE" ? codeBlock.querySelector("code") : codeBlock.querySelector("code[class*=\"language-\"], code[language]") ?? codeBlock.querySelector("code") : null) ?? codeBlock ?? copyButton);
+			emit(EVENT_CODE_COPIED, {
+				[ATTR_DO11Y_CODE_LANGUAGE]: language,
+				[ATTR_DO11Y_CODE_SECTION]: sanitizeText(getNearestHeading(codeBlock ?? copyButton), 100),
+				[ATTR_DO11Y_CODE_INDEX]: getCodeBlockIndex(codeBlock, config)
+			});
+		}
+	}, true);
+}
+//#endregion
+//#region src/core/tracking/tabs.ts
+function setupTabSwitchTracking(config, emit) {
+	if (!config.trackTabSwitches) return;
+	document.addEventListener("click", (e) => {
+		let baseSel = "[role=\"tab\"], .tabs button, .tabs a, .tabbed-labels label";
+		const safeTabSel = validateSelector(config.tabContainerSelector);
+		if (safeTabSel) baseSel += ", " + safeTabSel + " button, " + safeTabSel + " a, " + safeTabSel + " label";
+		const tab = e.target.closest(baseSel);
+		if (!tab) return;
+		if (tab.getAttribute("aria-selected") === "true" || tab.classList.contains("active") || tab.classList.contains("is-active")) return;
+		const label = sanitizeText(tab.textContent, 50);
+		if (!label) return;
+		const section = sanitizeText(getNearestHeading(tab), 100);
+		emit(EVENT_TAB_SWITCH, {
+			[ATTR_DO11Y_TAB_LABEL]: label,
+			[ATTR_DO11Y_TAB_GROUP]: section,
+			[ATTR_DO11Y_TAB_IS_DEFAULT]: false
+		});
+	});
+}
+//#endregion
+//#region src/core/tracking/toc.ts
+function setupTocClickTracking(config, emit) {
+	if (!config.trackTocClicks) return;
+	document.addEventListener("click", (e) => {
+		const link = e.target.closest("a");
+		if (!link) return;
+		const tocContainer = resolveTocContainer(link, config);
+		if (!tocContainer) return;
+		const href = link.getAttribute("href");
+		const hash = href ? resolveTocHash(href) : null;
+		if (!hash) return;
+		const headingText = sanitizeText(link.textContent, 100);
+		let headingLevel = null;
+		try {
+			const targetId = hash.slice(1);
+			const targetEl = document.getElementById(targetId);
+			if (targetEl && /^H[1-6]$/.test(targetEl.tagName)) headingLevel = parseInt(targetEl.tagName.charAt(1), 10);
+		} catch {}
+		const tocLinks = tocContainer.querySelectorAll("a[href*=\"#\"]");
+		let tocPosition = 1;
+		for (let i = 0; i < tocLinks.length; i++) if (tocLinks[i] === link) {
+			tocPosition = i + 1;
+			break;
+		}
+		emit(EVENT_TOC_CLICK, {
+			[ATTR_DO11Y_TOC_HEADING]: headingText,
+			[ATTR_DO11Y_TOC_HEADING_LEVEL]: headingLevel,
+			[ATTR_DO11Y_TOC_POSITION]: tocPosition
+		});
+	}, true);
+}
+//#endregion
+//#region src/core/tracking/feedback.ts
+function setupFeedbackTracking(config, emit) {
+	if (!config.trackFeedback) return;
+	document.addEventListener("click", (e) => {
+		const button = e.target.closest("button, [role=\"button\"], a");
+		if (!button) return;
+		if (!button.closest(validateSelector(config.feedbackSelector) ?? "[class*=\"feedback\"], [class*=\"helpful\"], [class*=\"rating\"], [class*=\"was-this\"], [data-feedback]")) return;
+		const buttonText = (button.textContent ?? "").trim().toLowerCase();
+		const ariaLabel = (button.getAttribute("aria-label") ?? "").toLowerCase();
+		const titleAttr = (button.getAttribute("title") ?? "").toLowerCase();
+		const rawDataValue = button.getAttribute("data-value") ?? button.getAttribute("data-md-value") ?? button.getAttribute("data-feedback");
+		const dataValue = rawDataValue && /^[\w\s.,!?-]{1,50}$/.test(rawDataValue) ? rawDataValue : null;
+		let rating = null;
+		if (dataValue) rating = dataValue;
+		else if (/\byes\b|👍|thumbs.?up|helpful/i.test(buttonText + " " + ariaLabel + " " + titleAttr)) rating = "yes";
+		else if (/\bno\b|👎|thumbs.?down|not.?helpful/i.test(buttonText + " " + ariaLabel + " " + titleAttr)) rating = "no";
+		if (!rating) return;
+		emit(EVENT_FEEDBACK, { [ATTR_DO11Y_FEEDBACK_RATING]: rating });
+	});
+}
+//#endregion
+//#region src/core/tracking/expand.ts
+function setupExpandCollapseTracking(config, emit) {
+	if (!config.trackExpandCollapse) return;
+	document.addEventListener("toggle", (e) => {
+		const details = e.target;
+		if (details.tagName !== "DETAILS") return;
+		const summary = details.querySelector("summary");
+		const label = sanitizeText(summary ? summary.textContent : "", 100);
+		emit(EVENT_EXPAND_COLLAPSE, {
+			[ATTR_DO11Y_EXPAND_SUMMARY]: label,
+			[ATTR_DO11Y_EXPAND_ACTION]: details.open ? "expand" : "collapse",
+			[ATTR_DO11Y_EXPAND_SECTION]: sanitizeText(getNearestHeading(details), 100)
+		});
+	}, true);
+	document.addEventListener("click", (e) => {
+		const trigger = e.target.closest("[aria-expanded], [class*=\"accordion\"] button, [class*=\"collapsible\"] button");
+		if (!trigger) return;
+		if (trigger.closest("details")) return;
+		if (trigger.closest("nav, [role=\"navigation\"], header")) return;
+		const wasExpanded = trigger.getAttribute("aria-expanded") === "true";
+		emit(EVENT_EXPAND_COLLAPSE, {
+			[ATTR_DO11Y_EXPAND_SUMMARY]: sanitizeText(trigger.textContent, 100),
+			[ATTR_DO11Y_EXPAND_ACTION]: wasExpanded ? "collapse" : "expand",
+			[ATTR_DO11Y_EXPAND_SECTION]: sanitizeText(getNearestHeading(trigger), 100)
+		});
+	});
+}
+//#endregion
+//#region src/instrumentation/config.ts
+/**
+* Build a normalized Do11yConfig from the instrumentation's user config.
+* This bridges the gap between the simplified DocsInstrumentationConfig
+* and the full Do11yConfig used by the core tracking modules.
+*/
+function buildConfig(userConfig) {
+	return {
+		framework: userConfig.framework ?? "mintlify",
+		debug: userConfig.debug ?? false,
+		trackScrollDepth: userConfig.trackScrollDepth ?? true,
+		scrollThresholds: userConfig.scrollThresholds ?? [
+			25,
+			50,
+			75,
+			90
+		],
+		trackOutboundLinks: userConfig.trackOutboundLinks ?? true,
+		trackInternalLinks: userConfig.trackInternalLinks ?? true,
+		trackSectionVisibility: userConfig.trackSectionVisibility ?? true,
+		sectionVisibleThreshold: userConfig.sectionVisibleThreshold ?? 3,
+		trackTabSwitches: userConfig.trackTabSwitches ?? true,
+		trackTocClicks: userConfig.trackTocClicks ?? true,
+		trackExpandCollapse: userConfig.trackExpandCollapse ?? true,
+		trackFeedback: userConfig.trackFeedback ?? true,
+		searchSelector: userConfig.selectors?.searchSelector ?? null,
+		copyButtonSelector: userConfig.selectors?.copyButtonSelector ?? null,
+		codeBlockSelector: userConfig.selectors?.codeBlockSelector ?? null,
+		navigationSelector: userConfig.selectors?.navigationSelector ?? null,
+		footerSelector: userConfig.selectors?.footerSelector ?? null,
+		contentSelector: userConfig.selectors?.contentSelector ?? null,
+		tabContainerSelector: userConfig.selectors?.tabContainerSelector ?? null,
+		tocSelector: userConfig.selectors?.tocSelector ?? null,
+		feedbackSelector: userConfig.selectors?.feedbackSelector ?? null
+	};
+}
+//#endregion
+//#region src/instrumentation/index.ts
+/**
+* Do11y — Documentation Observability
+*
+* OpenTelemetry Instrumentation for documentation sites.
+*
+* This is the npm/bundler distribution path. Users install
+* @opentelemetry/browser-sdk and @manototh/do11y, then register
+* DocsInstrumentation to get docs-specific events (scroll depth,
+* tab switches, code copies, etc.) flowing through the same OTel
+* pipeline as their auto-instrumentations.
+*
+* Example:
+*   import { startBrowserSdk } from '@opentelemetry/browser-sdk';
+*   import { DocsInstrumentation } from '@manototh/do11y/instrumentation';
+*
+*   startBrowserSdk({
+*     serviceName: 'my-docs',
+*     exportConfig: { url: 'https://otel.example.com/v1/logs' },
+*     instrumentations: [
+*       new DocsInstrumentation({ framework: 'mintlify' }),
+*     ],
+*   });
+*/
+/**
+* OpenTelemetry instrumentation for documentation sites.
+*
+* Emits log records for documentation-specific events (page views,
+* scroll depth, tab switches, code copies, etc.) through the
+* OpenTelemetry API. Works alongside @opentelemetry/browser-sdk
+* and other browser instrumentations.
+*/
+var DocsInstrumentation = class extends InstrumentationBase {
+	constructor(config = {}) {
+		super("@manototh/do11y", VERSION, config);
+		this._do11yConfig = {};
+	}
+	/**
+	* Init is called by the base class constructor.
+	* For browser instrumentations that don't patch Node.js modules,
+	* this can return void.
+	*/
+	init() {}
+	/**
+	* Enable the instrumentation: register all DOM event listeners.
+	*/
+	enable() {
+		this._do11yConfig = buildConfig(this.getConfig());
+		applyFrameworkSelectors(this._do11yConfig);
+		const logger = logs.getLogger("@manototh/do11y");
+		const emit = (eventName, eventData) => {
+			logger.emit({
+				eventName,
+				severityNumber: 9,
+				attributes: {
+					"browser.do11y.version": VERSION,
+					...getBrowserContext(),
+					...getPageInfo(),
+					...eventData
+				},
+				body: ""
+			});
+		};
+		trackPageView(this._do11yConfig, emit);
+		setupLinkTracking(this._do11yConfig, emit);
+		setupScrollTracking(this._do11yConfig, emit);
+		setupEngagementTracking(this._do11yConfig, emit);
+		setupSearchTracking(this._do11yConfig, emit);
+		setupCopyTracking(this._do11yConfig, emit);
+		setupSectionVisibilityTracking(this._do11yConfig, emit);
+		setupTabSwitchTracking(this._do11yConfig, emit);
+		setupTocClickTracking(this._do11yConfig, emit);
+		setupFeedbackTracking(this._do11yConfig, emit);
+		setupExpandCollapseTracking(this._do11yConfig, emit);
+	}
+	/**
+	* Disable the instrumentation: tear down all event listeners and observers.
+	*/
+	disable() {
+		disconnectSectionObserver();
+		this._do11yConfig = {};
+	}
+};
+//#endregion
+export { DocsInstrumentation };

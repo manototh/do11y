@@ -1,0 +1,27 @@
+/**
+ * Do11y — Documentation Observability
+ *
+ * Search open tracking.
+ */
+import type { Do11yConfig, EmitFn } from '../types.js';
+import {
+  EVENT_SEARCH_OPENED,
+  ATTR_DO11Y_SEARCH_TRIGGER,
+} from '../constants.js';
+
+export function setupSearchTracking(config: Do11yConfig, emit: EmitFn): void {
+  // Use capture phase so the handler fires before framework event handlers
+  // (e.g. Starlight's <site-search>) can call stopPropagation().
+  document.addEventListener('click', (e) => {
+    const searchTrigger = (e.target as Element).closest(config.searchSelector!);
+    if (searchTrigger) {
+      emit(EVENT_SEARCH_OPENED, {});
+    }
+  }, true);
+
+  document.addEventListener('keydown', (e) => {
+    if ((e.metaKey || e.ctrlKey) && e.key === 'k') {
+      emit(EVENT_SEARCH_OPENED, { [ATTR_DO11Y_SEARCH_TRIGGER]: 'keyboard' });
+    }
+  });
+}
