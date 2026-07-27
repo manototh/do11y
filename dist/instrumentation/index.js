@@ -9,7 +9,7 @@ import { logs } from "@opentelemetry/api-logs";
 * Standard attrs from https://opentelemetry.io/docs/specs/semconv/.
 * Custom do11y attrs use the `browser.do11y.*` namespace.
 */
-const VERSION = "0.1.1";
+const VERSION = "0.1.2";
 const ATTR_URL_PATH = "url.path";
 const ATTR_URL_FRAGMENT = "url.fragment";
 const ATTR_URL_QUERY = "url.query";
