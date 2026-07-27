@@ -296,9 +296,11 @@ const FRAMEWORK_PRESETS: Record<string, FrameworkSelectors> = {
     navigationSelector: 'nav, [role="navigation"], #navbar, #sidebar, [class*="nav"], [class*="sidebar"]',
     footerSelector: 'footer, [role="contentinfo"], [class*="footer"]',
     contentSelector: 'main, article, [role="main"], [class*="content"]',
-    tabContainerSelector: '[role="tablist"], [class*="tab"]',
+    // Mintlify uses the custom <tabs> element, not ARIA tab roles
+    tabContainerSelector: 'tabs, [role="tablist"], [class*="tab"]',
     tocSelector: '#table-of-contents, [data-testid="table-of-contents"], [class*="table-of-contents"], [class*="toc"]',
-    feedbackSelector: '[class*="feedback"], [class*="helpful"]',
+    // Mintlify exposes feedback via custom elements and IDs
+    feedbackSelector: 'feedback-toolbar, #feedback-thumbs-up, #feedback-thumbs-down, [class*="feedback"], [class*="helpful"]',
   },
   docusaurus: {
     searchSelector: '.DocSearch, .DocSearch-Button',
@@ -1045,7 +1047,18 @@ async function initOtelSdk(): Promise<void> {
 function buildRequest(events: Do11yEvent[]): { url: string; headers: Record<string, string>; body: string } {
   if (config.destination === 'supabase') {
     const url = config.supabaseUrl.replace(/\/$/, '') + '/rest/v1/' + config.supabaseTable;
-    const bodyTransform = config.bodyTransform ?? ((evts: object[]) => (evts as object[]).map((e) => ({ payload: e })));
+    const bodyTransform = config.bodyTransform ?? ((evts: object[]) => {
+      return (evts as object[]).map((e) => {
+        const payload = { ...(e as Record<string, unknown>) };
+        // Inject test-run metadata from Do11yConfig (used by E2E tests).
+        // This is more reliable than a fetch interceptor which gets lost
+        // during SPA navigation when the router replaces window.fetch.
+        const cfg = config as unknown as Record<string, unknown>;
+        if (cfg._testRunId) payload._testRunId = cfg._testRunId;
+        if (cfg._testFramework) payload._testFramework = cfg._testFramework;
+        return { payload };
+      });
+    });
     return {
       url,
       headers: {
@@ -1165,6 +1178,8 @@ function sendEvents(req: { url: string; headers: Record<string, string>; body: s
 /**
  * Synchronous flush used on `beforeunload`. For OTLP mode the SDK
  * handles flush on its own; for HTTP/Supabase we use fetch with keepalive.
+ * sendBeacon is not used because Supabase requires custom headers
+ * (apikey, Authorization) which sendBeacon does not support.
  */
 function flushSync(): void {
   if (config.destination === 'otlp') {
@@ -1479,6 +1494,10 @@ function emitPageExit(): void {
     [ATTR_DO11Y_REFERRER_CATEGORY]: session.referrerCategory,
     [ATTR_DO11Y_AI_PLATFORM]: session.aiPlatform,
   });
+
+  // Flush immediately so the exit event is sent even if beforeunload
+  // is interrupted (e.g. by Puppeteer's page.close destroying context).
+  flush();
 }
 
 function setupEngagementTracking(): void {
@@ -1575,7 +1594,12 @@ function setupCopyTracking(): void {
 // ============================================================
 
 let sectionObserver: IntersectionObserver | null = null;
-let sectionTimers: Record<string, { start: number; reported: boolean }> = {};
+interface SectionTimer {
+  start: number;
+  reported: boolean;
+  timeoutId: ReturnType<typeof setTimeout> | null;
+}
+let sectionTimers: Record<string, SectionTimer> = {};
 
 function setupSectionVisibilityTracking(): void {
   if (!config.trackSectionVisibility) return;
@@ -1590,19 +1614,38 @@ function setupSectionVisibilityTracking(): void {
 
       if (entry.isIntersecting) {
         if (!sectionTimers[id]) {
-          sectionTimers[id] = { start: Date.now(), reported: false };
+          const timer: SectionTimer = { start: Date.now(), reported: false, timeoutId: null };
+          // Fire the event early if the heading stays visible for the threshold duration,
+          // so users who scroll past slowly or navigate away still get tracked.
+          timer.timeoutId = setTimeout(() => {
+            if (sectionTimers[id] && !sectionTimers[id].reported) {
+              const heading = entry.target.textContent?.trim() ?? '';
+              queueEvent(EVENT_SECTION_VISIBLE, {
+                [ATTR_DO11Y_SECTION_HEADING]: sanitizeText(heading, 100),
+                [ATTR_DO11Y_SECTION_HEADING_LEVEL]: parseInt(entry.target.tagName.charAt(1), 10),
+                [ATTR_DO11Y_SECTION_VISIBLE_SECONDS]: Math.round(threshold / 1000),
+              });
+              sectionTimers[id].reported = true;
+            }
+          }, threshold);
+          sectionTimers[id] = timer;
         }
       } else {
-        if (sectionTimers[id] && !sectionTimers[id].reported) {
-          const elapsed = Date.now() - sectionTimers[id].start;
-          if (elapsed >= threshold) {
-            const heading = entry.target.textContent?.trim() ?? '';
-            queueEvent(EVENT_SECTION_VISIBLE, {
-              [ATTR_DO11Y_SECTION_HEADING]: sanitizeText(heading, 100),
-              [ATTR_DO11Y_SECTION_HEADING_LEVEL]: parseInt(entry.target.tagName.charAt(1), 10),
-              [ATTR_DO11Y_SECTION_VISIBLE_SECONDS]: Math.round(elapsed / 1000),
-            });
-            sectionTimers[id].reported = true;
+        if (sectionTimers[id]) {
+          if (sectionTimers[id].timeoutId) {
+            clearTimeout(sectionTimers[id].timeoutId);
+          }
+          if (!sectionTimers[id].reported) {
+            const elapsed = Date.now() - sectionTimers[id].start;
+            if (elapsed >= threshold) {
+              const heading = entry.target.textContent?.trim() ?? '';
+              queueEvent(EVENT_SECTION_VISIBLE, {
+                [ATTR_DO11Y_SECTION_HEADING]: sanitizeText(heading, 100),
+                [ATTR_DO11Y_SECTION_HEADING_LEVEL]: parseInt(entry.target.tagName.charAt(1), 10),
+                [ATTR_DO11Y_SECTION_VISIBLE_SECONDS]: Math.round(elapsed / 1000),
+              });
+              sectionTimers[id].reported = true;
+            }
           }
         }
         delete sectionTimers[id];
@@ -1632,6 +1675,7 @@ function flushVisibleSections(): void {
   Object.keys(sectionTimers).forEach((id) => {
     const timer = sectionTimers[id];
     if (timer && !timer.reported) {
+      if (timer.timeoutId) clearTimeout(timer.timeoutId);
       const elapsed = now - timer.start;
       if (elapsed >= threshold) {
         const escapedId = typeof CSS !== 'undefined' && typeof CSS.escape === 'function'
@@ -1829,15 +1873,21 @@ function setupExpandCollapseTracking(): void {
 // ============================================================
 
 let mutationObserver: MutationObserver | null = null;
+let pathPollId: ReturnType<typeof setInterval> | null = null;
 
 function init(): void {
   if (window.Do11yConfig && typeof window.Do11yConfig === 'object') {
     for (const key in window.Do11yConfig) {
-      if (
-        Object.prototype.hasOwnProperty.call(window.Do11yConfig, key) &&
-        Object.prototype.hasOwnProperty.call(config, key)
-      ) {
-        (config as unknown as Record<string, unknown>)[key] = (window.Do11yConfig as unknown as Record<string, unknown>)[key];
+      if (Object.prototype.hasOwnProperty.call(window.Do11yConfig, key)) {
+        if (Object.prototype.hasOwnProperty.call(config, key)) {
+          // Known config key — assign with proper type
+          (config as unknown as Record<string, unknown>)[key] = (window.Do11yConfig as unknown as Record<string, unknown>)[key];
+        } else {
+          // Unknown key (e.g. _testRunId, _testFramework from test harness) —
+          // store on config so buildRequest() can read it, but keep it off
+          // the public interface.
+          (config as unknown as Record<string, unknown>)[key] = (window.Do11yConfig as unknown as Record<string, unknown>)[key];
+        }
       }
     }
   }
@@ -1947,37 +1997,30 @@ function init(): void {
 
   let lastPath = window.location.pathname;
 
-  mutationObserver = new MutationObserver(() => {
-    if (window.location.pathname !== lastPath) {
-      lastPath = window.location.pathname;
-      emitPageExit();
-      trackedScrollDepths = new Set();
-      pageLoadTime = Date.now();
-      lastActivityTime = Date.now();
-      totalActiveTime = 0;
-      isPageVisible = true;
-      trackPageView();
-      observeHeadings();
-      checkScrollDepth();
-    }
-  });
+  const handlePathChange = (): void => {
+    if (window.location.pathname === lastPath) return;
+    lastPath = window.location.pathname;
+    emitPageExit();
+    trackedScrollDepths = new Set();
+    pageLoadTime = Date.now();
+    lastActivityTime = Date.now();
+    totalActiveTime = 0;
+    isPageVisible = true;
+    trackPageView();
+    observeHeadings();
+    checkScrollDepth();
+  };
 
+  mutationObserver = new MutationObserver(handlePathChange);
   mutationObserver.observe(document.body, { childList: true, subtree: true });
 
-  window.addEventListener('popstate', () => {
-    if (window.location.pathname !== lastPath) {
-      lastPath = window.location.pathname;
-      emitPageExit();
-      trackedScrollDepths = new Set();
-      pageLoadTime = Date.now();
-      lastActivityTime = Date.now();
-      totalActiveTime = 0;
-      isPageVisible = true;
-      trackPageView();
-      observeHeadings();
-      checkScrollDepth();
-    }
-  });
+  window.addEventListener('popstate', handlePathChange);
+
+  // Supplementary pathname poll: some SPA routers (e.g. Mintlify) update
+  // the DOM before calling history.pushState, causing the MutationObserver
+  // to fire before the pathname changes. A lightweight interval catches
+  // these missed transitions.
+  pathPollId = window.setInterval(handlePathChange, 200);
 
     // Freeze the resolved config so that third-party scripts loaded after
   // this point cannot mutate host, key, or any other field
@@ -2000,6 +2043,10 @@ function cleanup(): void {
   if (flushTimeout) {
     clearTimeout(flushTimeout);
     flushTimeout = null;
+  }
+  if (pathPollId !== null) {
+    clearInterval(pathPollId);
+    pathPollId = null;
   }
   flushSync();
 }

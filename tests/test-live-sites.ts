@@ -34,14 +34,14 @@ interface FrameworkTestResult {
 const FRAMEWORK_PRESETS: Record<string, FrameworkSelectors> = {
   mintlify: {
     searchSelector: '#search-bar-entry, #search-bar-entry-mobile, [class*="search"]',
-    copyButtonSelector: '[class*="copy"], button[aria-label*="copy" i]',
+    copyButtonSelector: 'button[class*="copy"], button[aria-label*="copy" i]',
     codeBlockSelector: 'pre, [class*="code"]',
     navigationSelector: 'nav, [role="navigation"], #navbar, #sidebar, [class*="nav"], [class*="sidebar"]',
     footerSelector: 'footer, [role="contentinfo"], [class*="footer"]',
     contentSelector: 'main, article, [role="main"], [class*="content"]',
-    tabContainerSelector: '[role="tablist"], [class*="tab"]',
+    tabContainerSelector: 'tabs, [role="tablist"], [class*="tab"]',
     tocSelector: '#table-of-contents, [data-testid="table-of-contents"], [class*="table-of-contents"], [class*="toc"]',
-    feedbackSelector: '[class*="feedback"], [class*="helpful"]',
+    feedbackSelector: 'feedback-toolbar, #feedback-thumbs-up, #feedback-thumbs-down, [class*="feedback"], [class*="helpful"]',
   },
   docusaurus: {
     searchSelector: '.DocSearch, .DocSearch-Button',
@@ -138,6 +138,7 @@ const SELECTOR_KEYS: Array<keyof FrameworkSelectors> = [
 // Selectors listed here are not expected to match on every page of that
 // framework and won't count as failures when they return 0 matches.
 const OPTIONAL_SELECTORS: Partial<Record<string, Array<keyof FrameworkSelectors>>> = {
+  mintlify:    ['tabContainerSelector'],
   docusaurus:  ['feedbackSelector'],
   nextra:      ['feedbackSelector'],
   vitepress:   ['feedbackSelector'],

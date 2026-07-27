@@ -127,9 +127,9 @@
 			navigationSelector: "nav, [role=\"navigation\"], #navbar, #sidebar, [class*=\"nav\"], [class*=\"sidebar\"]",
 			footerSelector: "footer, [role=\"contentinfo\"], [class*=\"footer\"]",
 			contentSelector: "main, article, [role=\"main\"], [class*=\"content\"]",
-			tabContainerSelector: "[role=\"tablist\"], [class*=\"tab\"]",
+			tabContainerSelector: "tabs, [role=\"tablist\"], [class*=\"tab\"]",
 			tocSelector: "#table-of-contents, [data-testid=\"table-of-contents\"], [class*=\"table-of-contents\"], [class*=\"toc\"]",
-			feedbackSelector: "[class*=\"feedback\"], [class*=\"helpful\"]"
+			feedbackSelector: "feedback-toolbar, #feedback-thumbs-up, #feedback-thumbs-down, [class*=\"feedback\"], [class*=\"helpful\"]"
 		},
 		docusaurus: {
 			searchSelector: ".DocSearch, .DocSearch-Button",
@@ -701,7 +701,15 @@
 	function buildRequest(events) {
 		if (config.destination === "supabase") {
 			const url = config.supabaseUrl.replace(/\/$/, "") + "/rest/v1/" + config.supabaseTable;
-			const bodyTransform = config.bodyTransform ?? ((evts) => evts.map((e) => ({ payload: e })));
+			const bodyTransform = config.bodyTransform ?? ((evts) => {
+				return evts.map((e) => {
+					const payload = { ...e };
+					const cfg = config;
+					if (cfg._testRunId) payload._testRunId = cfg._testRunId;
+					if (cfg._testFramework) payload._testFramework = cfg._testFramework;
+					return { payload };
+				});
+			});
 			return {
 				url,
 				headers: {
@@ -788,6 +796,8 @@
 	/**
 	* Synchronous flush used on `beforeunload`. For OTLP mode the SDK
 	* handles flush on its own; for HTTP/Supabase we use fetch with keepalive.
+	* sendBeacon is not used because Supabase requires custom headers
+	* (apikey, Authorization) which sendBeacon does not support.
 	*/
 	function flushSync() {
 		if (config.destination === "otlp") return;
@@ -1002,6 +1012,7 @@
 			[ATTR_DO11Y_REFERRER_CATEGORY]: session.referrerCategory,
 			[ATTR_DO11Y_AI_PLATFORM]: session.aiPlatform
 		});
+		flush();
 	}
 	function setupEngagementTracking() {
 		document.addEventListener("visibilitychange", () => {
@@ -1061,21 +1072,39 @@
 				const id = entry.target.getAttribute("data-do11y-section-id");
 				if (!id) return;
 				if (entry.isIntersecting) {
-					if (!sectionTimers[id]) sectionTimers[id] = {
-						start: Date.now(),
-						reported: false
-					};
+					if (!sectionTimers[id]) {
+						const timer = {
+							start: Date.now(),
+							reported: false,
+							timeoutId: null
+						};
+						timer.timeoutId = setTimeout(() => {
+							if (sectionTimers[id] && !sectionTimers[id].reported) {
+								const heading = entry.target.textContent?.trim() ?? "";
+								queueEvent(EVENT_SECTION_VISIBLE, {
+									[ATTR_DO11Y_SECTION_HEADING]: sanitizeText(heading, 100),
+									[ATTR_DO11Y_SECTION_HEADING_LEVEL]: parseInt(entry.target.tagName.charAt(1), 10),
+									[ATTR_DO11Y_SECTION_VISIBLE_SECONDS]: Math.round(threshold / 1e3)
+								});
+								sectionTimers[id].reported = true;
+							}
+						}, threshold);
+						sectionTimers[id] = timer;
+					}
 				} else {
-					if (sectionTimers[id] && !sectionTimers[id].reported) {
-						const elapsed = Date.now() - sectionTimers[id].start;
-						if (elapsed >= threshold) {
-							const heading = entry.target.textContent?.trim() ?? "";
-							queueEvent(EVENT_SECTION_VISIBLE, {
-								[ATTR_DO11Y_SECTION_HEADING]: sanitizeText(heading, 100),
-								[ATTR_DO11Y_SECTION_HEADING_LEVEL]: parseInt(entry.target.tagName.charAt(1), 10),
-								[ATTR_DO11Y_SECTION_VISIBLE_SECONDS]: Math.round(elapsed / 1e3)
-							});
-							sectionTimers[id].reported = true;
+					if (sectionTimers[id]) {
+						if (sectionTimers[id].timeoutId) clearTimeout(sectionTimers[id].timeoutId);
+						if (!sectionTimers[id].reported) {
+							const elapsed = Date.now() - sectionTimers[id].start;
+							if (elapsed >= threshold) {
+								const heading = entry.target.textContent?.trim() ?? "";
+								queueEvent(EVENT_SECTION_VISIBLE, {
+									[ATTR_DO11Y_SECTION_HEADING]: sanitizeText(heading, 100),
+									[ATTR_DO11Y_SECTION_HEADING_LEVEL]: parseInt(entry.target.tagName.charAt(1), 10),
+									[ATTR_DO11Y_SECTION_VISIBLE_SECONDS]: Math.round(elapsed / 1e3)
+								});
+								sectionTimers[id].reported = true;
+							}
 						}
 					}
 					delete sectionTimers[id];
@@ -1098,6 +1127,7 @@
 		Object.keys(sectionTimers).forEach((id) => {
 			const timer = sectionTimers[id];
 			if (timer && !timer.reported) {
+				if (timer.timeoutId) clearTimeout(timer.timeoutId);
 				const elapsed = now - timer.start;
 				if (elapsed >= threshold) {
 					const escapedId = typeof CSS !== "undefined" && typeof CSS.escape === "function" ? CSS.escape(id) : id.replace(/["\\]/g, "\\$&");
@@ -1207,9 +1237,11 @@
 		});
 	}
 	let mutationObserver = null;
+	let pathPollId = null;
 	function init() {
 		if (window.Do11yConfig && typeof window.Do11yConfig === "object") {
-			for (const key in window.Do11yConfig) if (Object.prototype.hasOwnProperty.call(window.Do11yConfig, key) && Object.prototype.hasOwnProperty.call(config, key)) config[key] = window.Do11yConfig[key];
+			for (const key in window.Do11yConfig) if (Object.prototype.hasOwnProperty.call(window.Do11yConfig, key)) if (Object.prototype.hasOwnProperty.call(config, key)) config[key] = window.Do11yConfig[key];
+			else config[key] = window.Do11yConfig[key];
 		}
 		const metaDestination = document.querySelector("meta[name=\"do11y-destination\"]");
 		if (metaDestination) {
@@ -1278,38 +1310,26 @@
 		setupFeedbackTracking();
 		setupExpandCollapseTracking();
 		let lastPath = window.location.pathname;
-		mutationObserver = new MutationObserver(() => {
-			if (window.location.pathname !== lastPath) {
-				lastPath = window.location.pathname;
-				emitPageExit();
-				trackedScrollDepths = /* @__PURE__ */ new Set();
-				pageLoadTime = Date.now();
-				lastActivityTime = Date.now();
-				totalActiveTime = 0;
-				isPageVisible = true;
-				trackPageView();
-				observeHeadings();
-				checkScrollDepth();
-			}
-		});
+		const handlePathChange = () => {
+			if (window.location.pathname === lastPath) return;
+			lastPath = window.location.pathname;
+			emitPageExit();
+			trackedScrollDepths = /* @__PURE__ */ new Set();
+			pageLoadTime = Date.now();
+			lastActivityTime = Date.now();
+			totalActiveTime = 0;
+			isPageVisible = true;
+			trackPageView();
+			observeHeadings();
+			checkScrollDepth();
+		};
+		mutationObserver = new MutationObserver(handlePathChange);
 		mutationObserver.observe(document.body, {
 			childList: true,
 			subtree: true
 		});
-		window.addEventListener("popstate", () => {
-			if (window.location.pathname !== lastPath) {
-				lastPath = window.location.pathname;
-				emitPageExit();
-				trackedScrollDepths = /* @__PURE__ */ new Set();
-				pageLoadTime = Date.now();
-				lastActivityTime = Date.now();
-				totalActiveTime = 0;
-				isPageVisible = true;
-				trackPageView();
-				observeHeadings();
-				checkScrollDepth();
-			}
-		});
+		window.addEventListener("popstate", handlePathChange);
+		pathPollId = window.setInterval(handlePathChange, 200);
 		Object.freeze(config);
 		if (config.debug) console.log("[Do11y] Initialized successfully");
 	}
@@ -1326,6 +1346,10 @@
 		if (flushTimeout) {
 			clearTimeout(flushTimeout);
 			flushTimeout = null;
+		}
+		if (pathPollId !== null) {
+			clearInterval(pathPollId);
+			pathPollId = null;
 		}
 		flushSync();
 	}
