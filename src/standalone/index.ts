@@ -85,6 +85,8 @@ const config: Do11yConfig = {
   footerSelector: null,
   contentSelector: null,
   useOtelBrowserInstrumentations: false,
+  testRunId: undefined,
+  testFramework: undefined,
 };
 
 // ─── Guard: prevent double-init ──────────────────────────────────────────────
@@ -252,14 +254,20 @@ function init(): void {
   // through window.Do11yConfig or direct property assignment.
   Object.freeze(config);
 
-  // Add standalone-specific beforeunload handler to flush remaining events
+  // Add standalone-specific beforeunload handler to emit the exit event
+  // and flush remaining events. The setupEngagementTracking listener only
+  // emits the event without flushing — this listener ensures the flush
+  // happens. emitPageExit is called without afterEmit because we call
+  // flushSync directly afterwards; this means it works regardless of
+  // listener ordering (the pageExited guard deduplicates).
   window.addEventListener('beforeunload', () => {
     if (pathPollId !== null) {
       clearInterval(pathPollId);
       pathPollId = null;
     }
-    transportCleanup();
+    emitPageExit(config, emit);
     flushSync(config);
+    transportCleanup();
   });
 
   if (config.debug) console.log('[Do11y] Initialized successfully');

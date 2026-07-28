@@ -14,8 +14,13 @@ import {
   ATTR_DO11Y_IS_FIRST_PAGE,
   ATTR_DO11Y_PREVIOUS_PATH,
 } from '../constants.js';
+import { resetPageExitedGuard } from './engagement.js';
 
 export function trackPageView(config: Do11yConfig, emit: EmitFn): void {
+  // Reset the page_exit guard so the new page can emit its exit cleanly.
+  // The guard is also reset by resetEngagementState() in handlePathChange(), but this
+  // defence-in-depth ensures it resets even if that path isn't taken.
+  resetPageExitedGuard();
   const session = updatePageSequence(window.location.pathname);
 
   const referrerDomain = getReferrerDomain();

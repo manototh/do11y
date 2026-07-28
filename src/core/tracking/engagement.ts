@@ -90,4 +90,13 @@ export function resetEngagementState(): void {
   pageExited = false;
 }
 
+/**
+ * Reset only the page_exit guard flag, without affecting timing data.
+ * Called by trackPageView() so that the guard is cleared even if
+ * resetEngagementState() (which also resets it) was not invoked.
+ */
+export function resetPageExitedGuard(): void {
+  pageExited = false;
+}
+
 export { pageExited };

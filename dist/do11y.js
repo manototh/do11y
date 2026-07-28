@@ -518,79 +518,6 @@
 		return session;
 	}
 	//#endregion
-	//#region src/core/tracking/page-view.ts
-	function trackPageView(config, emit) {
-		const session = updatePageSequence(window.location.pathname);
-		const referrerDomain = getReferrerDomain();
-		const referrerInfo = classifyReferrer(referrerDomain);
-		if (session.pageCount === 1) {
-			session.referrerCategory = referrerInfo.referrerCategory;
-			session.aiPlatform = referrerInfo.aiPlatform;
-			saveSession(session);
-		}
-		emit(EVENT_PAGE_VIEW, {
-			[ATTR_DO11Y_REFERRER_DOMAIN]: referrerDomain,
-			[ATTR_DO11Y_REFERRER_CATEGORY]: referrerInfo.referrerCategory,
-			[ATTR_DO11Y_AI_PLATFORM]: referrerInfo.aiPlatform,
-			[ATTR_DO11Y_IS_FIRST_PAGE]: session.pageCount === 1,
-			[ATTR_DO11Y_PREVIOUS_PATH]: session.pageSequence.length > 1 ? session.pageSequence[session.pageSequence.length - 2].path : null
-		});
-	}
-	function saveSession(session) {
-		try {
-			sessionStorage.setItem("do11y_session", JSON.stringify(session));
-		} catch {}
-	}
-	//#endregion
-	//#region src/core/tracking/links.ts
-	function getLinkContext(link, config) {
-		if (link.closest(config.navigationSelector)) return "navigation";
-		if (link.closest(config.footerSelector)) return "footer";
-		if (link.closest(config.contentSelector)) return "content";
-		return "other";
-	}
-	function getLinkIndex(link, href) {
-		if (typeof CSS === "undefined" || typeof CSS.escape !== "function") return 1;
-		try {
-			const allLinks = document.querySelectorAll("a[href=\"" + CSS.escape(href) + "\"]");
-			for (let i = 0; i < allLinks.length; i++) if (allLinks[i] === link) return i + 1;
-		} catch {}
-		return 1;
-	}
-	function setupLinkTracking(config, emit) {
-		document.addEventListener("click", (e) => {
-			const link = e.target.closest("a");
-			if (!link) return;
-			const href = link.getAttribute("href");
-			if (!href) return;
-			let linkType = "other";
-			let targetDomain = null;
-			try {
-				if (href.startsWith("#")) linkType = "anchor";
-				else if (href.startsWith("/") || href.startsWith("./") || href.startsWith("../")) linkType = "internal";
-				else if (href.startsWith("http")) {
-					const url = new URL(href);
-					if (url.hostname === window.location.hostname) linkType = "internal";
-					else {
-						linkType = "external";
-						targetDomain = url.hostname;
-					}
-				} else if (href.startsWith("mailto:")) linkType = "email";
-			} catch {}
-			if (linkType === "internal" && !config.trackInternalLinks) return;
-			if (linkType === "external" && !config.trackOutboundLinks) return;
-			emit(EVENT_LINK_CLICK, {
-				[ATTR_DO11Y_LINK_TYPE]: linkType,
-				[ATTR_DO11Y_LINK_TARGET_URL]: href,
-				[ATTR_DO11Y_LINK_TARGET_DOMAIN]: targetDomain,
-				[ATTR_DO11Y_LINK_TEXT]: sanitizeText(link.textContent, 100),
-				[ATTR_DO11Y_LINK_CONTEXT]: getLinkContext(link, config),
-				[ATTR_DO11Y_LINK_SECTION]: sanitizeText(getNearestHeading(link), 100),
-				[ATTR_DO11Y_LINK_INDEX]: getLinkIndex(link, href)
-			});
-		}, true);
-	}
-	//#endregion
 	//#region src/core/tracking/scroll.ts
 	let trackedScrollDepths = /* @__PURE__ */ new Set();
 	let scrollContainer = null;
@@ -812,6 +739,88 @@
 		totalActiveTime = 0;
 		isPageVisible = true;
 		pageExited = false;
+	}
+	/**
+	* Reset only the page_exit guard flag, without affecting timing data.
+	* Called by trackPageView() so that the guard is cleared even if
+	* resetEngagementState() (which also resets it) was not invoked.
+	*/
+	function resetPageExitedGuard() {
+		pageExited = false;
+	}
+	//#endregion
+	//#region src/core/tracking/page-view.ts
+	function trackPageView(config, emit) {
+		resetPageExitedGuard();
+		const session = updatePageSequence(window.location.pathname);
+		const referrerDomain = getReferrerDomain();
+		const referrerInfo = classifyReferrer(referrerDomain);
+		if (session.pageCount === 1) {
+			session.referrerCategory = referrerInfo.referrerCategory;
+			session.aiPlatform = referrerInfo.aiPlatform;
+			saveSession(session);
+		}
+		emit(EVENT_PAGE_VIEW, {
+			[ATTR_DO11Y_REFERRER_DOMAIN]: referrerDomain,
+			[ATTR_DO11Y_REFERRER_CATEGORY]: referrerInfo.referrerCategory,
+			[ATTR_DO11Y_AI_PLATFORM]: referrerInfo.aiPlatform,
+			[ATTR_DO11Y_IS_FIRST_PAGE]: session.pageCount === 1,
+			[ATTR_DO11Y_PREVIOUS_PATH]: session.pageSequence.length > 1 ? session.pageSequence[session.pageSequence.length - 2].path : null
+		});
+	}
+	function saveSession(session) {
+		try {
+			sessionStorage.setItem("do11y_session", JSON.stringify(session));
+		} catch {}
+	}
+	//#endregion
+	//#region src/core/tracking/links.ts
+	function getLinkContext(link, config) {
+		if (link.closest(config.navigationSelector)) return "navigation";
+		if (link.closest(config.footerSelector)) return "footer";
+		if (link.closest(config.contentSelector)) return "content";
+		return "other";
+	}
+	function getLinkIndex(link, href) {
+		if (typeof CSS === "undefined" || typeof CSS.escape !== "function") return 1;
+		try {
+			const allLinks = document.querySelectorAll("a[href=\"" + CSS.escape(href) + "\"]");
+			for (let i = 0; i < allLinks.length; i++) if (allLinks[i] === link) return i + 1;
+		} catch {}
+		return 1;
+	}
+	function setupLinkTracking(config, emit) {
+		document.addEventListener("click", (e) => {
+			const link = e.target.closest("a");
+			if (!link) return;
+			const href = link.getAttribute("href");
+			if (!href) return;
+			let linkType = "other";
+			let targetDomain = null;
+			try {
+				if (href.startsWith("#")) linkType = "anchor";
+				else if (href.startsWith("/") || href.startsWith("./") || href.startsWith("../")) linkType = "internal";
+				else if (href.startsWith("http")) {
+					const url = new URL(href);
+					if (url.hostname === window.location.hostname) linkType = "internal";
+					else {
+						linkType = "external";
+						targetDomain = url.hostname;
+					}
+				} else if (href.startsWith("mailto:")) linkType = "email";
+			} catch {}
+			if (linkType === "internal" && !config.trackInternalLinks) return;
+			if (linkType === "external" && !config.trackOutboundLinks) return;
+			emit(EVENT_LINK_CLICK, {
+				[ATTR_DO11Y_LINK_TYPE]: linkType,
+				[ATTR_DO11Y_LINK_TARGET_URL]: href,
+				[ATTR_DO11Y_LINK_TARGET_DOMAIN]: targetDomain,
+				[ATTR_DO11Y_LINK_TEXT]: sanitizeText(link.textContent, 100),
+				[ATTR_DO11Y_LINK_CONTEXT]: getLinkContext(link, config),
+				[ATTR_DO11Y_LINK_SECTION]: sanitizeText(getNearestHeading(link), 100),
+				[ATTR_DO11Y_LINK_INDEX]: getLinkIndex(link, href)
+			});
+		}, true);
 	}
 	//#endregion
 	//#region src/core/tracking/search.ts
@@ -1271,7 +1280,9 @@
 		navigationSelector: null,
 		footerSelector: null,
 		contentSelector: null,
-		useOtelBrowserInstrumentations: false
+		useOtelBrowserInstrumentations: false,
+		testRunId: void 0,
+		testFramework: void 0
 	};
 	const _alreadyLoaded = !!window.__do11yInitialized;
 	window.__do11yInitialized = true;
@@ -1376,8 +1387,9 @@
 				clearInterval(pathPollId);
 				pathPollId = null;
 			}
-			cleanup();
+			emitPageExit(config, emit);
 			flushSync(config);
+			cleanup();
 		});
 		if (config.debug) console.log("[Do11y] Initialized successfully");
 	}
