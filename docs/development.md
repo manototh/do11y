@@ -198,7 +198,7 @@ SKIP_BUILD=1 npm run test-integrations
 
 1. Run all tests.
 
-1. Bump the version in `package.json` and `src/do11y.ts`.
+1. Bump the version in `package.json` and `src/core/constants.ts`.
 
 1. Build and verify:
 
