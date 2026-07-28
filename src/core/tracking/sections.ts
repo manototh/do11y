@@ -18,6 +18,14 @@ interface SectionTimer {
   timeoutId: ReturnType<typeof setTimeout> | null;
 }
 
+function emitSectionEvent(emit: EmitFn, el: Element, elapsedMs: number): void {
+  emit(EVENT_SECTION_VISIBLE, {
+    [ATTR_DO11Y_SECTION_HEADING]: sanitizeText(el.textContent?.trim() ?? '', 100),
+    [ATTR_DO11Y_SECTION_HEADING_LEVEL]: parseInt(el.tagName.charAt(1), 10),
+    [ATTR_DO11Y_SECTION_VISIBLE_SECONDS]: Math.round(elapsedMs / 1000),
+  });
+}
+
 let sectionObserver: IntersectionObserver | null = null;
 let sectionTimers: Record<string, SectionTimer> = {};
 
@@ -39,12 +47,7 @@ export function setupSectionVisibilityTracking(config: Do11yConfig, emit: EmitFn
           // so users who scroll past slowly or navigate away still get tracked.
           timer.timeoutId = setTimeout(() => {
             if (sectionTimers[id] && !sectionTimers[id].reported) {
-              const heading = entry.target.textContent?.trim() ?? '';
-              emit(EVENT_SECTION_VISIBLE, {
-                [ATTR_DO11Y_SECTION_HEADING]: sanitizeText(heading, 100),
-                [ATTR_DO11Y_SECTION_HEADING_LEVEL]: parseInt(entry.target.tagName.charAt(1), 10),
-                [ATTR_DO11Y_SECTION_VISIBLE_SECONDS]: Math.round(threshold / 1000),
-              });
+              emitSectionEvent(emit, entry.target, threshold);
               sectionTimers[id].reported = true;
             }
           }, threshold);
@@ -58,12 +61,7 @@ export function setupSectionVisibilityTracking(config: Do11yConfig, emit: EmitFn
           if (!sectionTimers[id].reported) {
             const elapsed = Date.now() - sectionTimers[id].start;
             if (elapsed >= threshold) {
-              const heading = entry.target.textContent?.trim() ?? '';
-              emit(EVENT_SECTION_VISIBLE, {
-                [ATTR_DO11Y_SECTION_HEADING]: sanitizeText(heading, 100),
-                [ATTR_DO11Y_SECTION_HEADING_LEVEL]: parseInt(entry.target.tagName.charAt(1), 10),
-                [ATTR_DO11Y_SECTION_VISIBLE_SECONDS]: Math.round(elapsed / 1000),
-              });
+              emitSectionEvent(emit, entry.target, elapsed);
               sectionTimers[id].reported = true;
             }
           }
@@ -103,11 +101,7 @@ export function flushVisibleSections(config: Do11yConfig, emit: EmitFn): void {
           : id.replace(/["\\]/g, '\\$&');
         const el = document.querySelector('[data-do11y-section-id="' + escapedId + '"]');
         if (el) {
-          emit(EVENT_SECTION_VISIBLE, {
-            [ATTR_DO11Y_SECTION_HEADING]: sanitizeText(el.textContent?.trim() ?? '', 100),
-            [ATTR_DO11Y_SECTION_HEADING_LEVEL]: parseInt(el.tagName.charAt(1), 10),
-            [ATTR_DO11Y_SECTION_VISIBLE_SECONDS]: Math.round(elapsed / 1000),
-          });
+          emitSectionEvent(emit, el, elapsed);
         }
       }
     }
