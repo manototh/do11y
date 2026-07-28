@@ -20,3 +20,4 @@ build/
 **/.vitepress/dist
 /tests/sites/docsy/public
 /tests/sites/docsy/resources
+/tests/sites/starlight/.astro
