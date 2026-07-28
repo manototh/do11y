@@ -12,6 +12,13 @@ head:
 
 # Changelog
 
+## v0.1.2
+
+**Release date:** 2026-07-28
+
+- Fix page view and page exit detection on Mintlify documentation sites.
+- Improve handling of test-specific fields.
+
 ## v0.1.1
 
 **Release date:** 2026-07-10
