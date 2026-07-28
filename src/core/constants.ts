@@ -7,7 +7,7 @@
  * Custom do11y attrs use the `browser.do11y.*` namespace.
  */
 
-export const VERSION = '0.1.2';
+export const VERSION = '0.2.0';
 
 // ─── Standard OTel attribute keys ────────────────────────────────────────────
 
