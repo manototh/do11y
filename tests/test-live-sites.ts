@@ -114,7 +114,7 @@ const FRAMEWORK_PRESETS: Record<string, FrameworkSelectors> = {
 // Real documentation sites for each framework.
 // We pick a page with code blocks so copyButton and codeBlock selectors have a chance.
 const TEST_SITES: Record<string, string> = {
-  mintlify:          'https://www.mintlify.com/docs/components/expandables',
+  mintlify:          'https://www.mintlify.com/docs/components/tabs',
   docusaurus:        'https://docusaurus.io/docs/next/swizzling',
   nextra:            'https://nextra.site/docs/docs-theme/start',
   'mkdocs-material': 'https://squidfunk.github.io/mkdocs-material/reference/admonitions',
