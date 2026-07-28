@@ -114,31 +114,11 @@ function buildPatchedScript(framework: string, testRunId: string): string {
   debug: true,
   allowedDomains: null,
   sectionVisibleThreshold: 1,
+  testRunId: '${testRunId}',
+  testFramework: '${framework}',
 };\n`;
 
-  const interceptBlock = `(function () {
-  var _fetch = window.fetch.bind(window);
-  window.fetch = function (url, opts) {
-    if (typeof url === 'string' && url.includes('/rest/v1/') && opts && opts.body) {
-      try {
-        var rows = JSON.parse(opts.body);
-        if (Array.isArray(rows)) {
-          rows = rows.map(function (r) {
-            if (r.payload) {
-              r.payload.testRunId = '${testRunId}';
-              r.payload.testFramework = '${framework}';
-            }
-            return r;
-          });
-          opts = Object.assign({}, opts, { body: JSON.stringify(rows) });
-        }
-      } catch (_e) { /* ignore */ }
-    }
-    return _fetch(url, opts);
-  };
-}());\n`;
-
-  return configBlock + interceptBlock + src;
+  return configBlock + src;
 }
 
 // ─── Build ────────────────────────────────────────────────────────────────────
@@ -442,7 +422,7 @@ async function runInteractions(
 async function querySupabase(testRunId: string): Promise<SupabaseRow[]> {
   const url = new URL(`${SUPABASE_URL}/rest/v1/${SUPABASE_TABLE}`);
   url.searchParams.set('select', 'payload');
-  url.searchParams.set('payload->>testRunId', `eq.${testRunId}`);
+  url.searchParams.set('payload->>_testRunId', `eq.${testRunId}`);
   url.searchParams.set('limit', '10000');
 
   const res = await fetch(url.toString(), {
@@ -590,7 +570,7 @@ function validateEvents(
     console.log(`\n┌─ ${name}`);
     console.log(`│  ${site.startUrl}`);
 
-    const fwRows = allRows.filter(row => row.payload?.testFramework === name);
+    const fwRows = allRows.filter(row => row.payload?._testFramework === name);
     console.log(`│  ${fwRows.length} events ingested`);
 
     if (fwRows.length === 0) {

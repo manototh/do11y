@@ -92,7 +92,7 @@ const FRAMEWORKS: Record<string, Framework> = {
     port: 4005,
     type: 'npm',
     dir: path.join(SITES_DIR, 'mintlify'),
-    do11yDest: path.join(SITES_DIR, 'mintlify', 'do11y.js'),
+    do11yDest: path.join(SITES_DIR, 'mintlify', 'scripts', 'do11y.js'),
     startCmd: 'npm',
     startArgs: ['start'],
     readyPattern: /Ready in|localhost:4005|started/i,
@@ -180,38 +180,17 @@ function patchDo11y(destPath: string, framework: string, testRunId: string): voi
   supabaseUrl: '${SUPABASE_URL.trim()}',
   supabaseKey: '${SUPABASE_KEY.trim()}',
   supabaseTable: '${SUPABASE_TABLE.trim()}',
+  framework: '${framework}',
   debug: true,
   allowedDomains: null,
   sectionVisibleThreshold: 1,
+  testRunId: '${testRunId}',
+  testFramework: '${framework}',
 };\n`;
-
-  // Intercept fetch to inject testRunId and testFramework into every event
-  // payload sent to the Supabase REST API.
-  const interceptBlock = `(function () {
-  var _fetch = window.fetch.bind(window);
-  window.fetch = function (url, opts) {
-    if (typeof url === 'string' && url.includes('/rest/v1/') && opts && opts.body) {
-      try {
-        var rows = JSON.parse(opts.body);
-        if (Array.isArray(rows)) {
-          rows = rows.map(function (r) {
-            if (r.payload) {
-              r.payload.testRunId = '${testRunId}';
-              r.payload.testFramework = '${framework}';
-            }
-            return r;
-          });
-          opts = Object.assign({}, opts, { body: JSON.stringify(rows) });
-        }
-      } catch (_e) { /* ignore */ }
-    }
-    return _fetch(url, opts);
-  };
-}());\n`;
 
   const dir = path.dirname(destPath);
   if (!fs.existsSync(dir)) fs.mkdirSync(dir, { recursive: true });
-  fs.writeFileSync(destPath, configBlock + interceptBlock + src);
+  fs.writeFileSync(destPath, configBlock + src);
 }
 
 function waitForServer(port: number, timeoutMs = 180000): Promise<void> {
@@ -500,6 +479,11 @@ async function runInteractions(browser: Browser, baseUrl: string, fw: Framework)
 
   // 9. Trigger page_exit
   log('  → page_exit');
+  // Explicitly flush any remaining events before closing, as Puppeteer's
+  // page.close({ runBeforeUnload: true }) may destroy the network context
+  // before the keepalive fetch completes.
+  await page.evaluate(() => { window.Do11y?.flush(); }).catch(() => {});
+  await sleep(500);
   await page.close({ runBeforeUnload: true });
   await sleep(2000);
 }
@@ -570,7 +554,7 @@ function ensureBuild(): void {
 async function querySupabase(testRunId: string): Promise<SupabaseRow[]> {
   const url = new URL(`${SUPABASE_URL}/rest/v1/${SUPABASE_TABLE}`);
   url.searchParams.set('select', 'payload');
-  url.searchParams.set('payload->>testRunId', `eq.${testRunId}`);
+  url.searchParams.set('payload->>_testRunId', `eq.${testRunId}`);
   url.searchParams.set('limit', '10000');
 
   const res = await fetch(url.toString(), {
@@ -780,7 +764,7 @@ function validateEvents(
       continue;
     }
 
-    const fwRows = allRows.filter(row => row.payload?.testFramework === name);
+    const fwRows = allRows.filter(row => row.payload?._testFramework === name);
     console.log(`│  ${fwRows.length} events ingested`);
 
     if (fwRows.length === 0) {
