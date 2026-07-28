@@ -14,9 +14,9 @@ export const FRAMEWORK_PRESETS: Record<string, FrameworkSelectors> = {
     navigationSelector: 'nav, [role="navigation"], #navbar, #sidebar, [class*="nav"], [class*="sidebar"]',
     footerSelector: 'footer, [role="contentinfo"], [class*="footer"]',
     contentSelector: 'main, article, [role="main"], [class*="content"]',
-    tabContainerSelector: '[role="tablist"], [class*="tab"]',
+    tabContainerSelector: 'tabs, [role="tablist"], [class*="tab"]',
     tocSelector: '#table-of-contents, [data-testid="table-of-contents"], [class*="table-of-contents"], [class*="toc"]',
-    feedbackSelector: '[class*="feedback"], [class*="helpful"]',
+    feedbackSelector: 'feedback-toolbar, #feedback-thumbs-up, #feedback-thumbs-down, [class*="feedback"], [class*="helpful"]',
   },
   docusaurus: {
     searchSelector: '.DocSearch, .DocSearch-Button',

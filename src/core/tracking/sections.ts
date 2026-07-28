@@ -12,8 +12,14 @@ import {
   ATTR_DO11Y_SECTION_VISIBLE_SECONDS,
 } from '../constants.js';
 
+interface SectionTimer {
+  start: number;
+  reported: boolean;
+  timeoutId: ReturnType<typeof setTimeout> | null;
+}
+
 let sectionObserver: IntersectionObserver | null = null;
-let sectionTimers: Record<string, { start: number; reported: boolean }> = {};
+let sectionTimers: Record<string, SectionTimer> = {};
 
 export function setupSectionVisibilityTracking(config: Do11yConfig, emit: EmitFn): void {
   if (!config.trackSectionVisibility) return;
@@ -28,19 +34,38 @@ export function setupSectionVisibilityTracking(config: Do11yConfig, emit: EmitFn
 
       if (entry.isIntersecting) {
         if (!sectionTimers[id]) {
-          sectionTimers[id] = { start: Date.now(), reported: false };
+          const timer: SectionTimer = { start: Date.now(), reported: false, timeoutId: null };
+          // Fire the event early if the heading stays visible for the threshold duration,
+          // so users who scroll past slowly or navigate away still get tracked.
+          timer.timeoutId = setTimeout(() => {
+            if (sectionTimers[id] && !sectionTimers[id].reported) {
+              const heading = entry.target.textContent?.trim() ?? '';
+              emit(EVENT_SECTION_VISIBLE, {
+                [ATTR_DO11Y_SECTION_HEADING]: sanitizeText(heading, 100),
+                [ATTR_DO11Y_SECTION_HEADING_LEVEL]: parseInt(entry.target.tagName.charAt(1), 10),
+                [ATTR_DO11Y_SECTION_VISIBLE_SECONDS]: Math.round(threshold / 1000),
+              });
+              sectionTimers[id].reported = true;
+            }
+          }, threshold);
+          sectionTimers[id] = timer;
         }
       } else {
-        if (sectionTimers[id] && !sectionTimers[id].reported) {
-          const elapsed = Date.now() - sectionTimers[id].start;
-          if (elapsed >= threshold) {
-            const heading = entry.target.textContent?.trim() ?? '';
-            emit(EVENT_SECTION_VISIBLE, {
-              [ATTR_DO11Y_SECTION_HEADING]: sanitizeText(heading, 100),
-              [ATTR_DO11Y_SECTION_HEADING_LEVEL]: parseInt(entry.target.tagName.charAt(1), 10),
-              [ATTR_DO11Y_SECTION_VISIBLE_SECONDS]: Math.round(elapsed / 1000),
-            });
-            sectionTimers[id].reported = true;
+        if (sectionTimers[id]) {
+          if (sectionTimers[id].timeoutId) {
+            clearTimeout(sectionTimers[id].timeoutId);
+          }
+          if (!sectionTimers[id].reported) {
+            const elapsed = Date.now() - sectionTimers[id].start;
+            if (elapsed >= threshold) {
+              const heading = entry.target.textContent?.trim() ?? '';
+              emit(EVENT_SECTION_VISIBLE, {
+                [ATTR_DO11Y_SECTION_HEADING]: sanitizeText(heading, 100),
+                [ATTR_DO11Y_SECTION_HEADING_LEVEL]: parseInt(entry.target.tagName.charAt(1), 10),
+                [ATTR_DO11Y_SECTION_VISIBLE_SECONDS]: Math.round(elapsed / 1000),
+              });
+              sectionTimers[id].reported = true;
+            }
           }
         }
         delete sectionTimers[id];
@@ -70,6 +95,7 @@ export function flushVisibleSections(config: Do11yConfig, emit: EmitFn): void {
   Object.keys(sectionTimers).forEach((id) => {
     const timer = sectionTimers[id];
     if (timer && !timer.reported) {
+      if (timer.timeoutId) clearTimeout(timer.timeoutId);
       const elapsed = now - timer.start;
       if (elapsed >= threshold) {
         const escapedId = typeof CSS !== 'undefined' && typeof CSS.escape === 'function'

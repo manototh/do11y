@@ -100,15 +100,14 @@ if (_isInIframe && !_alreadyLoaded) {
 // ─── Init ────────────────────────────────────────────────────────────────────
 
 let mutationObserver: MutationObserver | null = null;
+let pathPollId: ReturnType<typeof setInterval> | null = null;
 
 function init(): void {
   // Read from window.Do11yConfig
+  // Assign only known Do11yConfig keys from the user-supplied config.
   if (window.Do11yConfig && typeof window.Do11yConfig === 'object') {
-    for (const key in window.Do11yConfig) {
-      if (
-        Object.prototype.hasOwnProperty.call(window.Do11yConfig, key) &&
-        Object.prototype.hasOwnProperty.call(config, key)
-      ) {
+    for (const key in config) {
+      if (Object.prototype.hasOwnProperty.call(window.Do11yConfig, key)) {
         (config as unknown as Record<string, unknown>)[key] = (window.Do11yConfig as unknown as Record<string, unknown>)[key];
       }
     }
@@ -226,31 +225,27 @@ function init(): void {
 
   let lastPath = window.location.pathname;
 
-  mutationObserver = new MutationObserver(() => {
-    if (window.location.pathname !== lastPath) {
-      lastPath = window.location.pathname;
-      emitPageExit(config, emit);
-      resetTrackedScrollDepths();
-      resetEngagementState();
-      trackPageView(config, emit);
-      observeHeadings();
-      checkScrollDepth(config, emit);
-    }
-  });
+  const handlePathChange = (): void => {
+    if (window.location.pathname === lastPath) return;
+    lastPath = window.location.pathname;
+    emitPageExit(config, emit, () => flush(config));
+    resetTrackedScrollDepths();
+    resetEngagementState();
+    trackPageView(config, emit);
+    observeHeadings();
+    checkScrollDepth(config, emit);
+  };
 
+  mutationObserver = new MutationObserver(handlePathChange);
   mutationObserver.observe(document.body, { childList: true, subtree: true });
 
-  window.addEventListener('popstate', () => {
-    if (window.location.pathname !== lastPath) {
-      lastPath = window.location.pathname;
-      emitPageExit(config, emit);
-      resetTrackedScrollDepths();
-      resetEngagementState();
-      trackPageView(config, emit);
-      observeHeadings();
-      checkScrollDepth(config, emit);
-    }
-  });
+  window.addEventListener('popstate', handlePathChange);
+
+  // Supplementary pathname poll: some SPA routers (e.g. Mintlify) update
+  // the DOM before calling history.pushState, causing the MutationObserver
+  // to fire before the pathname changes. A lightweight interval catches
+  // these missed transitions.
+  pathPollId = window.setInterval(handlePathChange, 200);
 
   // Freeze the resolved config so that third-party scripts loaded after
   // this point cannot mutate host, key, or any other field
@@ -259,6 +254,10 @@ function init(): void {
 
   // Add standalone-specific beforeunload handler to flush remaining events
   window.addEventListener('beforeunload', () => {
+    if (pathPollId !== null) {
+      clearInterval(pathPollId);
+      pathPollId = null;
+    }
     transportCleanup();
     flushSync(config);
   });

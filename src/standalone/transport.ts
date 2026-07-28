@@ -62,6 +62,10 @@ export function queueEvent(config: Do11yConfig, eventName: string, eventData: Re
     ...eventData,
   };
 
+  // Inject test-run metadata (set via Do11yConfig for integration tests)
+  if (config.testRunId) event._testRunId = config.testRunId;
+  if (config.testFramework) event._testFramework = config.testFramework;
+
   if (config.debug) {
     console.log('[Do11y] Event queued:', eventName, event);
   }
@@ -333,6 +337,8 @@ export function flush(config: Do11yConfig, retriesLeft?: number): void {
 /**
  * Synchronous flush used on `beforeunload`. For OTLP mode the SDK
  * handles flush on its own; for HTTP/Supabase we use fetch with keepalive.
+ * sendBeacon is not used because Supabase requires custom headers
+ * (apikey, Authorization) which sendBeacon does not support.
  */
 export function flushSync(config: Do11yConfig): void {
   if (config.destination === 'otlp') {

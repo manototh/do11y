@@ -38,8 +38,11 @@ export interface Do11yConfig {
   endpoint: string;
   headers: Record<string, string>;
   /** Transform the event array before sending as JSON body.
-   *  Default: identity (sends [`event`, ...]).
-   *  Supabase preset: events => events.map(e => ({ payload: e })). */
+   *  Defaults:
+   *  - `'supabase'`: wraps each event in `{ payload }` (required by Supabase REST API).
+   *  - `'http'`: identity (sends the array as-is).
+   *  - `'otlp'`: `bodyTransform` is not used (events are emitted via OTel SDK).
+   *  Override to customize the payload structure for your collector. */
   bodyTransform?: (events: object[]) => object;
   // OTel Browser SDK destination (used when destination is 'otlp')
   otelSdkEndpoint: string;
@@ -77,6 +80,10 @@ export interface Do11yConfig {
   footerSelector: string | null;
   contentSelector: string | null;
   useOtelBrowserInstrumentations: boolean;
+  /** Test-run identifier for integration test isolation. Not for production use. */
+  testRunId?: string;
+  /** Test framework name for integration test filtering. Not for production use. */
+  testFramework?: string;
 }
 
 export interface Do11yEvent {
