@@ -1056,9 +1056,7 @@ async function initOtelSdk(): Promise<void> {
 function buildRequest(events: Do11yEvent[]): { url: string; headers: Record<string, string>; body: string } {
   if (config.destination === 'supabase') {
     const url = config.supabaseUrl.replace(/\/$/, '') + '/rest/v1/' + config.supabaseTable;
-    const bodyTransform = config.bodyTransform ?? ((evts: object[]) =>
-      (evts as object[]).map((e) => ({ payload: { ...(e as Record<string, unknown>) } }))
-    );
+    const bodyTransform = config.bodyTransform ?? ((evts: object[]) => (evts as object[]).map((e) => ({ payload: e })));
     return {
       url,
       headers: {
