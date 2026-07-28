@@ -77,8 +77,11 @@ export interface Do11yConfig {
   endpoint: string;
   headers: Record<string, string>;
   /** Transform the event array before sending as JSON body.
-   *  Default: identity (sends [`event`, ...]).
-   *  Supabase preset: events => events.map(e => ({ payload: e })). */
+   *  Defaults:
+   *  - `'supabase'`: wraps each event in `{ payload }` (required by Supabase REST API).
+   *  - `'http'`: identity (sends the array as-is).
+   *  - `'otlp'`: `bodyTransform` is not used (events are emitted via OTel SDK).
+   *  Override to customize the payload structure for your collector. */
   bodyTransform?: (events: object[]) => object;
   // OTel Browser SDK destination (used when destination is 'otlp')
   otelSdkEndpoint: string;
@@ -116,6 +119,10 @@ export interface Do11yConfig {
   footerSelector: string | null;
   contentSelector: string | null;
   useOtelBrowserInstrumentations: boolean;
+  /** Test-run identifier for integration test isolation. Not for production use. */
+  testRunId?: string;
+  /** Test framework name for integration test filtering. Not for production use. */
+  testFramework?: string;
 }
 
 /**
@@ -861,6 +868,10 @@ function queueEvent(eventName: string, eventData: Record<string, unknown>): void
     ...eventData,
   };
 
+  // Inject test-run metadata (set via Do11yConfig for integration tests)
+  if (config.testRunId) event._testRunId = config.testRunId;
+  if (config.testFramework) event._testFramework = config.testFramework;
+
   if (config.debug) {
     console.log('[Do11y] Event queued:', eventName, event);
   }
@@ -1045,16 +1056,9 @@ async function initOtelSdk(): Promise<void> {
 function buildRequest(events: Do11yEvent[]): { url: string; headers: Record<string, string>; body: string } {
   if (config.destination === 'supabase') {
     const url = config.supabaseUrl.replace(/\/$/, '') + '/rest/v1/' + config.supabaseTable;
-    const bodyTransform = config.bodyTransform ?? ((evts: object[]) => {
-      return (evts as object[]).map((e) => {
-        const payload = { ...(e as Record<string, unknown>) };
-        // Inject test-run metadata from Do11yConfig.
-        const cfg = config as unknown as Record<string, unknown>;
-        if (cfg._testRunId) payload._testRunId = cfg._testRunId;
-        if (cfg._testFramework) payload._testFramework = cfg._testFramework;
-        return { payload };
-      });
-    });
+    const bodyTransform = config.bodyTransform ?? ((evts: object[]) =>
+      (evts as object[]).map((e) => ({ payload: { ...(e as Record<string, unknown>) } }))
+    );
     return {
       url,
       headers: {
@@ -1873,17 +1877,27 @@ let pathPollId: ReturnType<typeof setInterval> | null = null;
 
 function init(): void {
   if (window.Do11yConfig && typeof window.Do11yConfig === 'object') {
-    for (const key in window.Do11yConfig) {
+    // Assign only known Do11yConfig keys from the user-supplied config.
+    for (const key in config) {
       if (Object.prototype.hasOwnProperty.call(window.Do11yConfig, key)) {
-        if (Object.prototype.hasOwnProperty.call(config, key)) {
-          // Known config key — assign with proper type
-          (config as unknown as Record<string, unknown>)[key] = (window.Do11yConfig as unknown as Record<string, unknown>)[key];
-        } else {
-          // Unknown key (e.g. _testRunId, _testFramework from test harness) —
-          // store on config so buildRequest() can read it, but keep it off
-          // the public interface.
-          (config as unknown as Record<string, unknown>)[key] = (window.Do11yConfig as unknown as Record<string, unknown>)[key];
-        }
+        (config as unknown as Record<string, unknown>)[key] = (window.Do11yConfig as unknown as Record<string, unknown>)[key];
+      }
+    }
+    // Map legacy test-harness keys (_testRunId, _testFramework) to typed fields.
+    if (Object.prototype.hasOwnProperty.call(window.Do11yConfig, '_testRunId')) {
+      const raw = (window.Do11yConfig as unknown as Record<string, unknown>)._testRunId;
+      if (typeof raw === 'string' && /^[\w.\-]{1,100}$/.test(raw)) {
+        config.testRunId = raw;
+      } else if (config.debug) {
+        console.warn('[Do11y] Invalid _testRunId value — discarded');
+      }
+    }
+    if (Object.prototype.hasOwnProperty.call(window.Do11yConfig, '_testFramework')) {
+      const raw = (window.Do11yConfig as unknown as Record<string, unknown>)._testFramework;
+      if (typeof raw === 'string' && /^[\w.\-]{1,100}$/.test(raw)) {
+        config.testFramework = raw;
+      } else if (config.debug) {
+        console.warn('[Do11y] Invalid _testFramework value — discarded');
       }
     }
   }

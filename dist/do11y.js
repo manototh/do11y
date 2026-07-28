@@ -571,6 +571,8 @@
 			...getBrowserContext(),
 			...eventData
 		};
+		if (config.testRunId) event._testRunId = config.testRunId;
+		if (config.testFramework) event._testFramework = config.testFramework;
 		if (config.debug) console.log("[Do11y] Event queued:", eventName, event);
 		if (config.destination === "otlp" && _otelLogger) {
 			_otelLogger.emit({
@@ -701,15 +703,7 @@
 	function buildRequest(events) {
 		if (config.destination === "supabase") {
 			const url = config.supabaseUrl.replace(/\/$/, "") + "/rest/v1/" + config.supabaseTable;
-			const bodyTransform = config.bodyTransform ?? ((evts) => {
-				return evts.map((e) => {
-					const payload = { ...e };
-					const cfg = config;
-					if (cfg._testRunId) payload._testRunId = cfg._testRunId;
-					if (cfg._testFramework) payload._testFramework = cfg._testFramework;
-					return { payload };
-				});
-			});
+			const bodyTransform = config.bodyTransform ?? ((evts) => evts.map((e) => ({ payload: { ...e } })));
 			return {
 				url,
 				headers: {
@@ -1240,8 +1234,17 @@
 	let pathPollId = null;
 	function init() {
 		if (window.Do11yConfig && typeof window.Do11yConfig === "object") {
-			for (const key in window.Do11yConfig) if (Object.prototype.hasOwnProperty.call(window.Do11yConfig, key)) if (Object.prototype.hasOwnProperty.call(config, key)) config[key] = window.Do11yConfig[key];
-			else config[key] = window.Do11yConfig[key];
+			for (const key in config) if (Object.prototype.hasOwnProperty.call(window.Do11yConfig, key)) config[key] = window.Do11yConfig[key];
+			if (Object.prototype.hasOwnProperty.call(window.Do11yConfig, "_testRunId")) {
+				const raw = window.Do11yConfig._testRunId;
+				if (typeof raw === "string" && /^[\w.\-]{1,100}$/.test(raw)) config.testRunId = raw;
+				else if (config.debug) console.warn("[Do11y] Invalid _testRunId value — discarded");
+			}
+			if (Object.prototype.hasOwnProperty.call(window.Do11yConfig, "_testFramework")) {
+				const raw = window.Do11yConfig._testFramework;
+				if (typeof raw === "string" && /^[\w.\-]{1,100}$/.test(raw)) config.testFramework = raw;
+				else if (config.debug) console.warn("[Do11y] Invalid _testFramework value — discarded");
+			}
 		}
 		const metaDestination = document.querySelector("meta[name=\"do11y-destination\"]");
 		if (metaDestination) {
