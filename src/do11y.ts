@@ -296,10 +296,8 @@ const FRAMEWORK_PRESETS: Record<string, FrameworkSelectors> = {
     navigationSelector: 'nav, [role="navigation"], #navbar, #sidebar, [class*="nav"], [class*="sidebar"]',
     footerSelector: 'footer, [role="contentinfo"], [class*="footer"]',
     contentSelector: 'main, article, [role="main"], [class*="content"]',
-    // Mintlify uses the custom <tabs> element, not ARIA tab roles
     tabContainerSelector: 'tabs, [role="tablist"], [class*="tab"]',
     tocSelector: '#table-of-contents, [data-testid="table-of-contents"], [class*="table-of-contents"], [class*="toc"]',
-    // Mintlify exposes feedback via custom elements and IDs
     feedbackSelector: 'feedback-toolbar, #feedback-thumbs-up, #feedback-thumbs-down, [class*="feedback"], [class*="helpful"]',
   },
   docusaurus: {
@@ -1050,9 +1048,7 @@ function buildRequest(events: Do11yEvent[]): { url: string; headers: Record<stri
     const bodyTransform = config.bodyTransform ?? ((evts: object[]) => {
       return (evts as object[]).map((e) => {
         const payload = { ...(e as Record<string, unknown>) };
-        // Inject test-run metadata from Do11yConfig (used by E2E tests).
-        // This is more reliable than a fetch interceptor which gets lost
-        // during SPA navigation when the router replaces window.fetch.
+        // Inject test-run metadata from Do11yConfig.
         const cfg = config as unknown as Record<string, unknown>;
         if (cfg._testRunId) payload._testRunId = cfg._testRunId;
         if (cfg._testFramework) payload._testFramework = cfg._testFramework;

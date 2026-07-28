@@ -138,7 +138,6 @@ const SELECTOR_KEYS: Array<keyof FrameworkSelectors> = [
 // Selectors listed here are not expected to match on every page of that
 // framework and won't count as failures when they return 0 matches.
 const OPTIONAL_SELECTORS: Partial<Record<string, Array<keyof FrameworkSelectors>>> = {
-  mintlify:    ['tabContainerSelector'],
   docusaurus:  ['feedbackSelector'],
   nextra:      ['feedbackSelector'],
   vitepress:   ['feedbackSelector'],

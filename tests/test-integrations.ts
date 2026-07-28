@@ -92,7 +92,6 @@ const FRAMEWORKS: Record<string, Framework> = {
     port: 4005,
     type: 'npm',
     dir: path.join(SITES_DIR, 'mintlify'),
-    // Mintlify auto-loads .js files from the scripts/ directory
     do11yDest: path.join(SITES_DIR, 'mintlify', 'scripts', 'do11y.js'),
     startCmd: 'npm',
     startArgs: ['start'],
@@ -177,10 +176,6 @@ function fail(msg: string): void { console.log(`\x1b[31m[runner]\x1b[0m ${msg}`)
 function patchDo11y(destPath: string, framework: string, testRunId: string): void {
   const src = fs.readFileSync(DO11Y_SRC, 'utf8');
 
-  // Pass test metadata through Do11yConfig instead of a fetch interceptor.
-  // Fetch interceptors are fragile: they get lost during SPA navigation
-  // when the router replaces window.fetch. Config-based tagging survives
-  // navigation because do11y's buildRequest() reads the config at flush time.
   const configBlock = `window.Do11yConfig = {
   supabaseUrl: '${SUPABASE_URL.trim()}',
   supabaseKey: '${SUPABASE_KEY.trim()}',

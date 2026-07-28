@@ -106,10 +106,6 @@ function sleep(ms: number): Promise<void> { return new Promise(r => setTimeout(r
 function buildPatchedScript(framework: string, testRunId: string): string {
   const src = fs.readFileSync(DO11Y_SRC, 'utf8');
 
-  // Pass test metadata through Do11yConfig instead of a fetch interceptor.
-  // Fetch interceptors are fragile: they get lost during SPA navigation
-  // when the router replaces window.fetch. Config-based tagging survives
-  // navigation because do11y's buildRequest() reads the config at flush time.
   const configBlock = `window.Do11yConfig = {
   supabaseUrl: '${SUPABASE_URL.trim()}',
   supabaseKey: '${SUPABASE_KEY.trim()}',
