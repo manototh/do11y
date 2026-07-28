@@ -1,14 +1,10 @@
 (function() {
-	//#region src/core/constants.ts
+	//#region src/do11y.ts
 	/**
-	* Do11y — Documentation Observability
-	*
-	* OTel semantic convention attribute keys and event names.
-	*
+	* OTel semantic convention attribute keys.
 	* Standard attrs from https://opentelemetry.io/docs/specs/semconv/.
 	* Custom do11y attrs use the `browser.do11y.*` namespace.
 	*/
-	const VERSION = "0.1.2";
 	const ATTR_SESSION_ID = "session.id";
 	const ATTR_URL_PATH = "url.path";
 	const ATTR_URL_FRAGMENT = "url.fragment";
@@ -56,6 +52,9 @@
 	const ATTR_DO11Y_EXPAND_SUMMARY = "browser.do11y.expand.summary";
 	const ATTR_DO11Y_EXPAND_ACTION = "browser.do11y.expand.action";
 	const ATTR_DO11Y_EXPAND_SECTION = "browser.do11y.expand.section";
+	/**
+	* OTel event names for do11y events (browser.do11y.* namespace).
+	*/
 	const EVENT_PAGE_VIEW = "browser.do11y.page_view";
 	const EVENT_PAGE_EXIT = "browser.do11y.page_exit";
 	const EVENT_SCROLL_DEPTH = "browser.do11y.scroll_depth";
@@ -67,19 +66,61 @@
 	const EVENT_TOC_CLICK = "browser.do11y.toc_click";
 	const EVENT_FEEDBACK = "browser.do11y.feedback";
 	const EVENT_EXPAND_COLLAPSE = "browser.do11y.expand_collapse";
-	const SELECTOR_KEYS = [
-		"searchSelector",
-		"copyButtonSelector",
-		"codeBlockSelector",
-		"navigationSelector",
-		"footerSelector",
-		"contentSelector",
-		"tabContainerSelector",
-		"tocSelector",
-		"feedbackSelector"
-	];
-	//#endregion
-	//#region src/core/presets.ts
+	const VERSION = "0.1.2";
+	const _alreadyLoaded = !!window.__do11yInitialized;
+	window.__do11yInitialized = true;
+	const _isInIframe = window.self !== window.top;
+	if (_isInIframe && !_alreadyLoaded) window.__do11yInitialized = false;
+	const config = {
+		destination: "supabase",
+		supabaseUrl: "",
+		supabaseKey: "",
+		supabaseTable: "do11y_events",
+		endpoint: "",
+		headers: {},
+		bodyTransform: void 0,
+		otelSdkEndpoint: "",
+		otelSdkHeaders: {},
+		otelSdkServiceName: "do11y",
+		otelSdkResourceAttributes: {},
+		otelSdkCdnUrl: "https://esm.sh/",
+		debug: false,
+		flushInterval: 5e3,
+		maxBatchSize: 10,
+		trackOutboundLinks: true,
+		trackInternalLinks: true,
+		trackScrollDepth: true,
+		scrollThresholds: [
+			25,
+			50,
+			75,
+			90
+		],
+		allowedDomains: null,
+		respectDNT: true,
+		maxRetries: 2,
+		retryDelay: 1e3,
+		rateLimitMs: 100,
+		framework: "mintlify",
+		trackSectionVisibility: true,
+		sectionVisibleThreshold: 3,
+		trackTabSwitches: true,
+		trackTocClicks: true,
+		trackExpandCollapse: true,
+		trackFeedback: true,
+		tabContainerSelector: null,
+		tocSelector: null,
+		feedbackSelector: null,
+		searchSelector: null,
+		copyButtonSelector: null,
+		codeBlockSelector: null,
+		navigationSelector: null,
+		footerSelector: null,
+		contentSelector: null,
+		useOtelBrowserInstrumentations: false,
+		testRunId: void 0,
+		testFramework: void 0
+	};
 	const FRAMEWORK_PRESETS = {
 		mintlify: {
 			searchSelector: "#search-bar-entry, #search-bar-entry-mobile, [class*=\"search\"]",
@@ -88,9 +129,9 @@
 			navigationSelector: "nav, [role=\"navigation\"], #navbar, #sidebar, [class*=\"nav\"], [class*=\"sidebar\"]",
 			footerSelector: "footer, [role=\"contentinfo\"], [class*=\"footer\"]",
 			contentSelector: "main, article, [role=\"main\"], [class*=\"content\"]",
-			tabContainerSelector: "[role=\"tablist\"], [class*=\"tab\"]",
+			tabContainerSelector: "tabs, [role=\"tablist\"], [class*=\"tab\"]",
 			tocSelector: "#table-of-contents, [data-testid=\"table-of-contents\"], [class*=\"table-of-contents\"], [class*=\"toc\"]",
-			feedbackSelector: "[class*=\"feedback\"], [class*=\"helpful\"]"
+			feedbackSelector: "feedback-toolbar, #feedback-thumbs-up, #feedback-thumbs-down, [class*=\"feedback\"], [class*=\"helpful\"]"
 		},
 		docusaurus: {
 			searchSelector: ".DocSearch, .DocSearch-Button",
@@ -159,12 +200,23 @@
 			feedbackSelector: ".feedback--answer, [class*=\"feedback\"], [class*=\"helpful\"]"
 		}
 	};
+	const SELECTOR_KEYS = [
+		"searchSelector",
+		"copyButtonSelector",
+		"codeBlockSelector",
+		"navigationSelector",
+		"footerSelector",
+		"contentSelector",
+		"tabContainerSelector",
+		"tocSelector",
+		"feedbackSelector"
+	];
 	/**
 	* Apply framework-specific selectors to the config.
 	* For 'custom', uses whatever the user set in config; for named
 	* frameworks, loads the preset and lets explicit config values override.
 	*/
-	function applyFrameworkSelectors(config) {
+	function applyFrameworkSelectors() {
 		const preset = FRAMEWORK_PRESETS[config.framework];
 		if (preset) SELECTOR_KEYS.forEach((key) => {
 			if (!config[key]) config[key] = preset[key];
@@ -178,25 +230,7 @@
 			if (!config[key]) config[key] = fallback[key];
 		});
 	}
-	//#endregion
-	//#region src/core/privacy.ts
-	/**
-	* Validate a CSS selector string supplied through user configuration.
-	* Returns the selector unchanged if it is syntactically valid, or null
-	* if it is not. This prevents CSS selector injection from attacker-
-	* controlled config values (window.Do11yConfig / meta tags) reaching
-	* querySelectorAll / closest calls.
-	*/
-	function validateSelector(selector) {
-		if (!selector || typeof selector !== "string") return null;
-		try {
-			document.querySelector(selector);
-			return selector;
-		} catch {
-			return null;
-		}
-	}
-	function shouldDisableTracking(config) {
+	function shouldDisableTracking() {
 		if (config.respectDNT && (navigator.doNotTrack === "1" || navigator.doNotTrack === "yes" || window.doNotTrack === "1")) {
 			if (config.debug) console.log("[Do11y] Disabled: Do Not Track is enabled");
 			return true;
@@ -212,8 +246,23 @@
 		}
 		return false;
 	}
-	//#endregion
-	//#region src/core/dom-utils.ts
+	/**
+	* Validate a CSS selector string supplied through user configuration.
+	* Returns the selector unchanged if it is syntactically valid, or null
+	* if it is not. This prevents CSS selector injection from attacker-
+	* controlled config values (window.Do11yConfig / meta tags) reaching
+	* querySelectorAll / closest calls.
+	*/
+	function validateSelector(selector) {
+		if (!selector || typeof selector !== "string") return null;
+		try {
+			document.querySelector(selector);
+			return selector;
+		} catch {
+			if (config.debug) console.warn("[Do11y] Invalid CSS selector rejected:", selector);
+			return null;
+		}
+	}
 	function getElementClassName(el) {
 		if (typeof el.className === "string") return el.className;
 		const svgClass = el.className;
@@ -262,26 +311,12 @@
 		if (!pathPart || pathPart === window.location.pathname || pathPart === `${window.location.pathname}${window.location.search}`) return href.slice(hashIndex);
 		return null;
 	}
-	function resolveTocContainer(link, config) {
+	function resolveTocContainer(link) {
 		const selector = validateSelector(config.tocSelector) ?? ".table-of-contents, .VPDocAsideOutline, .VPLocalNavOutlineDropdown, [class*=\"toc\"], [class*=\"TableOfContents\"], [class*=\"page-outline\"], .right-sidebar-panel, starlight-toc";
 		let container = link.closest(selector);
 		if (!container) return null;
 		if (container === link || container.tagName === "A") container = link.closest(".VPDocAsideOutline, .VPLocalNavOutlineDropdown, nav, aside, .right-sidebar-panel, starlight-toc") ?? container.parentElement;
 		return container;
-	}
-	function getNearestHeading(element) {
-		let current = element;
-		while (current && current !== document.body) {
-			let sibling = current.previousElementSibling;
-			while (sibling) {
-				if (/^H[1-6]$/.test(sibling.tagName)) return sibling.textContent?.trim().substring(0, 100) ?? null;
-				const headings = sibling.querySelectorAll("h1, h2, h3, h4, h5, h6");
-				if (headings.length > 0) return headings[headings.length - 1].textContent?.trim().substring(0, 100) ?? null;
-				sibling = sibling.previousElementSibling;
-			}
-			current = current.parentElement;
-		}
-		return null;
 	}
 	function sanitizeText(text, maxLength) {
 		if (!text || typeof text !== "string") return null;
@@ -296,8 +331,71 @@
 		sanitized = sanitized.replace(/\b[0-9a-fA-F]{32,}\b/g, "[redacted]");
 		return sanitized.trim().substring(0, limit);
 	}
-	//#endregion
-	//#region src/core/context.ts
+	function generateSessionId() {
+		if (window.crypto && typeof window.crypto.randomUUID === "function") return window.crypto.randomUUID();
+		if (window.crypto && typeof window.crypto.getRandomValues === "function") {
+			const arr = new Uint8Array(16);
+			window.crypto.getRandomValues(arr);
+			arr[6] = arr[6] & 15 | 64;
+			arr[8] = arr[8] & 63 | 128;
+			const hex = Array.from(arr, (b) => b.toString(16).padStart(2, "0")).join("");
+			return hex.slice(0, 8) + "-" + hex.slice(8, 12) + "-" + hex.slice(12, 16) + "-" + hex.slice(16, 20) + "-" + hex.slice(20);
+		}
+		return "no-crypto-00-0000-0000-000000000000";
+	}
+	function isValidSessionData(value) {
+		if (!value || typeof value !== "object") return false;
+		const v = value;
+		return typeof v.id === "string" && v.id.length > 0 && typeof v.startTime === "string" && Array.isArray(v.pageSequence) && typeof v.pageCount === "number";
+	}
+	function getSession() {
+		let session = null;
+		try {
+			const stored = sessionStorage.getItem("do11y_session");
+			if (stored) {
+				const parsed = JSON.parse(stored);
+				if (isValidSessionData(parsed)) session = parsed;
+			}
+		} catch {}
+		if (!session) {
+			session = {
+				id: generateSessionId(),
+				startTime: (/* @__PURE__ */ new Date()).toISOString(),
+				pageSequence: [],
+				pageCount: 0,
+				referrerCategory: null,
+				aiPlatform: null
+			};
+			saveSession(session);
+		}
+		return session;
+	}
+	function saveSession(session) {
+		try {
+			sessionStorage.setItem("do11y_session", JSON.stringify(session));
+		} catch {}
+	}
+	function updatePageSequence(path) {
+		const session = getSession();
+		session.pageCount++;
+		session.pageSequence.push({
+			path,
+			timestamp: (/* @__PURE__ */ new Date()).toISOString(),
+			index: session.pageCount
+		});
+		if (session.pageSequence.length > 50) session.pageSequence = session.pageSequence.slice(-50);
+		saveSession(session);
+		return session;
+	}
+	function getBrowserContext() {
+		return {
+			[ATTR_DO11Y_VIEWPORT_CATEGORY]: categorizeViewport(),
+			[ATTR_BROWSER_FAMILY]: getBrowserFamily(),
+			[ATTR_DEVICE_TYPE]: getDeviceType(),
+			[ATTR_BROWSER_LANGUAGE]: (navigator.language || "").split("-")[0] || "unknown",
+			[ATTR_DO11Y_TIMEZONE_OFFSET]: (/* @__PURE__ */ new Date()).getTimezoneOffset() / 60
+		};
+	}
 	function categorizeViewport() {
 		const width = window.innerWidth;
 		if (width < 640) return "mobile";
@@ -320,15 +418,6 @@
 			return "mobile";
 		}
 		return "desktop";
-	}
-	function getBrowserContext() {
-		return {
-			[ATTR_DO11Y_VIEWPORT_CATEGORY]: categorizeViewport(),
-			[ATTR_BROWSER_FAMILY]: getBrowserFamily(),
-			[ATTR_DEVICE_TYPE]: getDeviceType(),
-			[ATTR_BROWSER_LANGUAGE]: (navigator.language || "").split("-")[0] || "unknown",
-			[ATTR_DO11Y_TIMEZONE_OFFSET]: (/* @__PURE__ */ new Date()).getTimezoneOffset() / 60
-		};
 	}
 	/**
 	* Known AI platform referrer patterns.
@@ -459,496 +548,11 @@
 			[ATTR_DO11Y_PAGE_TITLE]: sanitizeText(document.title, 150)
 		};
 	}
-	//#endregion
-	//#region src/core/session.ts
-	function generateSessionId() {
-		if (window.crypto && typeof window.crypto.randomUUID === "function") return window.crypto.randomUUID();
-		if (window.crypto && typeof window.crypto.getRandomValues === "function") {
-			const arr = new Uint8Array(16);
-			window.crypto.getRandomValues(arr);
-			arr[6] = arr[6] & 15 | 64;
-			arr[8] = arr[8] & 63 | 128;
-			const hex = Array.from(arr, (b) => b.toString(16).padStart(2, "0")).join("");
-			return hex.slice(0, 8) + "-" + hex.slice(8, 12) + "-" + hex.slice(12, 16) + "-" + hex.slice(16, 20) + "-" + hex.slice(20);
-		}
-		return "no-crypto-00-0000-0000-000000000000";
-	}
-	function isValidSessionData(value) {
-		if (!value || typeof value !== "object") return false;
-		const v = value;
-		return typeof v.id === "string" && v.id.length > 0 && typeof v.startTime === "string" && Array.isArray(v.pageSequence) && typeof v.pageCount === "number";
-	}
-	function getSession() {
-		let session = null;
-		try {
-			const stored = sessionStorage.getItem("do11y_session");
-			if (stored) {
-				const parsed = JSON.parse(stored);
-				if (isValidSessionData(parsed)) session = parsed;
-			}
-		} catch {}
-		if (!session) {
-			session = {
-				id: generateSessionId(),
-				startTime: (/* @__PURE__ */ new Date()).toISOString(),
-				pageSequence: [],
-				pageCount: 0,
-				referrerCategory: null,
-				aiPlatform: null
-			};
-			saveSession$1(session);
-		}
-		return session;
-	}
-	function saveSession$1(session) {
-		try {
-			sessionStorage.setItem("do11y_session", JSON.stringify(session));
-		} catch {}
-	}
-	function updatePageSequence(path) {
-		const session = getSession();
-		session.pageCount++;
-		session.pageSequence.push({
-			path,
-			timestamp: (/* @__PURE__ */ new Date()).toISOString(),
-			index: session.pageCount
-		});
-		if (session.pageSequence.length > 50) session.pageSequence = session.pageSequence.slice(-50);
-		saveSession$1(session);
-		return session;
-	}
-	//#endregion
-	//#region src/core/tracking/page-view.ts
-	function trackPageView(config, emit) {
-		const session = updatePageSequence(window.location.pathname);
-		const referrerDomain = getReferrerDomain();
-		const referrerInfo = classifyReferrer(referrerDomain);
-		if (session.pageCount === 1) {
-			session.referrerCategory = referrerInfo.referrerCategory;
-			session.aiPlatform = referrerInfo.aiPlatform;
-			saveSession(session);
-		}
-		emit(EVENT_PAGE_VIEW, {
-			[ATTR_DO11Y_REFERRER_DOMAIN]: referrerDomain,
-			[ATTR_DO11Y_REFERRER_CATEGORY]: referrerInfo.referrerCategory,
-			[ATTR_DO11Y_AI_PLATFORM]: referrerInfo.aiPlatform,
-			[ATTR_DO11Y_IS_FIRST_PAGE]: session.pageCount === 1,
-			[ATTR_DO11Y_PREVIOUS_PATH]: session.pageSequence.length > 1 ? session.pageSequence[session.pageSequence.length - 2].path : null
-		});
-	}
-	function saveSession(session) {
-		try {
-			sessionStorage.setItem("do11y_session", JSON.stringify(session));
-		} catch {}
-	}
-	//#endregion
-	//#region src/core/tracking/links.ts
-	function getLinkContext(link, config) {
-		if (link.closest(config.navigationSelector)) return "navigation";
-		if (link.closest(config.footerSelector)) return "footer";
-		if (link.closest(config.contentSelector)) return "content";
-		return "other";
-	}
-	function getLinkIndex(link, href) {
-		if (typeof CSS === "undefined" || typeof CSS.escape !== "function") return 1;
-		try {
-			const allLinks = document.querySelectorAll("a[href=\"" + CSS.escape(href) + "\"]");
-			for (let i = 0; i < allLinks.length; i++) if (allLinks[i] === link) return i + 1;
-		} catch {}
-		return 1;
-	}
-	function setupLinkTracking(config, emit) {
-		document.addEventListener("click", (e) => {
-			const link = e.target.closest("a");
-			if (!link) return;
-			const href = link.getAttribute("href");
-			if (!href) return;
-			let linkType = "other";
-			let targetDomain = null;
-			try {
-				if (href.startsWith("#")) linkType = "anchor";
-				else if (href.startsWith("/") || href.startsWith("./") || href.startsWith("../")) linkType = "internal";
-				else if (href.startsWith("http")) {
-					const url = new URL(href);
-					if (url.hostname === window.location.hostname) linkType = "internal";
-					else {
-						linkType = "external";
-						targetDomain = url.hostname;
-					}
-				} else if (href.startsWith("mailto:")) linkType = "email";
-			} catch {}
-			if (linkType === "internal" && !config.trackInternalLinks) return;
-			if (linkType === "external" && !config.trackOutboundLinks) return;
-			emit(EVENT_LINK_CLICK, {
-				[ATTR_DO11Y_LINK_TYPE]: linkType,
-				[ATTR_DO11Y_LINK_TARGET_URL]: href,
-				[ATTR_DO11Y_LINK_TARGET_DOMAIN]: targetDomain,
-				[ATTR_DO11Y_LINK_TEXT]: sanitizeText(link.textContent, 100),
-				[ATTR_DO11Y_LINK_CONTEXT]: getLinkContext(link, config),
-				[ATTR_DO11Y_LINK_SECTION]: sanitizeText(getNearestHeading(link), 100),
-				[ATTR_DO11Y_LINK_INDEX]: getLinkIndex(link, href)
-			});
-		}, true);
-	}
-	//#endregion
-	//#region src/core/tracking/scroll.ts
-	let trackedScrollDepths = /* @__PURE__ */ new Set();
-	let scrollContainer = null;
-	function findScrollableAncestor(el) {
-		let current = el;
-		while (current && current !== document.body && current !== document.documentElement) {
-			const overflowY = window.getComputedStyle(current).overflowY;
-			if ((overflowY === "auto" || overflowY === "scroll") && current.scrollHeight > current.clientHeight) return current;
-			current = current.parentElement;
-		}
-		return null;
-	}
-	/**
-	* Check and track scroll depth thresholds.
-	* Reads from the detected scroll container when present, otherwise
-	* falls back to the window/document.
-	*
-	* If the page fits entirely in the viewport (no scrollbar), all
-	* thresholds are marked as reached since the user can see 100% of
-	* the content without scrolling.
-	*/
-	function checkScrollDepth(config, emit) {
-		let scrollTop;
-		let totalHeight;
-		let viewportHeight;
-		if (scrollContainer && scrollContainer.scrollHeight > scrollContainer.clientHeight) {
-			scrollTop = scrollContainer.scrollTop;
-			totalHeight = scrollContainer.scrollHeight;
-			viewportHeight = scrollContainer.clientHeight;
-		} else {
-			scrollTop = window.scrollY || document.documentElement.scrollTop;
-			totalHeight = document.documentElement.scrollHeight;
-			viewportHeight = window.innerHeight;
-		}
-		const docHeight = totalHeight - viewportHeight;
-		if (docHeight <= 0) {
-			config.scrollThresholds.forEach((threshold) => {
-				if (!trackedScrollDepths.has(threshold)) {
-					trackedScrollDepths.add(threshold);
-					emit(EVENT_SCROLL_DEPTH, {
-						[ATTR_DO11Y_SCROLL_THRESHOLD]: threshold,
-						[ATTR_DO11Y_SCROLL_PERCENT]: 100
-					});
-				}
-			});
-			return;
-		}
-		const scrollPercent = Math.round(scrollTop / docHeight * 100);
-		config.scrollThresholds.forEach((threshold) => {
-			if (scrollPercent >= threshold && !trackedScrollDepths.has(threshold)) {
-				trackedScrollDepths.add(threshold);
-				emit(EVENT_SCROLL_DEPTH, {
-					[ATTR_DO11Y_SCROLL_THRESHOLD]: threshold,
-					[ATTR_DO11Y_SCROLL_PERCENT]: scrollPercent
-				});
-			}
-		});
-	}
-	function setupScrollTracking(config, emit) {
-		if (!config.trackScrollDepth) return;
-		if (config.contentSelector) {
-			const contentEl = document.querySelector(config.contentSelector);
-			if (contentEl) scrollContainer = findScrollableAncestor(contentEl);
-		}
-		let ticking = false;
-		function onScroll() {
-			if (!ticking) {
-				window.requestAnimationFrame(() => {
-					checkScrollDepth(config, emit);
-					ticking = false;
-				});
-				ticking = true;
-			}
-		}
-		window.addEventListener("scroll", onScroll);
-		if (scrollContainer) {
-			scrollContainer.addEventListener("scroll", onScroll);
-			if (config.debug) {
-				const sc = scrollContainer;
-				console.log("[do11y] Using container-based scroll tracking:", sc.className || sc.tagName);
-			}
-		}
-		checkScrollDepth(config, emit);
-	}
-	function resetTrackedScrollDepths() {
-		trackedScrollDepths = /* @__PURE__ */ new Set();
-	}
-	function getTrackedScrollDepths() {
-		return trackedScrollDepths;
-	}
-	//#endregion
-	//#region src/core/tracking/sections.ts
-	let sectionObserver = null;
-	let sectionTimers = {};
-	function setupSectionVisibilityTracking(config, emit) {
-		if (!config.trackSectionVisibility) return;
-		if (typeof IntersectionObserver === "undefined") return;
-		const threshold = config.sectionVisibleThreshold * 1e3;
-		sectionObserver = new IntersectionObserver((entries) => {
-			entries.forEach((entry) => {
-				const id = entry.target.getAttribute("data-do11y-section-id");
-				if (!id) return;
-				if (entry.isIntersecting) {
-					if (!sectionTimers[id]) sectionTimers[id] = {
-						start: Date.now(),
-						reported: false
-					};
-				} else {
-					if (sectionTimers[id] && !sectionTimers[id].reported) {
-						const elapsed = Date.now() - sectionTimers[id].start;
-						if (elapsed >= threshold) {
-							const heading = entry.target.textContent?.trim() ?? "";
-							emit(EVENT_SECTION_VISIBLE, {
-								[ATTR_DO11Y_SECTION_HEADING]: sanitizeText(heading, 100),
-								[ATTR_DO11Y_SECTION_HEADING_LEVEL]: parseInt(entry.target.tagName.charAt(1), 10),
-								[ATTR_DO11Y_SECTION_VISIBLE_SECONDS]: Math.round(elapsed / 1e3)
-							});
-							sectionTimers[id].reported = true;
-						}
-					}
-					delete sectionTimers[id];
-				}
-			});
-		}, { threshold: .5 });
-		observeHeadings();
-	}
-	function observeHeadings() {
-		if (!sectionObserver) return;
-		document.querySelectorAll("h2, h3").forEach((h, i) => {
-			h.setAttribute("data-do11y-section-id", "section-" + i);
-			sectionObserver.observe(h);
-		});
-	}
-	function flushVisibleSections(config, emit) {
-		if (!sectionObserver) return;
-		const now = Date.now();
-		const threshold = config.sectionVisibleThreshold * 1e3;
-		Object.keys(sectionTimers).forEach((id) => {
-			const timer = sectionTimers[id];
-			if (timer && !timer.reported) {
-				const elapsed = now - timer.start;
-				if (elapsed >= threshold) {
-					const escapedId = typeof CSS !== "undefined" && typeof CSS.escape === "function" ? CSS.escape(id) : id.replace(/["\\]/g, "\\$&");
-					const el = document.querySelector("[data-do11y-section-id=\"" + escapedId + "\"]");
-					if (el) emit(EVENT_SECTION_VISIBLE, {
-						[ATTR_DO11Y_SECTION_HEADING]: sanitizeText(el.textContent?.trim() ?? "", 100),
-						[ATTR_DO11Y_SECTION_HEADING_LEVEL]: parseInt(el.tagName.charAt(1), 10),
-						[ATTR_DO11Y_SECTION_VISIBLE_SECONDS]: Math.round(elapsed / 1e3)
-					});
-				}
-			}
-		});
-		sectionTimers = {};
-	}
-	//#endregion
-	//#region src/core/tracking/engagement.ts
-	let pageLoadTime = Date.now();
-	let lastActivityTime = Date.now();
-	let totalActiveTime = 0;
-	let isPageVisible = true;
-	let pageExited = false;
-	function emitPageExit(config, emit) {
-		if (pageExited) return;
-		pageExited = true;
-		if (isPageVisible) totalActiveTime += Date.now() - lastActivityTime;
-		const totalTime = Date.now() - pageLoadTime;
-		const engagementRatio = totalTime > 0 ? totalActiveTime / totalTime : 0;
-		let maxScroll = 0;
-		getTrackedScrollDepths().forEach((depth) => {
-			if (depth > maxScroll) maxScroll = depth;
-		});
-		flushVisibleSections(config, emit);
-		const session = getSession();
-		emit(EVENT_PAGE_EXIT, {
-			[ATTR_DO11Y_TOTAL_TIME_SECONDS]: Math.round(totalTime / 1e3),
-			[ATTR_DO11Y_ACTIVE_TIME_SECONDS]: Math.round(totalActiveTime / 1e3),
-			[ATTR_DO11Y_ENGAGEMENT_RATIO]: Math.round(engagementRatio * 100) / 100,
-			[ATTR_DO11Y_MAX_SCROLL_DEPTH]: maxScroll,
-			[ATTR_DO11Y_REFERRER_CATEGORY]: session.referrerCategory,
-			[ATTR_DO11Y_AI_PLATFORM]: session.aiPlatform
-		});
-	}
-	function setupEngagementTracking(config, emit) {
-		document.addEventListener("visibilitychange", () => {
-			if (document.hidden) {
-				if (isPageVisible) {
-					totalActiveTime += Date.now() - lastActivityTime;
-					isPageVisible = false;
-				}
-			} else {
-				lastActivityTime = Date.now();
-				isPageVisible = true;
-			}
-		});
-		window.addEventListener("beforeunload", () => {
-			emitPageExit(config, emit);
-		});
-	}
-	function resetEngagementState() {
-		pageLoadTime = Date.now();
-		lastActivityTime = Date.now();
-		totalActiveTime = 0;
-		isPageVisible = true;
-		pageExited = false;
-	}
-	//#endregion
-	//#region src/core/tracking/search.ts
-	function setupSearchTracking(config, emit) {
-		document.addEventListener("click", (e) => {
-			if (e.target.closest(config.searchSelector)) emit(EVENT_SEARCH_OPENED, {});
-		}, true);
-		document.addEventListener("keydown", (e) => {
-			if ((e.metaKey || e.ctrlKey) && e.key === "k") emit(EVENT_SEARCH_OPENED, { [ATTR_DO11Y_SEARCH_TRIGGER]: "keyboard" });
-		});
-	}
-	//#endregion
-	//#region src/core/tracking/copy.ts
-	function getCodeBlockIndex(codeBlock, config) {
-		if (!codeBlock) return 1;
-		try {
-			const allBlocks = document.querySelectorAll(config.codeBlockSelector);
-			for (let i = 0; i < allBlocks.length; i++) if (allBlocks[i] === codeBlock) return i + 1;
-		} catch {}
-		return 1;
-	}
-	function setupCopyTracking(config, emit) {
-		document.addEventListener("click", (e) => {
-			const copyButton = e.target.closest(config.copyButtonSelector);
-			if (copyButton) {
-				const codeBlock = copyButton.closest("[class*=\"language-\"], [language]") ?? copyButton.closest(config.codeBlockSelector) ?? copyButton.closest(".expressive-code")?.querySelector("pre") ?? copyButton.closest("div, section")?.querySelector("pre") ?? copyButton.parentElement?.querySelector("pre") ?? null;
-				const language = extractCodeLanguage((codeBlock ? codeBlock.tagName === "PRE" ? codeBlock.querySelector("code") : codeBlock.querySelector("code[class*=\"language-\"], code[language]") ?? codeBlock.querySelector("code") : null) ?? codeBlock ?? copyButton);
-				emit(EVENT_CODE_COPIED, {
-					[ATTR_DO11Y_CODE_LANGUAGE]: language,
-					[ATTR_DO11Y_CODE_SECTION]: sanitizeText(getNearestHeading(codeBlock ?? copyButton), 100),
-					[ATTR_DO11Y_CODE_INDEX]: getCodeBlockIndex(codeBlock, config)
-				});
-			}
-		}, true);
-	}
-	//#endregion
-	//#region src/core/tracking/tabs.ts
-	function setupTabSwitchTracking(config, emit) {
-		if (!config.trackTabSwitches) return;
-		document.addEventListener("click", (e) => {
-			let baseSel = "[role=\"tab\"], .tabs button, .tabs a, .tabbed-labels label";
-			const safeTabSel = validateSelector(config.tabContainerSelector);
-			if (safeTabSel) baseSel += ", " + safeTabSel + " button, " + safeTabSel + " a, " + safeTabSel + " label";
-			const tab = e.target.closest(baseSel);
-			if (!tab) return;
-			if (tab.getAttribute("aria-selected") === "true" || tab.classList.contains("active") || tab.classList.contains("is-active")) return;
-			const label = sanitizeText(tab.textContent, 50);
-			if (!label) return;
-			const section = sanitizeText(getNearestHeading(tab), 100);
-			emit(EVENT_TAB_SWITCH, {
-				[ATTR_DO11Y_TAB_LABEL]: label,
-				[ATTR_DO11Y_TAB_GROUP]: section,
-				[ATTR_DO11Y_TAB_IS_DEFAULT]: false
-			});
-		});
-	}
-	//#endregion
-	//#region src/core/tracking/toc.ts
-	function setupTocClickTracking(config, emit) {
-		if (!config.trackTocClicks) return;
-		document.addEventListener("click", (e) => {
-			const link = e.target.closest("a");
-			if (!link) return;
-			const tocContainer = resolveTocContainer(link, config);
-			if (!tocContainer) return;
-			const href = link.getAttribute("href");
-			const hash = href ? resolveTocHash(href) : null;
-			if (!hash) return;
-			const headingText = sanitizeText(link.textContent, 100);
-			let headingLevel = null;
-			try {
-				const targetId = hash.slice(1);
-				const targetEl = document.getElementById(targetId);
-				if (targetEl && /^H[1-6]$/.test(targetEl.tagName)) headingLevel = parseInt(targetEl.tagName.charAt(1), 10);
-			} catch {}
-			const tocLinks = tocContainer.querySelectorAll("a[href*=\"#\"]");
-			let tocPosition = 1;
-			for (let i = 0; i < tocLinks.length; i++) if (tocLinks[i] === link) {
-				tocPosition = i + 1;
-				break;
-			}
-			emit(EVENT_TOC_CLICK, {
-				[ATTR_DO11Y_TOC_HEADING]: headingText,
-				[ATTR_DO11Y_TOC_HEADING_LEVEL]: headingLevel,
-				[ATTR_DO11Y_TOC_POSITION]: tocPosition
-			});
-		}, true);
-	}
-	//#endregion
-	//#region src/core/tracking/feedback.ts
-	function setupFeedbackTracking(config, emit) {
-		if (!config.trackFeedback) return;
-		document.addEventListener("click", (e) => {
-			const button = e.target.closest("button, [role=\"button\"], a");
-			if (!button) return;
-			if (!button.closest(validateSelector(config.feedbackSelector) ?? "[class*=\"feedback\"], [class*=\"helpful\"], [class*=\"rating\"], [class*=\"was-this\"], [data-feedback]")) return;
-			const buttonText = (button.textContent ?? "").trim().toLowerCase();
-			const ariaLabel = (button.getAttribute("aria-label") ?? "").toLowerCase();
-			const titleAttr = (button.getAttribute("title") ?? "").toLowerCase();
-			const rawDataValue = button.getAttribute("data-value") ?? button.getAttribute("data-md-value") ?? button.getAttribute("data-feedback");
-			const dataValue = rawDataValue && /^[\w\s.,!?-]{1,50}$/.test(rawDataValue) ? rawDataValue : null;
-			let rating = null;
-			if (dataValue) rating = dataValue;
-			else if (/\byes\b|👍|thumbs.?up|helpful/i.test(buttonText + " " + ariaLabel + " " + titleAttr)) rating = "yes";
-			else if (/\bno\b|👎|thumbs.?down|not.?helpful/i.test(buttonText + " " + ariaLabel + " " + titleAttr)) rating = "no";
-			if (!rating) return;
-			emit(EVENT_FEEDBACK, { [ATTR_DO11Y_FEEDBACK_RATING]: rating });
-		});
-	}
-	//#endregion
-	//#region src/core/tracking/expand.ts
-	function setupExpandCollapseTracking(config, emit) {
-		if (!config.trackExpandCollapse) return;
-		document.addEventListener("toggle", (e) => {
-			const details = e.target;
-			if (details.tagName !== "DETAILS") return;
-			const summary = details.querySelector("summary");
-			const label = sanitizeText(summary ? summary.textContent : "", 100);
-			emit(EVENT_EXPAND_COLLAPSE, {
-				[ATTR_DO11Y_EXPAND_SUMMARY]: label,
-				[ATTR_DO11Y_EXPAND_ACTION]: details.open ? "expand" : "collapse",
-				[ATTR_DO11Y_EXPAND_SECTION]: sanitizeText(getNearestHeading(details), 100)
-			});
-		}, true);
-		document.addEventListener("click", (e) => {
-			const trigger = e.target.closest("[aria-expanded], [class*=\"accordion\"] button, [class*=\"collapsible\"] button");
-			if (!trigger) return;
-			if (trigger.closest("details")) return;
-			if (trigger.closest("nav, [role=\"navigation\"], header")) return;
-			const wasExpanded = trigger.getAttribute("aria-expanded") === "true";
-			emit(EVENT_EXPAND_COLLAPSE, {
-				[ATTR_DO11Y_EXPAND_SUMMARY]: sanitizeText(trigger.textContent, 100),
-				[ATTR_DO11Y_EXPAND_ACTION]: wasExpanded ? "collapse" : "expand",
-				[ATTR_DO11Y_EXPAND_SECTION]: sanitizeText(getNearestHeading(trigger), 100)
-			});
-		});
-	}
-	//#endregion
-	//#region src/standalone/transport.ts
 	let eventQueue = [];
 	let flushTimeout = null;
 	const lastEventTime = {};
 	let isDisabled = false;
-	let _otelLogger = null;
-	function setIsDisabled(v) {
-		isDisabled = v;
-	}
-	function getIsDisabled() {
-		return isDisabled;
-	}
-	function getQueueLength() {
-		return eventQueue.length;
-	}
-	function queueEvent(config, eventName, eventData) {
+	function queueEvent(eventName, eventData) {
 		if (isDisabled) return;
 		const now = Date.now();
 		if (config.rateLimitMs > 0 && lastEventTime[eventName]) {
@@ -969,6 +573,8 @@
 			...getBrowserContext(),
 			...eventData
 		};
+		if (config.testRunId) event._testRunId = config.testRunId;
+		if (config.testFramework) event._testFramework = config.testFramework;
 		if (config.debug) console.log("[Do11y] Event queued:", eventName, event);
 		if (config.destination === "otlp" && _otelLogger) {
 			_otelLogger.emit({
@@ -984,13 +590,14 @@
 			eventQueue = eventQueue.slice(-100);
 			if (config.debug) console.warn("[Do11y] Event queue capped at 100 events");
 		}
-		if (eventQueue.length >= config.maxBatchSize) flush(config);
-		else scheduleFlush(config);
+		if (eventQueue.length >= config.maxBatchSize) flush();
+		else scheduleFlush();
 	}
-	function scheduleFlush(config) {
+	function scheduleFlush() {
 		if (flushTimeout) return;
-		flushTimeout = setTimeout(() => flush(config), config.flushInterval);
+		flushTimeout = setTimeout(flush, config.flushInterval);
 	}
+	let _otelLogger = null;
 	function validateSupabaseUrl(url) {
 		try {
 			const parsed = new URL(url);
@@ -1013,7 +620,7 @@
 			return false;
 		}
 	}
-	function validateConfig(config) {
+	function validateConfig() {
 		if (config.destination === "supabase") {
 			if (!config.supabaseUrl) {
 				if (config.debug) console.warn("[Do11y] No Supabase URL configured");
@@ -1049,7 +656,7 @@
 				if (config.debug) console.warn("[Do11y] No OTLP endpoint configured");
 				return false;
 			}
-			initOtelSdk(config).catch((err) => {
+			initOtelSdk().catch((err) => {
 				if (config.debug) console.warn("[Do11y] OTel SDK initialization failed:", err);
 			});
 			return true;
@@ -1061,7 +668,7 @@
 	* Dynamically import the OTel Browser SDK and set up the LoggerProvider.
 	* Only called when destination is 'otlp'.
 	*/
-	async function initOtelSdk(config) {
+	async function initOtelSdk() {
 		if (_otelLogger) return;
 		const cdnBase = config.otelSdkCdnUrl.replace(/\/+$/, "") + "/";
 		const apiLogs = await import(
@@ -1095,7 +702,7 @@
 		_otelLogger = loggerProvider.getLogger("do11y");
 		if (config.debug) console.log("[Do11y] OTel SDK initialized with endpoint:", config.otelSdkEndpoint);
 	}
-	function buildRequest(events, config) {
+	function buildRequest(events) {
 		if (config.destination === "supabase") {
 			const url = config.supabaseUrl.replace(/\/$/, "") + "/rest/v1/" + config.supabaseTable;
 			const bodyTransform = config.bodyTransform ?? ((evts) => evts.map((e) => ({ payload: e })));
@@ -1120,6 +727,21 @@
 			body: JSON.stringify(bodyTransform(events))
 		};
 	}
+	function flush(retriesLeft) {
+		if (flushTimeout) {
+			clearTimeout(flushTimeout);
+			flushTimeout = null;
+		}
+		if (eventQueue.length === 0) return;
+		if (!validateConfig()) return;
+		const retries = typeof retriesLeft === "number" ? retriesLeft : config.maxRetries;
+		const events = eventQueue.slice();
+		eventQueue = [];
+		sendEvents(buildRequest(events), events, retries);
+	}
+	/**
+	* Check whether a request URL is cross-origin relative to the current page.
+	*/
 	function isCrossOrigin(url) {
 		try {
 			return new URL(url).origin !== window.location.origin;
@@ -1127,7 +749,7 @@
 			return false;
 		}
 	}
-	function sendEvents(req, events, retriesLeft, config) {
+	function sendEvents(req, events, retriesLeft) {
 		const crossOrigin = isCrossOrigin(req.url);
 		if (config.debug && crossOrigin) console.log("[Do11y] Cross-origin request to", new URL(req.url).origin, "- requires CORS headers on the server");
 		fetch(req.url, {
@@ -1144,7 +766,9 @@
 			if (retriesLeft > 0 && (response.status >= 500 || response.status === 429)) {
 				if (config.debug) console.log("[Do11y] Retrying after error:", response.status);
 				eventQueue = events.concat(eventQueue);
-				setTimeout(() => flush(config, retriesLeft - 1), config.retryDelay * (config.maxRetries - retriesLeft + 1));
+				setTimeout(() => {
+					flush(retriesLeft - 1);
+				}, config.retryDelay * (config.maxRetries - retriesLeft + 1));
 				return;
 			}
 			if (config.debug) response.text().then((text) => {
@@ -1159,33 +783,25 @@
 					console.log("[Do11y] Network error, retrying:", err.message + hint);
 				}
 				eventQueue = events.concat(eventQueue);
-				setTimeout(() => flush(config, retriesLeft - 1), config.retryDelay * (config.maxRetries - retriesLeft + 1));
+				setTimeout(() => {
+					flush(retriesLeft - 1);
+				}, config.retryDelay * (config.maxRetries - retriesLeft + 1));
 			} else if (config.debug) console.error("[Do11y] Failed to send events:", err.message);
 		});
-	}
-	function flush(config, retriesLeft) {
-		if (flushTimeout) {
-			clearTimeout(flushTimeout);
-			flushTimeout = null;
-		}
-		if (eventQueue.length === 0) return;
-		if (!validateConfig(config)) return;
-		const retries = typeof retriesLeft === "number" ? retriesLeft : config.maxRetries;
-		const events = eventQueue.slice();
-		eventQueue = [];
-		sendEvents(buildRequest(events, config), events, retries, config);
 	}
 	/**
 	* Synchronous flush used on `beforeunload`. For OTLP mode the SDK
 	* handles flush on its own; for HTTP/Supabase we use fetch with keepalive.
+	* sendBeacon is not used because Supabase requires custom headers
+	* (apikey, Authorization) which sendBeacon does not support.
 	*/
-	function flushSync(config) {
+	function flushSync() {
 		if (config.destination === "otlp") return;
 		if (eventQueue.length === 0) return;
-		if (!validateConfig(config)) return;
+		if (!validateConfig()) return;
 		const events = eventQueue;
 		eventQueue = [];
-		const req = buildRequest(events, config);
+		const req = buildRequest(events);
 		try {
 			fetch(req.url, {
 				method: "POST",
@@ -1196,70 +812,431 @@
 		} catch {}
 		if (config.debug) console.log("[Do11y] Sync flushed", events.length, "events");
 	}
-	function cleanup() {
-		if (flushTimeout) {
-			clearTimeout(flushTimeout);
-			flushTimeout = null;
+	function trackPageView() {
+		pageExited = false;
+		const session = updatePageSequence(window.location.pathname);
+		const referrerDomain = getReferrerDomain();
+		const referrerInfo = classifyReferrer(referrerDomain);
+		if (session.pageCount === 1) {
+			session.referrerCategory = referrerInfo.referrerCategory;
+			session.aiPlatform = referrerInfo.aiPlatform;
+			saveSession(session);
 		}
+		queueEvent(EVENT_PAGE_VIEW, {
+			[ATTR_DO11Y_REFERRER_DOMAIN]: referrerDomain,
+			[ATTR_DO11Y_REFERRER_CATEGORY]: referrerInfo.referrerCategory,
+			[ATTR_DO11Y_AI_PLATFORM]: referrerInfo.aiPlatform,
+			[ATTR_DO11Y_IS_FIRST_PAGE]: session.pageCount === 1,
+			[ATTR_DO11Y_PREVIOUS_PATH]: session.pageSequence.length > 1 ? session.pageSequence[session.pageSequence.length - 2].path : null
+		});
 	}
-	//#endregion
-	//#region src/standalone/index.ts
-	const config = {
-		destination: "supabase",
-		supabaseUrl: "",
-		supabaseKey: "",
-		supabaseTable: "do11y_events",
-		endpoint: "",
-		headers: {},
-		bodyTransform: void 0,
-		otelSdkEndpoint: "",
-		otelSdkHeaders: {},
-		otelSdkServiceName: "do11y",
-		otelSdkResourceAttributes: {},
-		otelSdkCdnUrl: "https://esm.sh/",
-		debug: false,
-		flushInterval: 5e3,
-		maxBatchSize: 10,
-		trackOutboundLinks: true,
-		trackInternalLinks: true,
-		trackScrollDepth: true,
-		scrollThresholds: [
-			25,
-			50,
-			75,
-			90
-		],
-		allowedDomains: null,
-		respectDNT: true,
-		maxRetries: 2,
-		retryDelay: 1e3,
-		rateLimitMs: 100,
-		framework: "mintlify",
-		trackSectionVisibility: true,
-		sectionVisibleThreshold: 3,
-		trackTabSwitches: true,
-		trackTocClicks: true,
-		trackExpandCollapse: true,
-		trackFeedback: true,
-		tabContainerSelector: null,
-		tocSelector: null,
-		feedbackSelector: null,
-		searchSelector: null,
-		copyButtonSelector: null,
-		codeBlockSelector: null,
-		navigationSelector: null,
-		footerSelector: null,
-		contentSelector: null,
-		useOtelBrowserInstrumentations: false
-	};
-	const _alreadyLoaded = !!window.__do11yInitialized;
-	window.__do11yInitialized = true;
-	const _isInIframe = window.self !== window.top;
-	if (_isInIframe && !_alreadyLoaded) window.__do11yInitialized = false;
+	function setupLinkTracking() {
+		document.addEventListener("click", (e) => {
+			const link = e.target.closest("a");
+			if (!link) return;
+			const href = link.getAttribute("href");
+			if (!href) return;
+			let linkType = "other";
+			let targetDomain = null;
+			try {
+				if (href.startsWith("#")) linkType = "anchor";
+				else if (href.startsWith("/") || href.startsWith("./") || href.startsWith("../")) linkType = "internal";
+				else if (href.startsWith("http")) {
+					const url = new URL(href);
+					if (url.hostname === window.location.hostname) linkType = "internal";
+					else {
+						linkType = "external";
+						targetDomain = url.hostname;
+					}
+				} else if (href.startsWith("mailto:")) linkType = "email";
+			} catch {}
+			if (linkType === "internal" && !config.trackInternalLinks) return;
+			if (linkType === "external" && !config.trackOutboundLinks) return;
+			queueEvent(EVENT_LINK_CLICK, {
+				[ATTR_DO11Y_LINK_TYPE]: linkType,
+				[ATTR_DO11Y_LINK_TARGET_URL]: href,
+				[ATTR_DO11Y_LINK_TARGET_DOMAIN]: targetDomain,
+				[ATTR_DO11Y_LINK_TEXT]: sanitizeText(link.textContent, 100),
+				[ATTR_DO11Y_LINK_CONTEXT]: getLinkContext(link),
+				[ATTR_DO11Y_LINK_SECTION]: sanitizeText(getNearestHeading(link), 100),
+				[ATTR_DO11Y_LINK_INDEX]: getLinkIndex(link, href)
+			});
+			flush();
+		}, true);
+	}
+	function getLinkContext(link) {
+		if (link.closest(config.navigationSelector)) return "navigation";
+		if (link.closest(config.footerSelector)) return "footer";
+		if (link.closest(config.contentSelector)) return "content";
+		return "other";
+	}
+	function getNearestHeading(element) {
+		let current = element;
+		while (current && current !== document.body) {
+			let sibling = current.previousElementSibling;
+			while (sibling) {
+				if (/^H[1-6]$/.test(sibling.tagName)) return sibling.textContent?.trim().substring(0, 100) ?? null;
+				const headings = sibling.querySelectorAll("h1, h2, h3, h4, h5, h6");
+				if (headings.length > 0) return headings[headings.length - 1].textContent?.trim().substring(0, 100) ?? null;
+				sibling = sibling.previousElementSibling;
+			}
+			current = current.parentElement;
+		}
+		return null;
+	}
+	function getLinkIndex(link, href) {
+		if (typeof CSS === "undefined" || typeof CSS.escape !== "function") return 1;
+		try {
+			const allLinks = document.querySelectorAll("a[href=\"" + CSS.escape(href) + "\"]");
+			for (let i = 0; i < allLinks.length; i++) if (allLinks[i] === link) return i + 1;
+		} catch {}
+		return 1;
+	}
+	let trackedScrollDepths = /* @__PURE__ */ new Set();
+	let scrollContainer = null;
+	function findScrollableAncestor(el) {
+		let current = el;
+		while (current && current !== document.body && current !== document.documentElement) {
+			const overflowY = window.getComputedStyle(current).overflowY;
+			if ((overflowY === "auto" || overflowY === "scroll") && current.scrollHeight > current.clientHeight) return current;
+			current = current.parentElement;
+		}
+		return null;
+	}
+	/**
+	* Track scroll depth.
+	*
+	* Some frameworks (MkDocs Material) use container-based
+	* scrolling where the window itself never scrolls. We detect the scrollable
+	* container by walking up from the content element and listen on it in
+	* addition to the window.
+	*/
+	function setupScrollTracking() {
+		if (!config.trackScrollDepth) return;
+		if (config.contentSelector) {
+			const contentEl = document.querySelector(config.contentSelector);
+			if (contentEl) scrollContainer = findScrollableAncestor(contentEl);
+		}
+		let ticking = false;
+		function onScroll() {
+			if (!ticking) {
+				window.requestAnimationFrame(() => {
+					checkScrollDepth();
+					ticking = false;
+				});
+				ticking = true;
+			}
+		}
+		window.addEventListener("scroll", onScroll);
+		if (scrollContainer) {
+			scrollContainer.addEventListener("scroll", onScroll);
+			if (config.debug) {
+				const sc = scrollContainer;
+				console.log("[do11y] Using container-based scroll tracking:", sc.className || sc.tagName);
+			}
+		}
+		checkScrollDepth();
+	}
+	/**
+	* Check and track scroll depth thresholds.
+	* Reads from the detected scroll container when present, otherwise
+	* falls back to the window/document.
+	*
+	* If the page fits entirely in the viewport (no scrollbar), all
+	* thresholds are marked as reached since the user can see 100% of
+	* the content without scrolling.
+	*/
+	function checkScrollDepth() {
+		let scrollTop;
+		let totalHeight;
+		let viewportHeight;
+		if (scrollContainer && scrollContainer.scrollHeight > scrollContainer.clientHeight) {
+			scrollTop = scrollContainer.scrollTop;
+			totalHeight = scrollContainer.scrollHeight;
+			viewportHeight = scrollContainer.clientHeight;
+		} else {
+			scrollTop = window.scrollY || document.documentElement.scrollTop;
+			totalHeight = document.documentElement.scrollHeight;
+			viewportHeight = window.innerHeight;
+		}
+		const docHeight = totalHeight - viewportHeight;
+		if (docHeight <= 0) {
+			config.scrollThresholds.forEach((threshold) => {
+				if (!trackedScrollDepths.has(threshold)) {
+					trackedScrollDepths.add(threshold);
+					queueEvent(EVENT_SCROLL_DEPTH, {
+						[ATTR_DO11Y_SCROLL_THRESHOLD]: threshold,
+						[ATTR_DO11Y_SCROLL_PERCENT]: 100
+					});
+				}
+			});
+			return;
+		}
+		const scrollPercent = Math.round(scrollTop / docHeight * 100);
+		config.scrollThresholds.forEach((threshold) => {
+			if (scrollPercent >= threshold && !trackedScrollDepths.has(threshold)) {
+				trackedScrollDepths.add(threshold);
+				queueEvent(EVENT_SCROLL_DEPTH, {
+					[ATTR_DO11Y_SCROLL_THRESHOLD]: threshold,
+					[ATTR_DO11Y_SCROLL_PERCENT]: scrollPercent
+				});
+			}
+		});
+	}
+	let pageLoadTime = Date.now();
+	let lastActivityTime = Date.now();
+	let totalActiveTime = 0;
+	let isPageVisible = true;
+	let pageExited = false;
+	function emitPageExit() {
+		if (pageExited) return;
+		pageExited = true;
+		if (isPageVisible) totalActiveTime += Date.now() - lastActivityTime;
+		const totalTime = Date.now() - pageLoadTime;
+		const engagementRatio = totalTime > 0 ? totalActiveTime / totalTime : 0;
+		let maxScroll = 0;
+		trackedScrollDepths.forEach((depth) => {
+			if (depth > maxScroll) maxScroll = depth;
+		});
+		flushVisibleSections();
+		const session = getSession();
+		queueEvent(EVENT_PAGE_EXIT, {
+			[ATTR_DO11Y_TOTAL_TIME_SECONDS]: Math.round(totalTime / 1e3),
+			[ATTR_DO11Y_ACTIVE_TIME_SECONDS]: Math.round(totalActiveTime / 1e3),
+			[ATTR_DO11Y_ENGAGEMENT_RATIO]: Math.round(engagementRatio * 100) / 100,
+			[ATTR_DO11Y_MAX_SCROLL_DEPTH]: maxScroll,
+			[ATTR_DO11Y_REFERRER_CATEGORY]: session.referrerCategory,
+			[ATTR_DO11Y_AI_PLATFORM]: session.aiPlatform
+		});
+		flush();
+	}
+	function setupEngagementTracking() {
+		document.addEventListener("visibilitychange", () => {
+			if (document.hidden) {
+				if (isPageVisible) {
+					totalActiveTime += Date.now() - lastActivityTime;
+					isPageVisible = false;
+				}
+			} else {
+				lastActivityTime = Date.now();
+				isPageVisible = true;
+			}
+		});
+		window.addEventListener("beforeunload", () => {
+			emitPageExit();
+			cleanup();
+		});
+	}
+	function setupSearchTracking() {
+		document.addEventListener("click", (e) => {
+			if (e.target.closest(config.searchSelector)) queueEvent(EVENT_SEARCH_OPENED, {});
+		}, true);
+		document.addEventListener("keydown", (e) => {
+			if ((e.metaKey || e.ctrlKey) && e.key === "k") queueEvent(EVENT_SEARCH_OPENED, { [ATTR_DO11Y_SEARCH_TRIGGER]: "keyboard" });
+		});
+	}
+	function getCodeBlockIndex(codeBlock) {
+		if (!codeBlock) return 1;
+		try {
+			const allBlocks = document.querySelectorAll(config.codeBlockSelector);
+			for (let i = 0; i < allBlocks.length; i++) if (allBlocks[i] === codeBlock) return i + 1;
+		} catch {}
+		return 1;
+	}
+	function setupCopyTracking() {
+		document.addEventListener("click", (e) => {
+			const copyButton = e.target.closest(config.copyButtonSelector);
+			if (copyButton) {
+				const codeBlock = copyButton.closest("[class*=\"language-\"], [language]") ?? copyButton.closest(config.codeBlockSelector) ?? copyButton.closest(".expressive-code")?.querySelector("pre") ?? copyButton.closest("div, section")?.querySelector("pre") ?? copyButton.parentElement?.querySelector("pre") ?? null;
+				const language = extractCodeLanguage((codeBlock ? codeBlock.tagName === "PRE" ? codeBlock.querySelector("code") : codeBlock.querySelector("code[class*=\"language-\"], code[language]") ?? codeBlock.querySelector("code") : null) ?? codeBlock ?? copyButton);
+				queueEvent(EVENT_CODE_COPIED, {
+					[ATTR_DO11Y_CODE_LANGUAGE]: language,
+					[ATTR_DO11Y_CODE_SECTION]: sanitizeText(getNearestHeading(codeBlock ?? copyButton), 100),
+					[ATTR_DO11Y_CODE_INDEX]: getCodeBlockIndex(codeBlock)
+				});
+			}
+		}, true);
+	}
+	let sectionObserver = null;
+	let sectionTimers = {};
+	function setupSectionVisibilityTracking() {
+		if (!config.trackSectionVisibility) return;
+		if (typeof IntersectionObserver === "undefined") return;
+		const threshold = config.sectionVisibleThreshold * 1e3;
+		sectionObserver = new IntersectionObserver((entries) => {
+			entries.forEach((entry) => {
+				const id = entry.target.getAttribute("data-do11y-section-id");
+				if (!id) return;
+				if (entry.isIntersecting) {
+					if (!sectionTimers[id]) {
+						const timer = {
+							start: Date.now(),
+							reported: false,
+							timeoutId: null
+						};
+						timer.timeoutId = setTimeout(() => {
+							if (sectionTimers[id] && !sectionTimers[id].reported) {
+								const heading = entry.target.textContent?.trim() ?? "";
+								queueEvent(EVENT_SECTION_VISIBLE, {
+									[ATTR_DO11Y_SECTION_HEADING]: sanitizeText(heading, 100),
+									[ATTR_DO11Y_SECTION_HEADING_LEVEL]: parseInt(entry.target.tagName.charAt(1), 10),
+									[ATTR_DO11Y_SECTION_VISIBLE_SECONDS]: Math.round(threshold / 1e3)
+								});
+								sectionTimers[id].reported = true;
+							}
+						}, threshold);
+						sectionTimers[id] = timer;
+					}
+				} else {
+					if (sectionTimers[id]) {
+						if (sectionTimers[id].timeoutId) clearTimeout(sectionTimers[id].timeoutId);
+						if (!sectionTimers[id].reported) {
+							const elapsed = Date.now() - sectionTimers[id].start;
+							if (elapsed >= threshold) {
+								const heading = entry.target.textContent?.trim() ?? "";
+								queueEvent(EVENT_SECTION_VISIBLE, {
+									[ATTR_DO11Y_SECTION_HEADING]: sanitizeText(heading, 100),
+									[ATTR_DO11Y_SECTION_HEADING_LEVEL]: parseInt(entry.target.tagName.charAt(1), 10),
+									[ATTR_DO11Y_SECTION_VISIBLE_SECONDS]: Math.round(elapsed / 1e3)
+								});
+								sectionTimers[id].reported = true;
+							}
+						}
+					}
+					delete sectionTimers[id];
+				}
+			});
+		}, { threshold: .5 });
+		observeHeadings();
+	}
+	function observeHeadings() {
+		if (!sectionObserver) return;
+		document.querySelectorAll("h2, h3").forEach((h, i) => {
+			h.setAttribute("data-do11y-section-id", "section-" + i);
+			sectionObserver.observe(h);
+		});
+	}
+	function flushVisibleSections() {
+		if (!sectionObserver) return;
+		const now = Date.now();
+		const threshold = config.sectionVisibleThreshold * 1e3;
+		Object.keys(sectionTimers).forEach((id) => {
+			const timer = sectionTimers[id];
+			if (timer && !timer.reported) {
+				if (timer.timeoutId) clearTimeout(timer.timeoutId);
+				const elapsed = now - timer.start;
+				if (elapsed >= threshold) {
+					const escapedId = typeof CSS !== "undefined" && typeof CSS.escape === "function" ? CSS.escape(id) : id.replace(/["\\]/g, "\\$&");
+					const el = document.querySelector("[data-do11y-section-id=\"" + escapedId + "\"]");
+					if (el) queueEvent(EVENT_SECTION_VISIBLE, {
+						[ATTR_DO11Y_SECTION_HEADING]: sanitizeText(el.textContent?.trim() ?? "", 100),
+						[ATTR_DO11Y_SECTION_HEADING_LEVEL]: parseInt(el.tagName.charAt(1), 10),
+						[ATTR_DO11Y_SECTION_VISIBLE_SECONDS]: Math.round(elapsed / 1e3)
+					});
+				}
+			}
+		});
+		sectionTimers = {};
+	}
+	function setupTabSwitchTracking() {
+		if (!config.trackTabSwitches) return;
+		document.addEventListener("click", (e) => {
+			let baseSel = "[role=\"tab\"], .tabs button, .tabs a, .tabbed-labels label";
+			const safeTabSel = validateSelector(config.tabContainerSelector);
+			if (safeTabSel) baseSel += ", " + safeTabSel + " button, " + safeTabSel + " a, " + safeTabSel + " label";
+			const tab = e.target.closest(baseSel);
+			if (!tab) return;
+			if (tab.getAttribute("aria-selected") === "true" || tab.classList.contains("active") || tab.classList.contains("is-active")) return;
+			const label = sanitizeText(tab.textContent, 50);
+			if (!label) return;
+			const section = sanitizeText(getNearestHeading(tab), 100);
+			queueEvent(EVENT_TAB_SWITCH, {
+				[ATTR_DO11Y_TAB_LABEL]: label,
+				[ATTR_DO11Y_TAB_GROUP]: section,
+				[ATTR_DO11Y_TAB_IS_DEFAULT]: false
+			});
+		});
+	}
+	function setupTocClickTracking() {
+		if (!config.trackTocClicks) return;
+		document.addEventListener("click", (e) => {
+			const link = e.target.closest("a");
+			if (!link) return;
+			const tocContainer = resolveTocContainer(link);
+			if (!tocContainer) return;
+			const href = link.getAttribute("href");
+			const hash = href ? resolveTocHash(href) : null;
+			if (!hash) return;
+			const headingText = sanitizeText(link.textContent, 100);
+			let headingLevel = null;
+			try {
+				const targetId = hash.slice(1);
+				const targetEl = document.getElementById(targetId);
+				if (targetEl && /^H[1-6]$/.test(targetEl.tagName)) headingLevel = parseInt(targetEl.tagName.charAt(1), 10);
+			} catch {}
+			const tocLinks = tocContainer.querySelectorAll("a[href*=\"#\"]");
+			let tocPosition = 1;
+			for (let i = 0; i < tocLinks.length; i++) if (tocLinks[i] === link) {
+				tocPosition = i + 1;
+				break;
+			}
+			queueEvent(EVENT_TOC_CLICK, {
+				[ATTR_DO11Y_TOC_HEADING]: headingText,
+				[ATTR_DO11Y_TOC_HEADING_LEVEL]: headingLevel,
+				[ATTR_DO11Y_TOC_POSITION]: tocPosition
+			});
+		}, true);
+	}
+	function setupFeedbackTracking() {
+		if (!config.trackFeedback) return;
+		document.addEventListener("click", (e) => {
+			const button = e.target.closest("button, [role=\"button\"], a");
+			if (!button) return;
+			if (!button.closest(validateSelector(config.feedbackSelector) ?? "[class*=\"feedback\"], [class*=\"helpful\"], [class*=\"rating\"], [class*=\"was-this\"], [data-feedback]")) return;
+			const buttonText = (button.textContent ?? "").trim().toLowerCase();
+			const ariaLabel = (button.getAttribute("aria-label") ?? "").toLowerCase();
+			const titleAttr = (button.getAttribute("title") ?? "").toLowerCase();
+			const rawDataValue = button.getAttribute("data-value") ?? button.getAttribute("data-md-value") ?? button.getAttribute("data-feedback");
+			const dataValue = rawDataValue && /^[\w\s.,!?-]{1,50}$/.test(rawDataValue) ? rawDataValue : null;
+			let rating = null;
+			if (dataValue) rating = dataValue;
+			else if (/\byes\b|👍|thumbs.?up|helpful/i.test(buttonText + " " + ariaLabel + " " + titleAttr)) rating = "yes";
+			else if (/\bno\b|👎|thumbs.?down|not.?helpful/i.test(buttonText + " " + ariaLabel + " " + titleAttr)) rating = "no";
+			if (!rating) return;
+			queueEvent(EVENT_FEEDBACK, { [ATTR_DO11Y_FEEDBACK_RATING]: rating });
+		});
+	}
+	function setupExpandCollapseTracking() {
+		if (!config.trackExpandCollapse) return;
+		document.addEventListener("toggle", (e) => {
+			const details = e.target;
+			if (details.tagName !== "DETAILS") return;
+			const summary = details.querySelector("summary");
+			const label = sanitizeText(summary ? summary.textContent : "", 100);
+			queueEvent(EVENT_EXPAND_COLLAPSE, {
+				[ATTR_DO11Y_EXPAND_SUMMARY]: label,
+				[ATTR_DO11Y_EXPAND_ACTION]: details.open ? "expand" : "collapse",
+				[ATTR_DO11Y_EXPAND_SECTION]: sanitizeText(getNearestHeading(details), 100)
+			});
+		}, true);
+		document.addEventListener("click", (e) => {
+			const trigger = e.target.closest("[aria-expanded], [class*=\"accordion\"] button, [class*=\"collapsible\"] button");
+			if (!trigger) return;
+			if (trigger.closest("details")) return;
+			if (trigger.closest("nav, [role=\"navigation\"], header")) return;
+			const wasExpanded = trigger.getAttribute("aria-expanded") === "true";
+			queueEvent(EVENT_EXPAND_COLLAPSE, {
+				[ATTR_DO11Y_EXPAND_SUMMARY]: sanitizeText(trigger.textContent, 100),
+				[ATTR_DO11Y_EXPAND_ACTION]: wasExpanded ? "collapse" : "expand",
+				[ATTR_DO11Y_EXPAND_SECTION]: sanitizeText(getNearestHeading(trigger), 100)
+			});
+		});
+	}
 	let mutationObserver = null;
+	let pathPollId = null;
 	function init() {
 		if (window.Do11yConfig && typeof window.Do11yConfig === "object") {
-			for (const key in window.Do11yConfig) if (Object.prototype.hasOwnProperty.call(window.Do11yConfig, key) && Object.prototype.hasOwnProperty.call(config, key)) config[key] = window.Do11yConfig[key];
+			for (const key in config) if (Object.prototype.hasOwnProperty.call(window.Do11yConfig, key)) config[key] = window.Do11yConfig[key];
 		}
 		const metaDestination = document.querySelector("meta[name=\"do11y-destination\"]");
 		if (metaDestination) {
@@ -1292,7 +1269,7 @@
 		if (metaFramework) config.framework = metaFramework.getAttribute("content") ?? config.framework;
 		const metaUseOtelInstrumentations = document.querySelector("meta[name=\"do11y-use-otel-instrumentations\"]");
 		if (metaUseOtelInstrumentations && metaUseOtelInstrumentations.getAttribute("content") === "true") config.useOtelBrowserInstrumentations = true;
-		applyFrameworkSelectors(config);
+		applyFrameworkSelectors();
 		if (config.debug) {
 			const hasCreds = config.destination === "supabase" ? !!config.supabaseKey : config.destination === "otlp" ? !!config.otelSdkEndpoint : !!config.endpoint;
 			console.log("[Do11y] Initializing with config:", {
@@ -1303,8 +1280,8 @@
 				respectDNT: config.respectDNT
 			});
 		}
-		if (shouldDisableTracking(config)) {
-			setIsDisabled(true);
+		if (shouldDisableTracking()) {
+			isDisabled = true;
 			if (config.debug) console.log("[Do11y] Tracking disabled");
 			return;
 		}
@@ -1316,53 +1293,60 @@
 				else console.warn("[Do11y] Add <meta name=\"do11y-endpoint\"> to enable.");
 			}
 		}
-		const emit = (eventName, eventData) => {
-			queueEvent(config, eventName, eventData);
-		};
-		trackPageView(config, emit);
-		setupLinkTracking(config, emit);
-		setupScrollTracking(config, emit);
-		setupEngagementTracking(config, emit);
-		setupSearchTracking(config, emit);
-		setupCopyTracking(config, emit);
-		setupSectionVisibilityTracking(config, emit);
-		setupTabSwitchTracking(config, emit);
-		setupTocClickTracking(config, emit);
-		setupFeedbackTracking(config, emit);
-		setupExpandCollapseTracking(config, emit);
+		trackPageView();
+		setupLinkTracking();
+		setupScrollTracking();
+		setupEngagementTracking();
+		setupSearchTracking();
+		setupCopyTracking();
+		setupSectionVisibilityTracking();
+		setupTabSwitchTracking();
+		setupTocClickTracking();
+		setupFeedbackTracking();
+		setupExpandCollapseTracking();
 		let lastPath = window.location.pathname;
-		mutationObserver = new MutationObserver(() => {
-			if (window.location.pathname !== lastPath) {
-				lastPath = window.location.pathname;
-				emitPageExit(config, emit);
-				resetTrackedScrollDepths();
-				resetEngagementState();
-				trackPageView(config, emit);
-				observeHeadings();
-				checkScrollDepth(config, emit);
-			}
-		});
+		const handlePathChange = () => {
+			if (window.location.pathname === lastPath) return;
+			lastPath = window.location.pathname;
+			emitPageExit();
+			trackedScrollDepths = /* @__PURE__ */ new Set();
+			pageLoadTime = Date.now();
+			lastActivityTime = Date.now();
+			totalActiveTime = 0;
+			isPageVisible = true;
+			trackPageView();
+			observeHeadings();
+			checkScrollDepth();
+		};
+		mutationObserver = new MutationObserver(handlePathChange);
 		mutationObserver.observe(document.body, {
 			childList: true,
 			subtree: true
 		});
-		window.addEventListener("popstate", () => {
-			if (window.location.pathname !== lastPath) {
-				lastPath = window.location.pathname;
-				emitPageExit(config, emit);
-				resetTrackedScrollDepths();
-				resetEngagementState();
-				trackPageView(config, emit);
-				observeHeadings();
-				checkScrollDepth(config, emit);
-			}
-		});
+		window.addEventListener("popstate", handlePathChange);
+		pathPollId = window.setInterval(handlePathChange, 200);
 		Object.freeze(config);
-		window.addEventListener("beforeunload", () => {
-			cleanup();
-			flushSync(config);
-		});
 		if (config.debug) console.log("[Do11y] Initialized successfully");
+	}
+	function cleanup() {
+		if (mutationObserver) {
+			mutationObserver.disconnect();
+			mutationObserver = null;
+		}
+		if (sectionObserver) {
+			flushVisibleSections();
+			sectionObserver.disconnect();
+			sectionObserver = null;
+		}
+		if (flushTimeout) {
+			clearTimeout(flushTimeout);
+			flushTimeout = null;
+		}
+		if (pathPollId !== null) {
+			clearInterval(pathPollId);
+			pathPollId = null;
+		}
+		flushSync();
 	}
 	if (!_alreadyLoaded && !_isInIframe) if (document.readyState === "loading") document.addEventListener("DOMContentLoaded", init);
 	else init();
@@ -1370,19 +1354,19 @@
 		getConfig: () => ({
 			destination: config.destination,
 			hasCredentials: config.destination === "supabase" ? !!config.supabaseKey : config.destination === "otlp" ? !!config.otelSdkEndpoint : !!config.endpoint,
-			isDisabled: getIsDisabled(),
+			isDisabled,
 			allowedDomains: config.allowedDomains,
 			respectDNT: config.respectDNT
 		}),
-		flush: () => flush(config),
+		flush,
 		isEnabled: () => {
-			if (getIsDisabled()) return false;
+			if (isDisabled) return false;
 			if (config.destination === "supabase") return !!config.supabaseKey;
 			if (config.destination === "otlp") return !!config.otelSdkEndpoint;
 			return !!config.endpoint;
 		},
-		getQueueSize: () => getQueueLength(),
-		version: "0.1.2"
+		getQueueSize: () => eventQueue.length,
+		version: VERSION
 	};
 	//#endregion
 })();

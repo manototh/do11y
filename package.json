@@ -1,7 +1,7 @@
 {
   "name": "@manototh/do11y",
-  "version": "0.1.2",
-  "description": "Documentation observability — standalone script + OTel instrumentation",
+  "version": "0.2.0",
+  "description": "Documentation observability",
   "type": "module",
   "main": "./dist/do11y.min.js",
   "exports": {

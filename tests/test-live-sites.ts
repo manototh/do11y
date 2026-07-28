@@ -34,14 +34,14 @@ interface FrameworkTestResult {
 const FRAMEWORK_PRESETS: Record<string, FrameworkSelectors> = {
   mintlify: {
     searchSelector: '#search-bar-entry, #search-bar-entry-mobile, [class*="search"]',
-    copyButtonSelector: '[class*="copy"], button[aria-label*="copy" i]',
+    copyButtonSelector: 'button[class*="copy"], button[aria-label*="copy" i]',
     codeBlockSelector: 'pre, [class*="code"]',
     navigationSelector: 'nav, [role="navigation"], #navbar, #sidebar, [class*="nav"], [class*="sidebar"]',
     footerSelector: 'footer, [role="contentinfo"], [class*="footer"]',
     contentSelector: 'main, article, [role="main"], [class*="content"]',
-    tabContainerSelector: '[role="tablist"], [class*="tab"]',
+    tabContainerSelector: 'tabs, [role="tablist"], [class*="tab"]',
     tocSelector: '#table-of-contents, [data-testid="table-of-contents"], [class*="table-of-contents"], [class*="toc"]',
-    feedbackSelector: '[class*="feedback"], [class*="helpful"]',
+    feedbackSelector: 'feedback-toolbar, #feedback-thumbs-up, #feedback-thumbs-down, [class*="feedback"], [class*="helpful"]',
   },
   docusaurus: {
     searchSelector: '.DocSearch, .DocSearch-Button',
@@ -114,7 +114,7 @@ const FRAMEWORK_PRESETS: Record<string, FrameworkSelectors> = {
 // Real documentation sites for each framework.
 // We pick a page with code blocks so copyButton and codeBlock selectors have a chance.
 const TEST_SITES: Record<string, string> = {
-  mintlify:          'https://www.mintlify.com/docs/components/expandables',
+  mintlify:          'https://www.mintlify.com/docs/components/tabs',
   docusaurus:        'https://docusaurus.io/docs/next/swizzling',
   nextra:            'https://nextra.site/docs/docs-theme/start',
   'mkdocs-material': 'https://squidfunk.github.io/mkdocs-material/reference/admonitions',

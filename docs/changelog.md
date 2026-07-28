@@ -12,15 +12,22 @@ head:
 
 # Changelog
 
-## v0.1.2
+## v0.2.0
 
-**Release date:** 2026-07-27
+**Release date:** 2026-07-29
 
 - **Split into core + standalone + instrumentation.** The monolithic `do11y.ts` was refactored into a shared core library (`src/core/`), a standalone IIFE build (`src/standalone/`), and a new OTel instrumentation layer (`src/instrumentation/`). The standalone script-tag build behaves identically — zero breaking changes for existing users.
 - **New `./instrumentation` subpath export.** Projects using `@opentelemetry/browser-sdk` can now install `@manototh/do11y` and import `DocsInstrumentation` to get documentation-specific events flowing through their existing OTel pipeline. See the [get-started guide](/get-started#npm-opentelemetry-instrumentation) for setup.
 - **OTel instrumentation class.** `DocsInstrumentation extends InstrumentationBase` follows the standard OpenTelemetry instrumentation pattern and can be registered alongside `FetchInstrumentation`, `XMLHttpRequestInstrumentation`, etc.
 - **Removed internal dependencies on Supabase/HTTP transport from the instrumentation path.** The npm instrumentation emits log records directly through the OTel API — no custom queue, batching, or retry logic needed. The standalone build still includes all three destinations (Supabase, HTTP, OTLP).
 - **Updated npm package keywords** to include `opentelemetry`, `instrumentation`, and `observability`.
+
+## v0.1.2
+
+**Release date:** 2026-07-28
+
+- Fix page view and page exit detection on Mintlify documentation sites.
+- Improve handling of test-specific fields.
 
 ## v0.1.1
 
