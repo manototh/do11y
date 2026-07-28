@@ -117,7 +117,9 @@
 		navigationSelector: null,
 		footerSelector: null,
 		contentSelector: null,
-		useOtelBrowserInstrumentations: false
+		useOtelBrowserInstrumentations: false,
+		testRunId: void 0,
+		testFramework: void 0
 	};
 	const FRAMEWORK_PRESETS = {
 		mintlify: {
@@ -703,7 +705,7 @@
 	function buildRequest(events) {
 		if (config.destination === "supabase") {
 			const url = config.supabaseUrl.replace(/\/$/, "") + "/rest/v1/" + config.supabaseTable;
-			const bodyTransform = config.bodyTransform ?? ((evts) => evts.map((e) => ({ payload: { ...e } })));
+			const bodyTransform = config.bodyTransform ?? ((evts) => evts.map((e) => ({ payload: e })));
 			return {
 				url,
 				headers: {
