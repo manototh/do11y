@@ -683,6 +683,13 @@
 	}
 	//#endregion
 	//#region src/core/tracking/sections.ts
+	function emitSectionEvent(emit, el, elapsedMs) {
+		emit(EVENT_SECTION_VISIBLE, {
+			[ATTR_DO11Y_SECTION_HEADING]: sanitizeText(el.textContent?.trim() ?? "", 100),
+			[ATTR_DO11Y_SECTION_HEADING_LEVEL]: parseInt(el.tagName.charAt(1), 10),
+			[ATTR_DO11Y_SECTION_VISIBLE_SECONDS]: Math.round(elapsedMs / 1e3)
+		});
+	}
 	let sectionObserver = null;
 	let sectionTimers = {};
 	function setupSectionVisibilityTracking(config, emit) {
@@ -702,12 +709,7 @@
 						};
 						timer.timeoutId = setTimeout(() => {
 							if (sectionTimers[id] && !sectionTimers[id].reported) {
-								const heading = entry.target.textContent?.trim() ?? "";
-								emit(EVENT_SECTION_VISIBLE, {
-									[ATTR_DO11Y_SECTION_HEADING]: sanitizeText(heading, 100),
-									[ATTR_DO11Y_SECTION_HEADING_LEVEL]: parseInt(entry.target.tagName.charAt(1), 10),
-									[ATTR_DO11Y_SECTION_VISIBLE_SECONDS]: Math.round(threshold / 1e3)
-								});
+								emitSectionEvent(emit, entry.target, threshold);
 								sectionTimers[id].reported = true;
 							}
 						}, threshold);
@@ -719,12 +721,7 @@
 						if (!sectionTimers[id].reported) {
 							const elapsed = Date.now() - sectionTimers[id].start;
 							if (elapsed >= threshold) {
-								const heading = entry.target.textContent?.trim() ?? "";
-								emit(EVENT_SECTION_VISIBLE, {
-									[ATTR_DO11Y_SECTION_HEADING]: sanitizeText(heading, 100),
-									[ATTR_DO11Y_SECTION_HEADING_LEVEL]: parseInt(entry.target.tagName.charAt(1), 10),
-									[ATTR_DO11Y_SECTION_VISIBLE_SECONDS]: Math.round(elapsed / 1e3)
-								});
+								emitSectionEvent(emit, entry.target, elapsed);
 								sectionTimers[id].reported = true;
 							}
 						}
@@ -754,11 +751,7 @@
 				if (elapsed >= threshold) {
 					const escapedId = typeof CSS !== "undefined" && typeof CSS.escape === "function" ? CSS.escape(id) : id.replace(/["\\]/g, "\\$&");
 					const el = document.querySelector("[data-do11y-section-id=\"" + escapedId + "\"]");
-					if (el) emit(EVENT_SECTION_VISIBLE, {
-						[ATTR_DO11Y_SECTION_HEADING]: sanitizeText(el.textContent?.trim() ?? "", 100),
-						[ATTR_DO11Y_SECTION_HEADING_LEVEL]: parseInt(el.tagName.charAt(1), 10),
-						[ATTR_DO11Y_SECTION_VISIBLE_SECONDS]: Math.round(elapsed / 1e3)
-					});
+					if (el) emitSectionEvent(emit, el, elapsed);
 				}
 			}
 		});
