@@ -1883,23 +1883,6 @@ function init(): void {
         (config as unknown as Record<string, unknown>)[key] = (window.Do11yConfig as unknown as Record<string, unknown>)[key];
       }
     }
-    // Map legacy test-harness keys (_testRunId, _testFramework) to typed fields.
-    if (Object.prototype.hasOwnProperty.call(window.Do11yConfig, '_testRunId')) {
-      const raw = (window.Do11yConfig as unknown as Record<string, unknown>)._testRunId;
-      if (typeof raw === 'string' && /^[\w.\-]{1,100}$/.test(raw)) {
-        config.testRunId = raw;
-      } else if (config.debug) {
-        console.warn('[Do11y] Invalid _testRunId value — discarded');
-      }
-    }
-    if (Object.prototype.hasOwnProperty.call(window.Do11yConfig, '_testFramework')) {
-      const raw = (window.Do11yConfig as unknown as Record<string, unknown>)._testFramework;
-      if (typeof raw === 'string' && /^[\w.\-]{1,100}$/.test(raw)) {
-        config.testFramework = raw;
-      } else if (config.debug) {
-        console.warn('[Do11y] Invalid _testFramework value — discarded');
-      }
-    }
   }
 
   const metaDestination = document.querySelector('meta[name="do11y-destination"]');

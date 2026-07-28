@@ -184,8 +184,8 @@ function patchDo11y(destPath: string, framework: string, testRunId: string): voi
   debug: true,
   allowedDomains: null,
   sectionVisibleThreshold: 1,
-  _testRunId: '${testRunId}',
-  _testFramework: '${framework}',
+  testRunId: '${testRunId}',
+  testFramework: '${framework}',
 };\n`;
 
   const dir = path.dirname(destPath);

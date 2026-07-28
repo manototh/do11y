@@ -114,8 +114,8 @@ function buildPatchedScript(framework: string, testRunId: string): string {
   debug: true,
   allowedDomains: null,
   sectionVisibleThreshold: 1,
-  _testRunId: '${testRunId}',
-  _testFramework: '${framework}',
+  testRunId: '${testRunId}',
+  testFramework: '${framework}',
 };\n`;
 
   return configBlock + src;

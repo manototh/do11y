@@ -1235,16 +1235,6 @@
 	function init() {
 		if (window.Do11yConfig && typeof window.Do11yConfig === "object") {
 			for (const key in config) if (Object.prototype.hasOwnProperty.call(window.Do11yConfig, key)) config[key] = window.Do11yConfig[key];
-			if (Object.prototype.hasOwnProperty.call(window.Do11yConfig, "_testRunId")) {
-				const raw = window.Do11yConfig._testRunId;
-				if (typeof raw === "string" && /^[\w.\-]{1,100}$/.test(raw)) config.testRunId = raw;
-				else if (config.debug) console.warn("[Do11y] Invalid _testRunId value — discarded");
-			}
-			if (Object.prototype.hasOwnProperty.call(window.Do11yConfig, "_testFramework")) {
-				const raw = window.Do11yConfig._testFramework;
-				if (typeof raw === "string" && /^[\w.\-]{1,100}$/.test(raw)) config.testFramework = raw;
-				else if (config.debug) console.warn("[Do11y] Invalid _testFramework value — discarded");
-			}
 		}
 		const metaDestination = document.querySelector("meta[name=\"do11y-destination\"]");
 		if (metaDestination) {
