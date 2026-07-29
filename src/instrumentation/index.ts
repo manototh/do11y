@@ -52,6 +52,7 @@ export type { DocsInstrumentationConfig } from './config.js';
 
 let mutationObserver: MutationObserver | null = null;
 let pathPollId: ReturnType<typeof setInterval> | null = null;
+let popstateHandler: ((this: WindowEventHandlers, ev: PopStateEvent) => void) | null = null;
 
 /**
  * OpenTelemetry instrumentation for documentation sites.
@@ -149,7 +150,8 @@ export class DocsInstrumentation extends InstrumentationBase<DocsInstrumentation
       }, 100);
     }
 
-    window.addEventListener('popstate', handlePathChange);
+    popstateHandler = handlePathChange;
+    window.addEventListener('popstate', popstateHandler!);
 
     // Supplementary pathname poll: some SPA routers (e.g. Mintlify) update
     // the DOM before calling history.pushState, causing the MutationObserver
@@ -173,9 +175,10 @@ export class DocsInstrumentation extends InstrumentationBase<DocsInstrumentation
       clearInterval(pathPollId);
       pathPollId = null;
     }
-    // Note: we cannot remove the popstate listener because we used an
-    // anonymous function. In practice, disable() is called once when the
-    // instrumentation is torn down, so a one-shot listener leak is acceptable.
+    if (popstateHandler) {
+      window.removeEventListener('popstate', popstateHandler);
+      popstateHandler = null;
+    }
 
     this._do11yConfig = {};
   }
