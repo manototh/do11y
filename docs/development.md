@@ -39,65 +39,112 @@ npm run build:instrumentation  # Build only the ESM instrumentation
 
 ## Tests
 
-The `tests` folder contains multiple layers of testing. Each catches a different class of failure:
+The test suite is organized in layers, each catching a different class of failure:
 
-| What broke | Which test catches it |
-|---|---|
-| Framework updated a CSS class name (selector drift) | `test-live-sites.ts` |
-| Do11y broken on a specific framework's local dev server | `test-integrations.ts` |
-| Events not reaching Supabase from a real production site | `test-e2e-live.ts` |
+| What broke | Which test catches it | Speed | Credentials |
+|---|---|---|---|
+| Tracking module logic bug | Unit tests (core + tracking) | < 1s | None |
+| Transport queuing / flush / retry | Transport unit tests | < 1s | None |
+| Framework CSS class rename (drift) | Selector snapshot fixtures | < 1s | None |
+| Real-world CSS drift on production | Selector snapshot live-sites (~30s) | ~30s | None (`TEST_LIVE=1`) |
+| Standalone file doesn't load/export | Export tests (HTTP/OTLP) | ~5s | None |
+| Instrumentation doesn't emit events | Export tests (instrumentation-otel) | < 1s | None |
+| Supabase export broken | Export smoke test | ~3s | `SUPABASE_*` |
+| Full E2E across all 7 frameworks | Legacy integration tests | ~5m | `SUPABASE_*` |
+| SQL query correctness | `test-queries.ts` | ~10s | `SUPABASE_*` |
 
-### Selector tests against live sites
+### Quick start
 
-**`tests/test-live-sites.ts`** runs headless Chromium via Puppeteer against real documentation sites to validate that selectors match elements in production. It requires no credentials. Its only job is to catch selector drift when a framework ships a DOM update that renames class names.
-
-```bash
-cd tests
-npm i
-npx puppeteer browsers install chrome
-npm run test-live-sites
-```
-
-### E2E live-site tests
-
-**`tests/test-e2e-live.ts`** is the only test that proves events reach Supabase from a real site. It injects `do11y.js` into live public documentation sites via Puppeteer's `evaluateOnNewDocument`, drives a realistic user journey, sends events to Supabase, and then queries the database to validate that the expected event types arrived.
+All new tests use **Vitest**. Run them from the `tests/` directory:
 
 ```bash
 cd tests
-npm i
-npx puppeteer browsers install chrome
+npm install
+npx puppeteer browsers install chrome   # if not already installed
 ```
 
-Copy `tests/.env.example` to `tests/.env` and add your credentials:
+Run all new tests (no credentials needed):
+
+```bash
+npm test
+```
+
+### Test suites
+
+| Command | What runs | Credentials |
+|---|---|---|
+| `npm test` | All unit + selector + export suites | None |
+| `npm run test:unit` | Core + tracking + transport unit tests (321 tests) | None |
+| `npm run test:selectors` | Framework selector fixture tests (70 tests) | None |
+| `npm run test:export` | HTTP, OTLP, instrumentation-otel export tests | None |
+| `npm run test:supabase` | Supabase smoke test | `SUPABASE_URL`, `SUPABASE_KEY` |
+| `npm run test:live-selectors` | Live-site CSS drift check | None (but network) |
+| `npm run test:all` | All suites, verbose output | Varies |
+
+### Unit tests (fast, no browser, no credentials)
+
+321 tests across 18 files:
+
+- **6 core files** — constants, session, context, privacy, dom-utils, presets
+- **11 tracking files** — page-view, scroll, links, search, copy, sections, tabs, toc, feedback, expand, engagement
+- **1 transport file** — queue, flush, retry, body transforms, config validation
+
+```bash
+npm run test:unit
+```
+
+### Selector snapshot tests (CSS drift detection)
+
+The **fixture tests** load static HTML that mimics each framework's DOM structure and verify all preset selectors match. If a framework changes its CSS class names, these tests fail before the change reaches production.
+
+```bash
+npm run test:selectors
+```
+
+The **live-site tests** do the same against real production URLs. Gated on `TEST_LIVE=1`:
+
+```bash
+TEST_LIVE=1 npm run test:live-selectors
+```
+
+### Export tests (no credentials)
+
+Verify that the built standalone and instrumentation files correctly send events to their configured destinations:
+
+```bash
+npm run test:export
+```
+
+### Supabase smoke test (optional)
+
+Requires `SUPABASE_URL` and `SUPABASE_KEY` in `tests/.env`:
 
 ```
 SUPABASE_URL=https://your-project.supabase.co
 SUPABASE_KEY=sb_publishable_your_key
-SUPABASE_SECRET_KEY=sb_secret_your_secret_key
-SUPABASE_TABLE=do11y_integration_test
 ```
-
-Run the full suite:
 
 ```bash
-npm run test-e2e-live
+npm run test:supabase
 ```
 
-Run a subset of frameworks:
+### Legacy test runners (still available)
 
-```bash
-FRAMEWORKS=mintlify,vitepress npm run test-e2e-live
-```
+The old test runners remain available for full E2E validation. They require Supabase credentials:
 
-Skip the build step on repeat runs (uses an existing `dist/do11y.js`):
-
-```bash
-SKIP_BUILD=1 npm run test-e2e-live
-```
+- `npm run test-integrations` — All 7 frameworks against local dev servers
+- `npm run test-e2e-live` — Live production sites
+- `npm run test-live-sites` — Selector validation against live sites
 
 ### Query validation
 
-**`tests/test-queries.ts`** validates that all SQL queries in the queries docs are syntactically correct by executing them against the Supabase database.
+**`tests/test-queries.ts`** validates all SQL queries in the queries docs:
+
+```bash
+npm run test:queries
+```
+
+Requires `SUPABASE_URL`, `SUPABASE_TABLE`, and `SUPABASE_ACCESS_TOKEN` in `tests/.env`.
 
 ```bash
 cd tests

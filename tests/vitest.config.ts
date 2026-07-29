@@ -29,5 +29,7 @@ export default defineConfig({
       '@do11y/standalone': path.join(ROOT, 'src', 'standalone'),
       '@do11y/instrumentation': path.join(ROOT, 'src', 'instrumentation'),
     },
+    // Resolve peer deps from the root project
+    modules: [path.join(ROOT, 'node_modules'), 'node_modules'],
   },
 });

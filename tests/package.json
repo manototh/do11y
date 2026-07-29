@@ -5,17 +5,17 @@
   "scripts": {
     "test": "vitest run",
     "test:watch": "vitest",
-    "test:unit": "vitest run --project unit",
-    "test:selectors": "vitest run --project selector-snapshots",
-    "test:export": "vitest run --project export",
-    "test:integration": "vitest run --project integration",
-    "test:supabase": "vitest run --project export --reporter verbose export/supabase",
-    "test:live-selectors": "TEST_LIVE=1 vitest run --project selector-snapshots selector-snapshots/live-sites",
+    "test:unit": "vitest run unit",
+    "test:selectors": "vitest run selector-snapshots",
+    "test:export": "vitest run export",
+    "test:integration": "vitest run integration",
+    "test:supabase": "vitest run export/supabase.test.ts",
+    "test:live-selectors": "TEST_LIVE=1 vitest run selector-snapshots/live-sites.test.ts",
     "test:all": "vitest run --reporter verbose",
+    "test:queries": "tsx test-queries.ts",
     "test-integrations": "tsx test-integrations.ts",
     "test-e2e-live": "tsx test-e2e-live.ts",
-    "test-live-sites": "tsx test-live-sites.ts",
-    "test-queries": "tsx test-queries.ts"
+    "test-live-sites": "tsx test-live-sites.ts"
   },
   "dependencies": {
     "dotenv": "^16.4.5",
