@@ -12,10 +12,7 @@
     "test:supabase": "vitest run export/supabase.test.ts",
     "test:live-selectors": "TEST_LIVE=1 vitest run selector-snapshots/live-sites.test.ts",
     "test:all": "vitest run --reporter verbose",
-    "test:queries": "tsx test-queries.ts",
-    "test-integrations": "tsx test-integrations.ts",
-    "test-e2e-live": "tsx test-e2e-live.ts",
-    "test-live-sites": "tsx test-live-sites.ts"
+    "test:queries": "tsx test-queries.ts"
   },
   "dependencies": {
     "dotenv": "^16.4.5",

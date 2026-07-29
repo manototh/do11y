@@ -995,8 +995,6 @@
 			...getBrowserContext(),
 			...eventData
 		};
-		if (config.testRunId) event._testRunId = config.testRunId;
-		if (config.testFramework) event._testFramework = config.testFramework;
 		if (config.debug) console.log("[Do11y] Event queued:", eventName, event);
 		if (config.destination === "otlp" && _otelLogger) {
 			_otelLogger.emit({
@@ -1029,13 +1027,14 @@
 			return false;
 		}
 	}
-	function validateEndpoint(url) {
+	function validateEndpoint(url, debug = false) {
 		try {
 			const parsed = new URL(url);
-			if (parsed.protocol !== "https:") return false;
 			const host = parsed.hostname;
-			if (host === "localhost" || host === "127.0.0.1" || host === "::1") return false;
-			if (/^(10\.|172\.(1[6-9]|2\d|3[01])\.|192\.168\.)/.test(host)) return false;
+			const isPrivate = host === "localhost" || host === "127.0.0.1" || host === "::1" || /^(10\.|172\.(1[6-9]|2\d|3[01])\.|192\.168\.)/.test(host);
+			if (debug && isPrivate && parsed.protocol === "http:") return true;
+			if (parsed.protocol !== "https:") return false;
+			if (isPrivate) return false;
 			return true;
 		} catch {
 			return false;
@@ -1066,7 +1065,7 @@
 				if (config.debug) console.warn("[Do11y] No HTTP endpoint configured");
 				return false;
 			}
-			if (!validateEndpoint(config.endpoint)) {
+			if (!validateEndpoint(config.endpoint, config.debug)) {
 				if (config.debug) console.warn("[Do11y] Invalid HTTP endpoint. Must be HTTPS and not a private address.");
 				return false;
 			}
@@ -1280,9 +1279,7 @@
 		navigationSelector: null,
 		footerSelector: null,
 		contentSelector: null,
-		useOtelBrowserInstrumentations: false,
-		testRunId: void 0,
-		testFramework: void 0
+		useOtelBrowserInstrumentations: false
 	};
 	const _alreadyLoaded = !!window.__do11yInitialized;
 	window.__do11yInitialized = true;

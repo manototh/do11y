@@ -121,13 +121,16 @@ function validateSupabaseUrl(url: string): boolean {
   }
 }
 
-function validateEndpoint(url: string): boolean {
+function validateEndpoint(url: string, debug = false): boolean {
   try {
     const parsed = new URL(url);
-    if (parsed.protocol !== 'https:') return false;
     const host = parsed.hostname;
-    if (host === 'localhost' || host === '127.0.0.1' || host === '::1') return false;
-    if (/^(10\.|172\.(1[6-9]|2\d|3[01])\.|192\.168\.)/.test(host)) return false;
+    const isPrivate = host === 'localhost' || host === '127.0.0.1' || host === '::1' ||
+      /^(10\.|172\.(1[6-9]|2\d|3[01])\.|192\.168\.)/.test(host);
+    // Allow HTTP for private addresses when debug is enabled (dev/test usage)
+    if (debug && isPrivate && parsed.protocol === 'http:') return true;
+    if (parsed.protocol !== 'https:') return false;
+    if (isPrivate) return false;
     return true;
   } catch {
     return false;
@@ -160,7 +163,7 @@ export function validateConfig(config: Do11yConfig): boolean {
       if (config.debug) console.warn('[Do11y] No HTTP endpoint configured');
       return false;
     }
-    if (!validateEndpoint(config.endpoint)) {
+    if (!validateEndpoint(config.endpoint, config.debug)) {
       if (config.debug) console.warn('[Do11y] Invalid HTTP endpoint. Must be HTTPS and not a private address.');
       return false;
     }

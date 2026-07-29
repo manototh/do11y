@@ -86,6 +86,17 @@ export function createTestServer(): Promise<TestServer> {
           timestamp: Date.now(),
         });
 
+        // Add CORS headers so cross-origin requests from file:// pages work
+        res.setHeader('Access-Control-Allow-Origin', '*');
+        res.setHeader('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE, OPTIONS');
+        res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization, apikey, Prefer');
+
+        if (req.method === 'OPTIONS') {
+          res.writeHead(204);
+          res.end();
+          return;
+        }
+
         // Respond with a simple success
         res.writeHead(200, { 'Content-Type': 'application/json' });
         res.end(JSON.stringify({ ok: true }));
