@@ -2,11 +2,17 @@
  * Do11y instrumentation integration test runner.
  *
  * Tests DocsInstrumentation end-to-end against local documentation sites
- * for each supported framework. Uses the test harness IIFE to capture
- * events in-memory via an OTel InMemoryLogRecordExporter — no Supabase
- * credentials needed for pass/fail validation.
+ * for each supported framework. Uses the test harness IIFE with a
+ * Supabase-backed OTel exporter — events are sent to a Supabase table
+ * and validated by querying the REST API after all interactions complete.
  *
  * Run: npx tsx test-instrumentation-integration.ts
+ *
+ * Required (.env in this directory):
+ *   SUPABASE_URL        — Supabase project URL
+ *   SUPABASE_KEY        — Publishable key (for client-side inserts via PostgREST)
+ *   SUPABASE_SECRET_KEY — Secret key (for server-side reads via PostgREST)
+ *   SUPABASE_TABLE      — Table name (default: do11y_events)
  *
  * Optional:
  *   FRAMEWORKS    — Comma-separated list of frameworks to test (default: all)
@@ -14,7 +20,10 @@
  *   SKIP_INSTALL  — "1" skips dependency install step
  */
 
+import dotenv from 'dotenv';
 import path from 'path';
+dotenv.config({ path: path.join(__dirname, '.env') });
+
 import { execSync, type ChildProcess } from 'child_process';
 import fs from 'fs';
 import http from 'http';
@@ -23,7 +32,7 @@ import type { Browser, Page } from 'puppeteer';
 import {
   FRAMEWORKS,
   type DevHandle,
-  type TestResult,
+  type SupabaseRow,
   killProc,
   waitForServer,
   startStaticServer,
@@ -36,6 +45,7 @@ import {
 
 import {
   EXPECTED_EVENTS,
+  validateEvents,
   sleep,
   autoScroll,
   clickTocLink,
@@ -45,7 +55,12 @@ import {
   clickFeedback,
 } from './shared/interactions.js';
 
-// Test harness config — no Supabase needed
+// ─── Env ────────────────────────────────────────────────────────────────────
+
+const SUPABASE_URL = process.env.SUPABASE_URL!;
+const SUPABASE_KEY = process.env.SUPABASE_KEY!;
+const SUPABASE_SECRET_KEY = process.env.SUPABASE_SECRET_KEY!;
+const SUPABASE_TABLE = process.env.SUPABASE_TABLE || 'do11y_events';
 const HARNESS_SRC = path.resolve(__dirname, 'harness', 'do11y-test-harness.js');
 const SKIP_BUILD = process.env.SKIP_BUILD === '1';
 const SKIP_INSTALL = process.env.SKIP_INSTALL === '1';
@@ -92,22 +107,34 @@ function installDepsLocal(fw: import('./shared/frameworks.js').Framework): void 
   }
 }
 
-function buildPatchedHarness(framework: string): string {
+function buildPatchedHarness(framework: string, testRunId: string): string {
   const src = fs.readFileSync(HARNESS_SRC, 'utf8');
-  const configBlock = `\nwindow.__do11yTestSetConfig({ framework: '${framework}', debug: false, sectionVisibleThreshold: 1 });\nwindow.__do11yTestInit();\n`;
+  const configBlock = `
+window.__do11yTestSetConfig({
+  framework: '${framework}',
+  debug: false,
+  sectionVisibleThreshold: 1,
+  supabaseUrl: '${SUPABASE_URL}',
+  supabaseKey: '${SUPABASE_KEY}',
+  supabaseTable: '${SUPABASE_TABLE}',
+  testRunId: '${testRunId}',
+  testFramework: '${framework}',
+});
+window.__do11yTestInit();
+`;
   return src + configBlock;
 }
 
 /**
  * Instrumentation-specific interaction sequence.
  * Drives a user journey through a doc site page using the pre-injected
- * test harness. Returns captured LogRecords on completion.
+ * test harness. Events are sent to Supabase via the harness exporter.
  */
 async function runInstrumentedInteractions(
   page: Page,
   baseUrl: string,
   fw: import('./shared/frameworks.js').Framework,
-): Promise<any[]> {
+): Promise<void> {
   // 1. Page view on start page
   log('  → page_view (start page)');
   await page.goto(`${baseUrl}${fw.startPage}`, { waitUntil: 'networkidle2', timeout: 30000 });
@@ -178,57 +205,53 @@ async function runInstrumentedInteractions(
   if (!guideTocClicked) warn('  ⚠ No TOC element found on guide page, skipping');
   await sleep(500);
 
-  // 9. Read captured events before close
-  log('  → reading captured events…');
-  const events = await page.evaluate(() => window.__do11yTestGetEvents()).catch(() => []);
-
-  // 10. Trigger page_exit
+  // 9. Emit page_exit directly through the harness emitter. The sync XHR
+  //    exporter guarantees delivery before the page closes.
   log('  → page_exit');
-  await page.close({ runBeforeUnload: true });
-  await sleep(2000);
+  await page.evaluate(() => window.__do11yTestEmitPageExit());
+  await sleep(500);
 
-  return events;
+  // 10. Close page.
+  await page.close();
+  await sleep(1000);
 }
 
-// ─── Validation (in-memory) ──────────────────────────────────────────────────
+// ─── Supabase query ──────────────────────────────────────────────────────────
 
-interface ValidationResult {
-  pass: number;
-  fail: number;
-  lines: string[];
-  total: number;
-}
+async function querySupabase(testRunId: string): Promise<SupabaseRow[]> {
+  const url = new URL(`${SUPABASE_URL}/rest/v1/${SUPABASE_TABLE}`);
+  url.searchParams.set('select', 'payload');
+  url.searchParams.set('payload->>_testRunId', `eq.${testRunId}`);
+  url.searchParams.set('limit', '10000');
 
-function validateFromMemory(
-  framework: string,
-  logRecords: any[],
-): ValidationResult {
-  const byType: Record<string, number> = {};
-  for (const record of logRecords) {
-    const eventName = record.eventName ?? record._eventName as string | undefined;
-    if (eventName) byType[eventName] = (byType[eventName] ?? 0) + 1;
+  const res = await fetch(url.toString(), {
+    headers: {
+      'apikey': SUPABASE_SECRET_KEY,
+      'Authorization': `Bearer ${SUPABASE_SECRET_KEY}`,
+    },
+  });
+
+  if (!res.ok) {
+    const text = await res.text();
+    throw new Error(`Supabase query failed (${res.status}): ${text}`);
   }
 
-  let pass = 0;
-  let failCount = 0;
-  const lines: string[] = [];
-
-  void framework;
-  for (const [type, { min }] of Object.entries(EXPECTED_EVENTS)) {
-    const count = byType[type] ?? 0;
-    const ok = count >= min;
-    if (ok) pass++; else failCount++;
-    const icon = ok ? '✅' : (min === 0 ? '⚠️' : '❌');
-    lines.push(`    ${icon} ${type.padEnd(18)} ${count} event(s) (expected ≥${min})`);
-  }
-
-  return { pass, fail: failCount, lines, total: logRecords.length };
+  return await res.json() as SupabaseRow[];
 }
 
 // ─── Main ───────────────────────────────────────────────────────────────────
 
 (async () => {
+  if (!SUPABASE_URL || !SUPABASE_KEY || !SUPABASE_SECRET_KEY) {
+    fail('Missing required env vars: SUPABASE_URL, SUPABASE_KEY, SUPABASE_SECRET_KEY');
+    process.exit(1);
+  }
+
   ensureBuild();
+
+  const testRunId = `inst-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
+  log(`Test run: ${testRunId}`);
+  log(`Table:    ${SUPABASE_TABLE}`);
 
   let frameworkNames = Object.keys(FRAMEWORKS);
   if (process.env.FRAMEWORKS) {
@@ -249,8 +272,6 @@ function validateFromMemory(
 
   const servers: http.Server[] = [];
   const processes: ChildProcess[] = [];
-  let grandPass = 0;
-  let grandFail = 0;
 
   for (const name of frameworkNames) {
     const fw = FRAMEWORKS[name]!;
@@ -283,8 +304,8 @@ function validateFromMemory(
       }
     }
 
-    // 1. Build patched harness with framework config
-    const patchedHarness = buildPatchedHarness(name);
+    // 1. Build patched harness with framework config + Supabase creds
+    const patchedHarness = buildPatchedHarness(name, testRunId);
 
     // 2. Start server
     let server: http.Server | undefined;
@@ -319,38 +340,62 @@ function validateFromMemory(
     }
 
     // 4. Run interactions with harness injection
-    let logRecords: any[] = [];
     try {
       const page = await browser.newPage();
       await page.setViewport({ width: 1440, height: 900 });
       await page.evaluateOnNewDocument(patchedHarness);
 
-      logRecords = await runInstrumentedInteractions(page, `http://localhost:${fw.port}`, fw);
-      log(`  Captured ${logRecords.length} events`);
+      await runInstrumentedInteractions(page, `http://localhost:${fw.port}`, fw);
+      log('  Interactions complete');
     } catch (err) {
       warn(`  Interaction error: ${(err as Error).message}`);
     }
-
-    // 5. Validate
-    console.log(`\n┌─ ${name}`);
-    if (logRecords.length === 0) {
-      console.log(`│  ❌ No events captured — instrumentation may not have loaded`);
-      grandFail += Object.keys(EXPECTED_EVENTS).length;
-    } else {
-      const v = validateFromMemory(name, logRecords);
-      for (const line of v.lines) console.log(`│  ${line}`);
-      grandPass += v.pass;
-      grandFail += v.fail;
-    }
   }
 
-  // 6. Shut down servers
+  // 5. Shut down servers
   log('\nStopping servers…');
   for (const s of servers) s.close();
   for (const p of processes) killProc(p);
   await browser.close();
 
-  // 7. Report
+  // 6. Wait for Supabase to ingest
+  log('Waiting 5s for Supabase ingest…');
+  await sleep(5000);
+
+  // 7. Query and validate
+  console.log(`\n${'='.repeat(60)}`);
+  log('QUERYING SUPABASE');
+  console.log(`${'='.repeat(60)}`);
+
+  let allRows: SupabaseRow[];
+  try {
+    allRows = await querySupabase(testRunId);
+    log(`Total events received: ${allRows.length}\n`);
+  } catch (err) {
+    fail(`Supabase query failed: ${(err as Error).message}`);
+    process.exit(1);
+  }
+
+  let grandPass = 0;
+  let grandFail = 0;
+
+  for (const name of frameworkNames) {
+    console.log(`\n┌─ ${name}`);
+    const fwRows = allRows.filter(row => row.payload?._testFramework === name);
+    console.log(`│  ${fwRows.length} events ingested`);
+
+    if (fwRows.length === 0) {
+      console.log(`│  ❌ No events found — instrumentation may not have loaded`);
+      grandFail += Object.keys(EXPECTED_EVENTS).length;
+      continue;
+    }
+
+    const v = validateEvents(name, fwRows);
+    for (const line of v.lines) console.log(`│  ${line}`);
+    grandPass += v.pass;
+    grandFail += v.fail;
+  }
+
   console.log(`\n${'='.repeat(60)}`);
   console.log(`TOTAL: ${grandPass} passed, ${grandFail} failed`);
   console.log(`${'='.repeat(60)}`);

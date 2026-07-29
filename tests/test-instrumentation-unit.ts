@@ -176,7 +176,10 @@ import { DocsInstrumentation } from '../src/instrumentation/index.js';
     innerHeight: 900,
     scrollY: 0,
     addEventListener: () => {},
+    removeEventListener: () => {},
     requestAnimationFrame: (cb: Function) => setTimeout(cb, 0),
+    setInterval: (cb: Function, ms: number) => setInterval(cb, ms),
+    clearInterval: (id: ReturnType<typeof setInterval>) => clearInterval(id),
     crypto: { randomUUID: () => '00000000-0000-4000-8000-000000000000' },
   };
   (globalThis as any).document = {
@@ -203,6 +206,11 @@ import { DocsInstrumentation } from '../src/instrumentation/index.js';
   });
   (globalThis as any).CSS = { escape: (s: string) => s, supports: () => false };
   (globalThis as any).IntersectionObserver = class {
+    observe() {}
+    disconnect() {}
+  };
+  (globalThis as any).MutationObserver = class {
+    constructor(_fn: Function) {}
     observe() {}
     disconnect() {}
   };

@@ -30,13 +30,14 @@ import { getBrowserContext } from '../core/context.js';
 import { getPageInfo } from '../core/context.js';
 import { trackPageView } from '../core/tracking/page-view.js';
 import { setupLinkTracking } from '../core/tracking/links.js';
-import { setupScrollTracking } from '../core/tracking/scroll.js';
-import { setupEngagementTracking } from '../core/tracking/engagement.js';
+import { setupScrollTracking, checkScrollDepth, resetTrackedScrollDepths } from '../core/tracking/scroll.js';
+import { setupEngagementTracking, emitPageExit, resetEngagementState } from '../core/tracking/engagement.js';
 import { setupSearchTracking } from '../core/tracking/search.js';
 import { setupCopyTracking } from '../core/tracking/copy.js';
 import {
   setupSectionVisibilityTracking,
   disconnectSectionObserver,
+  observeHeadings,
 } from '../core/tracking/sections.js';
 import { setupTabSwitchTracking } from '../core/tracking/tabs.js';
 import { setupTocClickTracking } from '../core/tracking/toc.js';
@@ -46,6 +47,11 @@ import type { DocsInstrumentationConfig } from './config.js';
 import { buildConfig } from './config.js';
 
 export type { DocsInstrumentationConfig } from './config.js';
+
+// ─── SPA navigation detection state ────────────────────────────────────────
+
+let mutationObserver: MutationObserver | null = null;
+let pathPollId: ReturnType<typeof setInterval> | null = null;
 
 /**
  * OpenTelemetry instrumentation for documentation sites.
@@ -109,6 +115,47 @@ export class DocsInstrumentation extends InstrumentationBase<DocsInstrumentation
     setupTocClickTracking(this._do11yConfig as Do11yConfig, emit);
     setupFeedbackTracking(this._do11yConfig as Do11yConfig, emit);
     setupExpandCollapseTracking(this._do11yConfig as Do11yConfig, emit);
+
+    // ── SPA navigation detection ────────────────────────────────────────
+    // Detects client-side route changes and emits page_exit + page_view so
+    // that each virtual page in a SPA is tracked independently.
+
+    let lastPath = window.location.pathname;
+
+    const handlePathChange = (): void => {
+      if (window.location.pathname === lastPath) return;
+      lastPath = window.location.pathname;
+      emitPageExit(this._do11yConfig as Do11yConfig, emit);
+      resetTrackedScrollDepths();
+      resetEngagementState();
+      trackPageView(this._do11yConfig as Do11yConfig, emit);
+      observeHeadings();
+      checkScrollDepth(this._do11yConfig as Do11yConfig, emit);
+    };
+
+    mutationObserver = new MutationObserver(handlePathChange);
+    // document.body may be null if the page hasn't loaded yet (e.g. during
+    // evaluateOnNewDocument bootstrap). When body exists, observe it directly;
+    // otherwise, the 200ms path poll catches path changes until body arrives.
+    if (document.body) {
+      mutationObserver.observe(document.body, { childList: true, subtree: true });
+    } else {
+      // Re-check periodically until body is available, then start observing.
+      const bodyCheckId = window.setInterval(() => {
+        if (document.body) {
+          mutationObserver!.observe(document.body, { childList: true, subtree: true });
+          clearInterval(bodyCheckId);
+        }
+      }, 100);
+    }
+
+    window.addEventListener('popstate', handlePathChange);
+
+    // Supplementary pathname poll: some SPA routers (e.g. Mintlify) update
+    // the DOM before calling history.pushState, causing the MutationObserver
+    // to fire before the pathname changes. A lightweight interval catches
+    // these missed transitions.
+    pathPollId = window.setInterval(handlePathChange, 200);
   }
 
   /**
@@ -116,6 +163,20 @@ export class DocsInstrumentation extends InstrumentationBase<DocsInstrumentation
    */
   override disable(): void {
     disconnectSectionObserver();
+
+    // Tear down SPA navigation detection
+    if (mutationObserver) {
+      mutationObserver.disconnect();
+      mutationObserver = null;
+    }
+    if (pathPollId !== null) {
+      clearInterval(pathPollId);
+      pathPollId = null;
+    }
+    // Note: we cannot remove the popstate listener because we used an
+    // anonymous function. In practice, disable() is called once when the
+    // instrumentation is torn down, so a one-shot listener leak is acceptable.
+
     this._do11yConfig = {};
   }
 }

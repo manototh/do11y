@@ -3,23 +3,33 @@
  *
  * Tests DocsInstrumentation against production documentation sites by
  * injecting the test harness IIFE via evaluateOnNewDocument. Events are
- * captured in-memory via an OTel InMemoryLogRecordExporter — no Supabase
- * credentials needed for pass/fail validation.
+ * sent to a Supabase table via the harness exporter and validated by
+ * querying the REST API after all interactions complete.
  *
  * Run: npx tsx test-instrumentation-e2e-live.ts
+ *
+ * Required (.env in this directory):
+ *   SUPABASE_URL        — Supabase project URL
+ *   SUPABASE_KEY        — Publishable key (for client-side inserts via PostgREST)
+ *   SUPABASE_SECRET_KEY — Secret key (for server-side reads via PostgREST)
+ *   SUPABASE_TABLE      — Table name (default: do11y_events)
  *
  * Optional:
  *   FRAMEWORKS    — comma-separated subset to run (default: all)
  *   SKIP_BUILD    — "1" skips the test-harness build step
  */
 
+import dotenv from 'dotenv';
 import path from 'path';
+dotenv.config({ path: path.join(__dirname, '.env') });
+
 import { execSync } from 'child_process';
 import fs from 'fs';
 import type { Browser, Page } from 'puppeteer';
 
 import {
   LIVE_SITES,
+  type SupabaseRow,
   log,
   warn,
   fail,
@@ -27,6 +37,7 @@ import {
 
 import {
   EXPECTED_EVENTS,
+  validateEventsLive,
   sleep,
   autoScroll,
   clickTocLink,
@@ -39,11 +50,10 @@ import {
 const HARNESS_SRC = path.resolve(__dirname, 'harness', 'do11y-test-harness.js');
 const SKIP_BUILD = process.env.SKIP_BUILD === '1';
 
-// Frameworks confirmed to have a page-level feedback widget on their test pages.
-const FEEDBACK_REQUIRED = new Set(['mkdocs-material']);
-
-// Frameworks whose test pages have no documentation-level expandable content.
-const EXPAND_NONE = new Set(['nextra', 'docsy-dev']);
+const SUPABASE_URL = process.env.SUPABASE_URL!;
+const SUPABASE_KEY = process.env.SUPABASE_KEY!;
+const SUPABASE_SECRET_KEY = process.env.SUPABASE_SECRET_KEY!;
+const SUPABASE_TABLE = process.env.SUPABASE_TABLE || 'do11y_events';
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
@@ -64,9 +74,21 @@ function ensureBuild(): void {
   log('Build complete\n');
 }
 
-function buildPatchedHarness(framework: string): string {
+function buildPatchedHarness(framework: string, testRunId: string): string {
   const src = fs.readFileSync(HARNESS_SRC, 'utf8');
-  const configBlock = `\nwindow.__do11yTestSetConfig({ framework: '${framework}', debug: false, sectionVisibleThreshold: 1 });\nwindow.__do11yTestInit();\n`;
+  const configBlock = `
+window.__do11yTestSetConfig({
+  framework: '${framework}',
+  debug: false,
+  sectionVisibleThreshold: 1,
+  supabaseUrl: '${SUPABASE_URL}',
+  supabaseKey: '${SUPABASE_KEY}',
+  supabaseTable: '${SUPABASE_TABLE}',
+  testRunId: '${testRunId}',
+  testFramework: '${framework}',
+});
+window.__do11yTestInit();
+`;
   return src + configBlock;
 }
 
@@ -77,7 +99,7 @@ async function runInstrumentedLiveInteractions(
   framework: string,
   startUrl: string,
   secondUrl: string,
-): Promise<any[]> {
+): Promise<void> {
   // 1. Page view on start page
   log('  → page_view (start page)');
   await page.goto(startUrl, { waitUntil: 'networkidle2', timeout: 45000 });
@@ -235,55 +257,53 @@ async function runInstrumentedLiveInteractions(
   }
   await sleep(1500);
 
-  // 9. Read captured events before close
-  log('  → reading captured events…');
-  const events = await page.evaluate(() => window.__do11yTestGetEvents()).catch(() => []);
-
-  // 10. Trigger page_exit
+  // 9. Emit page_exit directly through the harness emitter. The sync XHR
+  //    exporter guarantees delivery before the page closes.
   log('  → page_exit');
-  await page.close({ runBeforeUnload: true });
-  await sleep(2000);
+  await page.evaluate(() => window.__do11yTestEmitPageExit());
+  await sleep(500);
 
-  return events;
+  // 10. Close page.
+  await page.close();
+  await sleep(1000);
 }
 
-// ─── Validation ───────────────────────────────────────────────────────────────
+// ─── Supabase query ──────────────────────────────────────────────────────────
 
-function validateFromMemory(
-  framework: string,
-  logRecords: any[],
-): { pass: number; fail: number; lines: string[] } {
-  const byType: Record<string, number> = {};
-  for (const record of logRecords) {
-    const eventName = record.eventName ?? record._eventName as string | undefined;
-    if (eventName) byType[eventName] = (byType[eventName] ?? 0) + 1;
+async function querySupabase(testRunId: string): Promise<SupabaseRow[]> {
+  const url = new URL(`${SUPABASE_URL}/rest/v1/${SUPABASE_TABLE}`);
+  url.searchParams.set('select', 'payload');
+  url.searchParams.set('payload->>_testRunId', `eq.${testRunId}`);
+  url.searchParams.set('limit', '10000');
+
+  const res = await fetch(url.toString(), {
+    headers: {
+      'apikey': SUPABASE_SECRET_KEY,
+      'Authorization': `Bearer ${SUPABASE_SECRET_KEY}`,
+    },
+  });
+
+  if (!res.ok) {
+    const text = await res.text();
+    throw new Error(`Supabase query failed (${res.status}): ${text}`);
   }
 
-  let pass = 0;
-  let failCount = 0;
-  const lines: string[] = [];
-
-  for (const [type, exp] of Object.entries(EXPECTED_EVENTS)) {
-    const min = (type === 'browser.do11y.feedback'        && FEEDBACK_REQUIRED.has(framework)) ? 1
-              : (type === 'browser.do11y.expand_collapse' && EXPAND_NONE.has(framework))       ? 0
-              : exp.min;
-    const max = (type === 'browser.do11y.expand_collapse' && EXPAND_NONE.has(framework))       ? 0
-              : exp.max;
-    const count = byType[type] ?? 0;
-    const ok    = count >= min && (max === undefined || count <= max);
-    if (ok) pass++; else failCount++;
-    const expectStr = max !== undefined ? `=${max}` : `≥${min}`;
-    const icon = ok ? '✅' : (min === 0 && max === undefined ? '⚠️' : '❌');
-    lines.push(`    ${icon} ${type.padEnd(18)} ${count} event(s) (expected ${expectStr})`);
-  }
-
-  return { pass, fail: failCount, lines };
+  return await res.json() as SupabaseRow[];
 }
 
 // ─── Main ─────────────────────────────────────────────────────────────────────
 
 (async () => {
+  if (!SUPABASE_URL || !SUPABASE_KEY || !SUPABASE_SECRET_KEY) {
+    fail('Missing required env vars: SUPABASE_URL, SUPABASE_KEY, SUPABASE_SECRET_KEY');
+    process.exit(1);
+  }
+
   ensureBuild();
+
+  const testRunId = `live-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
+  log(`Test run: ${testRunId}`);
+  log(`Table:    ${SUPABASE_TABLE}`);
 
   let siteNames = Object.keys(LIVE_SITES);
   if (process.env.FRAMEWORKS) {
@@ -301,44 +321,67 @@ function validateFromMemory(
     args: process.env.CI ? ['--no-sandbox', '--disable-setuid-sandbox'] : [],
   });
 
-  let grandPass = 0;
-  let grandFail = 0;
-
   for (const name of siteNames) {
     const site = LIVE_SITES[name]!;
     console.log(`\n${'─'.repeat(60)}`);
     log(`${name} → ${site.startUrl}`);
     console.log(`${'─'.repeat(60)}`);
 
-    const patchedHarness = buildPatchedHarness(name);
+    const patchedHarness = buildPatchedHarness(name, testRunId);
 
-    let logRecords: any[] = [];
     try {
       const page = await browser.newPage();
       await page.setViewport({ width: 1440, height: 900 });
       await page.evaluateOnNewDocument(patchedHarness);
 
-      logRecords = await runInstrumentedLiveInteractions(page, name, site.startUrl, site.secondUrl);
-      log(`  Captured ${logRecords.length} events`);
+      await runInstrumentedLiveInteractions(page, name, site.startUrl, site.secondUrl);
+      log('  Interactions complete');
     } catch (err) {
       warn(`  Interaction error: ${(err as Error).message}`);
-    }
-
-    // Validate
-    console.log(`\n┌─ ${name}`);
-    console.log(`│  ${site.startUrl}`);
-    if (logRecords.length === 0) {
-      console.log(`│  ❌ No events captured — instrumentation may not have loaded`);
-      grandFail += Object.values(EXPECTED_EVENTS).filter(e => e.min > 0).length;
-    } else {
-      const v = validateFromMemory(name, logRecords);
-      for (const line of v.lines) console.log(`│  ${line}`);
-      grandPass += v.pass;
-      grandFail += v.fail;
     }
   }
 
   await browser.close();
+
+  // Wait for Supabase ingest
+  log('\nWaiting 5s for Supabase ingest…');
+  await sleep(5000);
+
+  console.log(`\n${'='.repeat(60)}`);
+  log('QUERYING SUPABASE');
+  console.log(`${'='.repeat(60)}`);
+
+  let allRows: SupabaseRow[];
+  try {
+    allRows = await querySupabase(testRunId);
+    log(`Total events received: ${allRows.length}\n`);
+  } catch (err) {
+    fail(`Supabase query failed: ${(err as Error).message}`);
+    process.exit(1);
+  }
+
+  let grandPass = 0;
+  let grandFail = 0;
+
+  for (const name of siteNames) {
+    const site = LIVE_SITES[name]!;
+    console.log(`\n┌─ ${name}`);
+    console.log(`│  ${site.startUrl}`);
+
+    const fwRows = allRows.filter(row => row.payload?._testFramework === name);
+    console.log(`│  ${fwRows.length} events ingested`);
+
+    if (fwRows.length === 0) {
+      console.log(`│  ❌ No events found — instrumentation may not have loaded`);
+      grandFail += Object.values(EXPECTED_EVENTS).filter(e => e.min > 0).length;
+      continue;
+    }
+
+    const v = validateEventsLive(name, fwRows);
+    for (const line of v.lines) console.log(`│  ${line}`);
+    grandPass += v.pass;
+    grandFail += v.fail;
+  }
 
   console.log(`\n${'='.repeat(60)}`);
   console.log(`TOTAL: ${grandPass} passed, ${grandFail} failed`);

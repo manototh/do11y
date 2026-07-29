@@ -50,10 +50,14 @@ export function checkScrollDepth(config: Do11yConfig, emit: EmitFn): void {
     scrollTop = scrollContainer.scrollTop;
     totalHeight = scrollContainer.scrollHeight;
     viewportHeight = scrollContainer.clientHeight;
-  } else {
+  } else if (document.documentElement) {
     scrollTop = window.scrollY || document.documentElement.scrollTop;
     totalHeight = document.documentElement.scrollHeight;
     viewportHeight = window.innerHeight;
+  } else {
+    // Document not yet ready (e.g. during evaluateOnNewDocument bootstrap).
+    // Skip scroll check — it will be re-evaluated on the first scroll event.
+    return;
   }
 
   const docHeight = totalHeight - viewportHeight;

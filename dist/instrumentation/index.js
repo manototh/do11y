@@ -529,11 +529,11 @@ function checkScrollDepth(config, emit) {
 		scrollTop = scrollContainer.scrollTop;
 		totalHeight = scrollContainer.scrollHeight;
 		viewportHeight = scrollContainer.clientHeight;
-	} else {
+	} else if (document.documentElement) {
 		scrollTop = window.scrollY || document.documentElement.scrollTop;
 		totalHeight = document.documentElement.scrollHeight;
 		viewportHeight = window.innerHeight;
-	}
+	} else return;
 	const docHeight = totalHeight - viewportHeight;
 	if (docHeight <= 0) {
 		config.scrollThresholds.forEach((threshold) => {
@@ -583,6 +583,9 @@ function setupScrollTracking(config, emit) {
 		}
 	}
 	checkScrollDepth(config, emit);
+}
+function resetTrackedScrollDepths() {
+	trackedScrollDepths = /* @__PURE__ */ new Set();
 }
 function getTrackedScrollDepths() {
 	return trackedScrollDepths;
@@ -721,6 +724,13 @@ function setupEngagementTracking(config, emit) {
 	window.addEventListener("beforeunload", () => {
 		emitPageExit(config, emit);
 	});
+}
+function resetEngagementState() {
+	pageLoadTime = Date.now();
+	lastActivityTime = Date.now();
+	totalActiveTime = 0;
+	isPageVisible = true;
+	pageExited = false;
 }
 /**
 * Reset only the page_exit guard flag, without affecting timing data.
@@ -1002,6 +1012,8 @@ function buildConfig(userConfig) {
 *     ],
 *   });
 */
+let mutationObserver = null;
+let pathPollId = null;
 /**
 * OpenTelemetry instrumentation for documentation sites.
 *
@@ -1052,12 +1064,49 @@ var DocsInstrumentation = class extends InstrumentationBase {
 		setupTocClickTracking(this._do11yConfig, emit);
 		setupFeedbackTracking(this._do11yConfig, emit);
 		setupExpandCollapseTracking(this._do11yConfig, emit);
+		let lastPath = window.location.pathname;
+		const handlePathChange = () => {
+			if (window.location.pathname === lastPath) return;
+			lastPath = window.location.pathname;
+			emitPageExit(this._do11yConfig, emit);
+			resetTrackedScrollDepths();
+			resetEngagementState();
+			trackPageView(this._do11yConfig, emit);
+			observeHeadings();
+			checkScrollDepth(this._do11yConfig, emit);
+		};
+		mutationObserver = new MutationObserver(handlePathChange);
+		if (document.body) mutationObserver.observe(document.body, {
+			childList: true,
+			subtree: true
+		});
+		else {
+			const bodyCheckId = window.setInterval(() => {
+				if (document.body) {
+					mutationObserver.observe(document.body, {
+						childList: true,
+						subtree: true
+					});
+					clearInterval(bodyCheckId);
+				}
+			}, 100);
+		}
+		window.addEventListener("popstate", handlePathChange);
+		pathPollId = window.setInterval(handlePathChange, 200);
 	}
 	/**
 	* Disable the instrumentation: tear down all event listeners and observers.
 	*/
 	disable() {
 		disconnectSectionObserver();
+		if (mutationObserver) {
+			mutationObserver.disconnect();
+			mutationObserver = null;
+		}
+		if (pathPollId !== null) {
+			clearInterval(pathPollId);
+			pathPollId = null;
+		}
 		this._do11yConfig = {};
 	}
 };

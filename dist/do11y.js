@@ -547,11 +547,11 @@
 			scrollTop = scrollContainer.scrollTop;
 			totalHeight = scrollContainer.scrollHeight;
 			viewportHeight = scrollContainer.clientHeight;
-		} else {
+		} else if (document.documentElement) {
 			scrollTop = window.scrollY || document.documentElement.scrollTop;
 			totalHeight = document.documentElement.scrollHeight;
 			viewportHeight = window.innerHeight;
-		}
+		} else return;
 		const docHeight = totalHeight - viewportHeight;
 		if (docHeight <= 0) {
 			config.scrollThresholds.forEach((threshold) => {

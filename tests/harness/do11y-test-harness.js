@@ -2323,40 +2323,6 @@
 		}
 	};
 	//#endregion
-	//#region node_modules/@opentelemetry/sdk-logs/build/esm/export/InMemoryLogRecordExporter.js
-	/**
-	* This class can be used for testing purposes. It stores the exported LogRecords
-	* in a list in memory that can be retrieved using the `getFinishedLogRecords()`
-	* method.
-	*/
-	var InMemoryLogRecordExporter = class {
-		_finishedLogRecords = [];
-		/**
-		* Indicates if the exporter has been "shutdown."
-		* When false, exported log records will not be stored in-memory.
-		*/
-		_stopped = false;
-		export(logs, resultCallback) {
-			if (this._stopped) return resultCallback({
-				code: ExportResultCode.FAILED,
-				error: /* @__PURE__ */ new Error("Exporter has been stopped")
-			});
-			this._finishedLogRecords.push(...logs);
-			resultCallback({ code: ExportResultCode.SUCCESS });
-		}
-		async shutdown() {
-			this._stopped = true;
-			this.reset();
-		}
-		async forceFlush() {}
-		getFinishedLogRecords() {
-			return this._finishedLogRecords;
-		}
-		reset() {
-			this._finishedLogRecords = [];
-		}
-	};
-	//#endregion
 	//#region node_modules/@opentelemetry/instrumentation/build/esm/shimmer.js
 	let logger = console.error.bind(console);
 	function defineProperty(obj, name, value) {
@@ -3091,11 +3057,11 @@
 			scrollTop = scrollContainer.scrollTop;
 			totalHeight = scrollContainer.scrollHeight;
 			viewportHeight = scrollContainer.clientHeight;
-		} else {
+		} else if (document.documentElement) {
 			scrollTop = window.scrollY || document.documentElement.scrollTop;
 			totalHeight = document.documentElement.scrollHeight;
 			viewportHeight = window.innerHeight;
-		}
+		} else return;
 		const docHeight = totalHeight - viewportHeight;
 		if (docHeight <= 0) {
 			config.scrollThresholds.forEach((threshold) => {
@@ -3145,6 +3111,9 @@
 			}
 		}
 		checkScrollDepth(config, emit);
+	}
+	function resetTrackedScrollDepths() {
+		trackedScrollDepths = /* @__PURE__ */ new Set();
 	}
 	function getTrackedScrollDepths() {
 		return trackedScrollDepths;
@@ -3283,6 +3252,13 @@
 		window.addEventListener("beforeunload", () => {
 			emitPageExit(config, emit);
 		});
+	}
+	function resetEngagementState() {
+		pageLoadTime = Date.now();
+		lastActivityTime = Date.now();
+		totalActiveTime = 0;
+		isPageVisible = true;
+		pageExited = false;
 	}
 	/**
 	* Reset only the page_exit guard flag, without affecting timing data.
@@ -3564,6 +3540,8 @@
 	*     ],
 	*   });
 	*/
+	let mutationObserver = null;
+	let pathPollId = null;
 	/**
 	* OpenTelemetry instrumentation for documentation sites.
 	*
@@ -3614,12 +3592,49 @@
 			setupTocClickTracking(this._do11yConfig, emit);
 			setupFeedbackTracking(this._do11yConfig, emit);
 			setupExpandCollapseTracking(this._do11yConfig, emit);
+			let lastPath = window.location.pathname;
+			const handlePathChange = () => {
+				if (window.location.pathname === lastPath) return;
+				lastPath = window.location.pathname;
+				emitPageExit(this._do11yConfig, emit);
+				resetTrackedScrollDepths();
+				resetEngagementState();
+				trackPageView(this._do11yConfig, emit);
+				observeHeadings();
+				checkScrollDepth(this._do11yConfig, emit);
+			};
+			mutationObserver = new MutationObserver(handlePathChange);
+			if (document.body) mutationObserver.observe(document.body, {
+				childList: true,
+				subtree: true
+			});
+			else {
+				const bodyCheckId = window.setInterval(() => {
+					if (document.body) {
+						mutationObserver.observe(document.body, {
+							childList: true,
+							subtree: true
+						});
+						clearInterval(bodyCheckId);
+					}
+				}, 100);
+			}
+			window.addEventListener("popstate", handlePathChange);
+			pathPollId = window.setInterval(handlePathChange, 200);
 		}
 		/**
 		* Disable the instrumentation: tear down all event listeners and observers.
 		*/
 		disable() {
 			disconnectSectionObserver();
+			if (mutationObserver) {
+				mutationObserver.disconnect();
+				mutationObserver = null;
+			}
+			if (pathPollId !== null) {
+				clearInterval(pathPollId);
+				pathPollId = null;
+			}
 			this._do11yConfig = {};
 		}
 	};
@@ -3629,23 +3644,82 @@
 	* Do11y — Test harness for instrumentation tests.
 	*
 	* This is a small IIFE bundle that sets up an OpenTelemetry LoggerProvider
-	* with an InMemoryLogRecordExporter, then enables DocsInstrumentation.
-	* Events are captured in-memory and exposed to Puppeteer via window globals.
+	* with a Supabase-backed LogRecordExporter, then enables DocsInstrumentation.
+	* Events are sent to a Supabase table for test validation via REST API query.
 	*
 	* Built by rolldown → tests/harness/do11y-test-harness.js
 	*
+	* The test runner calls __do11yTestSetConfig() with framework, Supabase
+	* credentials, and test-run metadata, then __do11yTestInit() to bootstrap.
+	* No in-memory exporter — validation is always via Supabase query.
+	*
 	* Window API exposed to test runners:
-	*   __do11yTestGetEvents()  → LogRecord[]
-	*   __do11yTestReset()      → void
-	*   __do11yTestSetConfig(c) → void  (set DocsInstrumentationConfig before enable)
+	*   __do11yTestSetConfig(c) → void  (set config before init)
+	*   __do11yTestInit()       → void  (teardown + setup with current config)
+	*   __do11yTestReset()      → void  (re-init with same config)
 	*/
-	const exporter = new InMemoryLogRecordExporter();
+	var SupabaseLogRecordExporter = class {
+		constructor(supabaseUrl, supabaseKey, table, testRunId, testFramework) {
+			this.url = `${supabaseUrl}/rest/v1/${table}`;
+			this.headers = {
+				"apikey": supabaseKey,
+				"Authorization": `Bearer ${supabaseKey}`,
+				"Content-Type": "application/json",
+				"Prefer": "return=minimal"
+			};
+			this.testRunId = testRunId;
+			this.testFramework = testFramework;
+		}
+		export(logRecords, resultCallback) {
+			const payloads = logRecords.map((record) => {
+				const payload = {
+					eventName: record.eventName,
+					...record.attributes
+				};
+				if (this.testRunId) payload._testRunId = this.testRunId;
+				if (this.testFramework) payload._testFramework = this.testFramework;
+				return { payload };
+			});
+			const body = JSON.stringify(payloads);
+			try {
+				const xhr = new XMLHttpRequest();
+				xhr.open("POST", this.url, false);
+				for (const [key, val] of Object.entries(this.headers)) xhr.setRequestHeader(key, val);
+				xhr.send(body);
+				resultCallback({ code: xhr.status >= 200 && xhr.status < 300 ? 0 : 1 });
+			} catch {
+				resultCallback({ code: 1 });
+			}
+		}
+		async flush() {}
+		shutdown() {
+			return Promise.resolve();
+		}
+	};
 	let instrumentation = null;
-	let config = {};
+	let harnessConfig = {};
+	let supabaseExporter = null;
+	let loggerProvider = null;
+	let harnessEmit = null;
 	function setup() {
-		const loggerProvider = new LoggerProvider({ processors: [new SimpleLogRecordProcessor({ exporter })] });
+		supabaseExporter = new SupabaseLogRecordExporter(harnessConfig.supabaseUrl, harnessConfig.supabaseKey, harnessConfig.supabaseTable ?? "do11y_events", harnessConfig.testRunId, harnessConfig.testFramework);
+		loggerProvider = new LoggerProvider({ processors: [new SimpleLogRecordProcessor({ exporter: supabaseExporter })] });
 		logs.setGlobalLoggerProvider(loggerProvider);
-		instrumentation = new DocsInstrumentation(config);
+		const logger = logs.getLogger("@manototh/do11y");
+		harnessEmit = (eventName, eventData) => {
+			logger.emit({
+				eventName,
+				severityNumber: 9,
+				attributes: {
+					"browser.do11y.version": "0.2.0",
+					...getBrowserContext(),
+					...getPageInfo(),
+					...eventData
+				},
+				body: ""
+			});
+		};
+		instrumentation = new DocsInstrumentation(harnessConfig);
 		instrumentation.enable();
 	}
 	function teardown() {
@@ -3653,18 +3727,36 @@
 			instrumentation.disable();
 			instrumentation = null;
 		}
-		exporter.reset();
+		loggerProvider = null;
+		supabaseExporter = null;
 	}
-	window.__do11yTestGetEvents = function() {
-		return exporter.getFinishedLogRecords();
+	window.__do11yTestSetConfig = function(c) {
+		harnessConfig = c;
+	};
+	window.__do11yTestInit = function() {
+		teardown();
+		try {
+			setup();
+		} catch (err) {
+			_bootError = String(err);
+			console.error("[Do11y Harness] setup() failed:", err);
+		}
+	};
+	let _bootError = null;
+	window.__do11yTestDidBoot = function() {
+		return _bootError || (instrumentation !== null ? "ok" : "not-booted");
 	};
 	window.__do11yTestReset = function() {
 		teardown();
 		setup();
 	};
-	window.__do11yTestSetConfig = function(c) {
-		config = c;
+	/**
+	* Emit page_exit event using the existing harness emit function.
+	* Test runners call this before closing the page to ensure the exit event
+	* is captured. The sync XHR exporter guarantees delivery.
+	*/
+	window.__do11yTestEmitPageExit = function() {
+		if (harnessEmit) emitPageExit(harnessConfig, harnessEmit);
 	};
-	setup();
 	//#endregion
 })();
