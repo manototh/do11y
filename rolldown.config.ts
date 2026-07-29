@@ -32,15 +32,4 @@ export default defineConfig([
       '@opentelemetry/api-logs',
     ],
   },
-  // ── Test harness IIFE (for Puppeteer-based instrumentation tests) ─────
-  {
-    input: 'tests/harness/index.ts',
-    output: {
-      file: 'tests/harness/do11y-test-harness.js',
-      format: 'iife',
-    },
-    // Bundle all deps — the harness is a test-only artifact, not for
-    // distribution, so there's no need to externalize anything.
-    external: [],
-  },
 ]);

@@ -17,7 +17,7 @@
     "build": "rolldown -c rolldown.config.ts",
     "build:standalone": "rolldown -c rolldown.config.ts --configEntry src/standalone/index.ts",
     "build:instrumentation": "rolldown -c rolldown.config.ts --configEntry src/instrumentation/index.ts",
-    "build:test-harness": "rolldown -c rolldown.config.ts --configEntry tests/harness/index.ts",
+    "build:test-harness": "rolldown -c rolldown.test-harness.config.ts",
     "lint": "oxlint src",
     "format": "oxfmt src",
     "check": "tsc --noEmit"
