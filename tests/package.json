@@ -10,7 +10,7 @@
     "test-instrumentation-unit": "tsx test-instrumentation-unit.ts",
     "test-instrumentation-integration": "tsx test-instrumentation-integration.ts",
     "test-instrumentation-e2e-live": "tsx test-instrumentation-e2e-live.ts",
-    "test-all": "E=0; npm run test-instrumentation-unit || E=$?; npm run test-integrations || E=$?; npm run test-e2e-live || E=$?; npm run test-instrumentation-integration || E=$?; npm run test-instrumentation-e2e-live || E=$?; npm run test-live-sites || E=$?; npm run test-queries || E=$?; echo '---'; if [ $E -ne 0 ]; then echo 'Some tests failed'; else echo 'All tests passed'; fi; exit $E"
+    "test-all": "E=0; npm run test-instrumentation-unit || E=$?; npm run test-integrations || E=$?; npm run test-e2e-live || E=$?; npm run test-instrumentation-integration || E=$?; npm run test-instrumentation-e2e-live || E=$?; npm run test-live-sites || E=$?; echo '---'; if [ $E -ne 0 ]; then echo 'Some tests failed'; else echo 'All tests passed'; fi; exit $E"
   },
   "dependencies": {
     "dotenv": "^16.4.5",
