@@ -1014,6 +1014,7 @@ function buildConfig(userConfig) {
 */
 let mutationObserver = null;
 let pathPollId = null;
+let popstateHandler = null;
 /**
 * OpenTelemetry instrumentation for documentation sites.
 *
@@ -1091,7 +1092,8 @@ var DocsInstrumentation = class extends InstrumentationBase {
 				}
 			}, 100);
 		}
-		window.addEventListener("popstate", handlePathChange);
+		popstateHandler = handlePathChange;
+		window.addEventListener("popstate", popstateHandler);
 		pathPollId = window.setInterval(handlePathChange, 200);
 	}
 	/**
@@ -1106,6 +1108,10 @@ var DocsInstrumentation = class extends InstrumentationBase {
 		if (pathPollId !== null) {
 			clearInterval(pathPollId);
 			pathPollId = null;
+		}
+		if (popstateHandler) {
+			window.removeEventListener("popstate", popstateHandler);
+			popstateHandler = null;
 		}
 		this._do11yConfig = {};
 	}
