@@ -6,7 +6,10 @@
     "test-integrations": "tsx test-integrations.ts",
     "test-e2e-live": "tsx test-e2e-live.ts",
     "test-live-sites": "tsx test-live-sites.ts",
-    "test-queries": "tsx test-queries.ts"
+    "test-queries": "tsx test-queries.ts",
+    "test-instrumentation-unit": "tsx test-instrumentation-unit.ts",
+    "test-instrumentation-integration": "tsx test-instrumentation-integration.ts",
+    "test-instrumentation-e2e-live": "tsx test-instrumentation-e2e-live.ts"
   },
   "dependencies": {
     "dotenv": "^16.4.5",

@@ -35,6 +35,7 @@ The `src/instrumentation/` entry produces `dist/instrumentation/index.js` (ESM f
 npm run build              # Build all outputs
 npm run build:standalone   # Build only the standalone IIFE
 npm run build:instrumentation  # Build only the ESM instrumentation
+npm run build:test-harness # Build the instrumentation test harness IIFE
 ```
 
 ## Tests
@@ -44,8 +45,11 @@ The `tests` folder contains multiple layers of testing. Each catches a different
 | What broke | Which test catches it |
 |---|---|
 | Framework updated a CSS class name (selector drift) | `test-live-sites.ts` |
-| Do11y broken on a specific framework's local dev server | `test-integrations.ts` |
+| Standalone do11y broken on a specific framework's local dev server | `test-integrations.ts` |
 | Events not reaching Supabase from a real production site | `test-e2e-live.ts` |
+| DocsInstrumentation config / lifecycle regression | `test-instrumentation-unit.ts` |
+| DocsInstrumentation broken on a local doc site | `test-instrumentation-integration.ts` |
+| DocsInstrumentation broken on a real production site | `test-instrumentation-e2e-live.ts` |
 
 ### Selector tests against live sites
 
@@ -58,7 +62,7 @@ npx puppeteer browsers install chrome
 npm run test-live-sites
 ```
 
-### E2E live-site tests
+### Standalone E2E live-site tests
 
 **`tests/test-e2e-live.ts`** is the only test that proves events reach Supabase from a real site. It injects `do11y.js` into live public documentation sites via Puppeteer's `evaluateOnNewDocument`, drives a realistic user journey, sends events to Supabase, and then queries the database to validate that the expected event types arrived.
 
@@ -117,7 +121,7 @@ PostgREST doesn't support raw SQL. This test runs queries through the [Supabase 
 
 Create `SUPABASE_ACCESS_TOKEN` at [Account tokens](https://supabase.com/dashboard/account/tokens), or run `supabase login` to store a token locally.
 
-### Integration tests
+### Standalone integration tests
 
 **`tests/test-integrations.ts`** installs each supported framework, injects `do11y.js`, starts a local dev server, drives user interactions via Puppeteer, and then queries the Supabase database to verify that events arrived correctly.
 
@@ -170,8 +174,6 @@ create policy "Allow anonymous inserts"
 
 #### Run tests
 
-Run the full suite:
-
 ```bash
 npm run test-integrations
 ```
@@ -192,6 +194,55 @@ Skip the build step on repeat runs (uses existing `dist/do11y.js`):
 
 ```bash
 SKIP_BUILD=1 npm run test-integrations
+```
+
+### Instrumentation unit tests
+
+**`tests/test-instrumentation-unit.ts`** validates the `DocsInstrumentation` class in isolation — config bridging (`buildConfig`), framework preset application, and enable/disable lifecycle — using minimal DOM stubs. It runs via `tsx` with no browser required.
+
+```bash
+cd tests
+npm run test-instrumentation-unit
+```
+
+### Instrumentation integration tests
+
+**`tests/test-instrumentation-integration.ts`** tests `DocsInstrumentation` end-to-end against local documentation sites (the same 7 frameworks as the standalone integration tests). Instead of patching `dist/do11y.js` and querying Supabase, it injects a test harness IIFE that captures events in-memory via an OTel `InMemoryLogRecordExporter`. No Supabase credentials are needed for pass/fail validation.
+
+The test harness is built to `tests/harness/do11y-test-harness.js` and prepended with per-framework config before injection.
+
+```bash
+cd tests
+npm i
+npx puppeteer browsers install chrome
+npm run test-instrumentation-integration
+```
+
+Run a subset of frameworks:
+
+```bash
+FRAMEWORKS=mintlify,vitepress npm run test-instrumentation-integration
+```
+
+Skip the build step on repeat runs (uses existing `tests/harness/do11y-test-harness.js`):
+
+```bash
+SKIP_BUILD=1 npm run test-instrumentation-integration
+```
+
+### Instrumentation E2E live-site tests
+
+**`tests/test-instrumentation-e2e-live.ts`** tests `DocsInstrumentation` against production documentation sites, using the same test harness approach as the instrumentation integration tests but against live URLs. Events are captured in-memory — no Supabase needed.
+
+```bash
+cd tests
+npm run test-instrumentation-e2e-live
+```
+
+Run a subset of frameworks:
+
+```bash
+FRAMEWORKS=mintlify,vitepress npm run test-instrumentation-e2e-live
 ```
 
 ## Create release

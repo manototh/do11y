@@ -17,6 +17,7 @@
     "build": "rolldown -c rolldown.config.ts",
     "build:standalone": "rolldown -c rolldown.config.ts --configEntry src/standalone/index.ts",
     "build:instrumentation": "rolldown -c rolldown.config.ts --configEntry src/instrumentation/index.ts",
+    "build:test-harness": "rolldown -c rolldown.config.ts --configEntry tests/harness/index.ts",
     "lint": "oxlint src",
     "format": "oxfmt src",
     "check": "tsc --noEmit"
@@ -46,6 +47,7 @@
   "devDependencies": {
     "@opentelemetry/api-logs": "^0.221.0",
     "@opentelemetry/instrumentation": "^0.221.0",
+    "@opentelemetry/sdk-logs": "^0.221.0",
     "oxfmt": "latest",
     "oxlint": "latest",
     "rolldown": "latest",

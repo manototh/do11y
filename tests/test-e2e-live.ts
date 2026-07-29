@@ -26,7 +26,22 @@ dotenv.config({ path: path.join(__dirname, '.env') });
 
 import { execSync } from 'child_process';
 import fs from 'fs';
-import type { Browser, Page } from 'puppeteer';
+import type { Browser } from 'puppeteer';
+
+import {
+  LIVE_SITES,
+  type SupabaseRow,
+  log,
+  warn,
+  fail,
+} from './shared/frameworks.js';
+
+import {
+  EXPECTED_EVENTS,
+  runInteractionsLive,
+  validateEventsLive,
+  sleep,
+} from './shared/interactions.js';
 
 const SUPABASE_URL   = process.env.SUPABASE_URL!;
 const SUPABASE_KEY   = process.env.SUPABASE_KEY!;
@@ -35,71 +50,6 @@ const SUPABASE_TABLE = process.env.SUPABASE_TABLE || 'do11y_events';
 const SKIP_BUILD     = process.env.SKIP_BUILD === '1';
 
 const DO11Y_SRC = path.resolve(__dirname, '../dist/do11y.js');
-
-// ─── Types ────────────────────────────────────────────────────────────────────
-
-interface LiveSite {
-  startUrl: string;
-  secondUrl: string;
-}
-
-interface SupabaseRow {
-  payload: {
-    eventName?: string;
-    testFramework?: string;
-    testRunId?: string;
-    [key: string]: unknown;
-  };
-}
-
-interface EventExpectation {
-  min: number;
-  max?: number;
-}
-
-// ─── Live site definitions ────────────────────────────────────────────────────
-
-const LIVE_SITES: Record<string, LiveSite> = {
-  mintlify: {
-    startUrl:  'https://www.mintlify.com/docs/components/expandables',
-    secondUrl: 'https://www.mintlify.com/docs/components/accordions',
-  },
-  docusaurus: {
-    startUrl:  'https://docusaurus.io/docs/next/swizzling',
-    secondUrl: 'https://docusaurus.io/docs/next/markdown-features',
-  },
-  nextra: {
-    startUrl:  'https://nextra.site/docs/docs-theme/start',
-    secondUrl: 'https://nextra.site/docs',
-  },
-  'mkdocs-material': {
-    startUrl:  'https://squidfunk.github.io/mkdocs-material/reference/admonitions',
-    secondUrl: 'https://squidfunk.github.io/mkdocs-material/reference/icons-emojis/',
-  },
-  vitepress: {
-    startUrl:  'https://vitepress.dev/guide/getting-started',
-    secondUrl: 'https://vitepress.dev/guide/markdown',
-  },
-  starlight: {
-    startUrl:  'https://starlight.astro.build/getting-started/',
-    secondUrl: 'https://starlight.astro.build/guides/pages/',
-  },
-  'docsy-dev': {
-    startUrl:  'https://www.docsy.dev/docs/content/iconsimages/',
-    secondUrl: 'https://www.docsy.dev/docs/content/lookandfeel/',
-  },
-  'docsy-otel': {
-    startUrl:  'https://opentelemetry.io/docs/languages/js/getting-started/nodejs/',
-    secondUrl: 'https://opentelemetry.io/docs/languages/js/getting-started/browser/',
-  },
-};
-
-// ─── Helpers ──────────────────────────────────────────────────────────────────
-
-function log(msg: string):  void { console.log(`\x1b[36m[runner]\x1b[0m ${msg}`); }
-function warn(msg: string): void { console.log(`\x1b[33m[runner]\x1b[0m ${msg}`); }
-function fail(msg: string): void { console.log(`\x1b[31m[runner]\x1b[0m ${msg}`); }
-function sleep(ms: number): Promise<void> { return new Promise(r => setTimeout(r, ms)); }
 
 // ─── Script builder ───────────────────────────────────────────────────────────
 
@@ -137,286 +87,6 @@ function ensureBuild(): void {
   log('Build complete\n');
 }
 
-// ─── Puppeteer interaction scenarios ─────────────────────────────────────────
-
-async function autoScroll(page: Page): Promise<void> {
-  await page.evaluate(() => {
-    return new Promise<void>((resolve) => {
-      const distance = 200;
-      const delay = 80;
-
-      let container: Element | null = null;
-      const contentEl = document.querySelector('[role="main"], main, article');
-      if (contentEl) {
-        let el: Element | null = contentEl;
-        while (el && el !== document.body && el !== document.documentElement) {
-          const style = window.getComputedStyle(el);
-          if ((style.overflowY === 'auto' || style.overflowY === 'scroll') &&
-              el.scrollHeight > el.clientHeight) {
-            container = el;
-            break;
-          }
-          el = el.parentElement;
-        }
-      }
-
-      const timer = setInterval(() => {
-        if (container) { (container as HTMLElement).scrollTop += distance; }
-        else { window.scrollBy(0, distance); }
-
-        const scrollPos = container ? container.scrollTop : window.scrollY;
-        const maxScroll  = container
-          ? container.scrollHeight - container.clientHeight
-          : document.body.scrollHeight - window.innerHeight;
-
-        if (scrollPos >= maxScroll - 1) { clearInterval(timer); resolve(); }
-      }, delay);
-      setTimeout(() => { clearInterval(timer); resolve(); }, 10000);
-    });
-  });
-}
-
-async function runInteractions(
-  browser: Browser,
-  framework: string,
-  site: LiveSite,
-  patchedScript: string,
-): Promise<void> {
-  const page = await browser.newPage();
-  await page.setViewport({ width: 1440, height: 900 });
-
-  await page.evaluateOnNewDocument(patchedScript);
-
-  // 1. Page view on start page
-  log('  → page_view (start page)');
-  await page.goto(site.startUrl, { waitUntil: 'networkidle2', timeout: 45000 });
-  await sleep(2000);
-
-  // 2. Click a TOC link (toc_click)
-  log('  → toc_click');
-  const TOC_SELECTORS = [
-    '#table-of-contents',
-    '[data-testid="table-of-contents"]',
-    '.table-of-contents',
-    '.VPDocAsideOutline',
-    '.VPLocalNavOutlineDropdown',
-    '.md-sidebar--secondary .md-nav',
-    '.right-sidebar-panel',          // Starlight
-    'starlight-toc',                 // Starlight (custom element)
-    '.td-toc',                       // Docsy
-    'nav[id="TableOfContents"]',    // Docsy
-    '[class*="toc"]',
-    '[class*="TableOfContents"]',
-    'aside.toc',
-    'a.outline-link',
-  ];
-  try {
-    const found = await page.evaluate((sels: string[]) => {
-      for (const sel of sels) {
-        const toc = document.querySelector(sel);
-        if (!toc) continue;
-        const link = toc.querySelector('a[href^="#"]');
-        if (!link) continue;
-        link.setAttribute('data-do11y-test-toc', '1');
-        return true;
-      }
-      return false;
-    }, TOC_SELECTORS);
-    if (found) {
-      await page.click('[data-do11y-test-toc]');
-    } else {
-      warn(`  ⚠ No TOC element found on ${framework}, skipping`);
-    }
-  } catch { /* ignore */ }
-  await sleep(500);
-
-  // 3. Scroll to bottom
-  log('  → scroll_depth');
-  await autoScroll(page);
-  await sleep(1000);
-
-  // 4. Click search element
-  log('  → search_opened');
-  const SEARCH_SEL =
-    '#search-bar-entry, .DocSearch-Button, .nextra-search input, ' +
-    '[data-testid*="search"], .md-search__input, .VPNavBarSearchButton, ' +
-    'site-search button[data-open-modal], ' +
-    'button[aria-label*="search" i], ' +
-    '.td-search input, .td-search__input';
-  try {
-    await page.waitForSelector(SEARCH_SEL, { timeout: 3000 });
-    const clicked = await page.evaluate((sel: string) => {
-      const el = document.querySelector(sel);
-      if (el) { (el as HTMLElement).click(); return true; }
-      return false;
-    }, SEARCH_SEL);
-    if (!clicked) throw new Error('querySelector returned null');
-  } catch { warn(`  ⚠ No search element found on ${framework}, skipping`); }
-  await sleep(500);
-  await page.keyboard.press('Escape');
-  await sleep(300);
-
-  // 5. Click copy button
-  log('  → code_copied');
-  try {
-    await page.evaluate(() => {
-      document.querySelector('pre')?.scrollIntoView({ block: 'center' });
-    }).catch(() => {});
-    try {
-      const preEl = await page.$('pre');
-      if (preEl) {
-        await preEl.hover().catch(() => {});
-        await sleep(400);
-      }
-    } catch { /* hover non-fatal */ }
-
-    const copyBtnSel = [
-      'button.clean-btn[aria-label*="copy" i]',
-      'button[class*="copyButton"]',
-      'button[aria-label*="copy" i]',
-      'button[title*="copy" i]',
-      '.td-click-to-copy',
-      'button.fa-copy',
-      '.md-clipboard',
-      '.md-code__button[title="Copy to clipboard"]',
-      '.vp-code-copy',
-      'button.copy[title*="Copy"]',
-      '.expressive-code .copy button',
-    ].join(', ');
-
-    const copyClicked = await page.evaluate((sel) => {
-      const el = document.querySelector(sel);
-      if (el) { (el as HTMLElement).click(); return true; }
-      return false;
-    }, copyBtnSel);
-    if (!copyClicked) warn(`  ⚠ No copy button found on ${framework}, skipping`);
-  } catch (err) {
-    warn(`  ⚠ Copy button interaction error on ${framework}: ${(err as Error).message}`);
-  }
-  await sleep(500);
-
-  // 6. Expand a <details> element
-  log('  → expand_collapse');
-  try {
-    const expanded = await page.evaluate(() => {
-      const details = document.querySelector('details:not([open])');
-      if (details) {
-        const summary = details.querySelector('summary');
-        if (summary) { summary.click(); return true; }
-      }
-      return false;
-    });
-    if (!expanded) warn(`  ⚠ No <details> element found on ${framework}, skipping`);
-  } catch { /* ignore */ }
-  await sleep(500);
-
-  // 7. Click feedback widget
-  log('  → feedback');
-  try {
-    await page.evaluate(() => {
-      const contentEl = document.querySelector('[role="main"], main, article');
-      let container: Element | null = null;
-      if (contentEl) {
-        let el: Element | null = contentEl;
-        while (el && el !== document.body && el !== document.documentElement) {
-          const style = window.getComputedStyle(el);
-          if ((style.overflowY === 'auto' || style.overflowY === 'scroll') &&
-              el.scrollHeight > el.clientHeight) {
-            container = el;
-            break;
-          }
-          el = el.parentElement;
-        }
-      }
-      if (container) { (container as HTMLElement).scrollTop = container.scrollHeight; }
-      else { window.scrollTo(0, document.body.scrollHeight); }
-    });
-
-    await page.waitForSelector(
-      '#feedback-thumbs-up, #feedback-thumbs-down, button[data-md-value], .md-feedback',
-      { timeout: 3000 },
-    ).catch(() => {});
-
-    const feedbackClicked = await page.evaluate(() => {
-      const byId = document.querySelector('#feedback-thumbs-up, #feedback-thumbs-down');
-      if (byId) { (byId as HTMLElement).click(); return true; }
-
-      const byData = document.querySelector('button[data-md-value]');
-      if (byData) { (byData as HTMLElement).click(); return true; }
-
-      const container = document.querySelector(
-        '.md-feedback, [data-feedback], [class*="PageFeedback"], [class*="page-feedback"]'
-      );
-      if (container) {
-        const btn = container.querySelector('button');
-        if (btn) { (btn as HTMLElement).click(); return true; }
-      }
-
-      const candidates = Array.from(document.querySelectorAll('form, section, div, footer, aside'));
-      for (const el of candidates) {
-        const text = el.textContent?.toLowerCase() ?? '';
-        if (
-          (text.includes('was this page') || text.includes('helpful?') || text.includes('page helpful')) &&
-          text.length < 600
-        ) {
-          const btn = el.querySelector('button');
-          if (btn) { (btn as HTMLElement).click(); return true; }
-        }
-      }
-      return false;
-    });
-    if (!feedbackClicked) warn(`  ⚠ No feedback widget found on ${framework}, skipping`);
-  } catch { /* ignore */ }
-  await sleep(500);
-
-  // 8. Click internal link to second page
-  log('  → link_click (internal) + page_view (second page)');
-  const secondPath = new URL(site.secondUrl).pathname.replace(/\/$/, '');
-
-  try {
-    let clicked = false;
-    try {
-      const found = await page.evaluate((targetPath: string) => {
-        for (const a of Array.from(document.querySelectorAll('a[href]'))) {
-          try {
-            const resolved = new URL((a as HTMLAnchorElement).href);
-            if (resolved.pathname.replace(/\/$/, '') === targetPath) {
-              (a as HTMLElement).setAttribute('data-do11y-test-nav', '1');
-              return true;
-            }
-          } catch { /* ignore unparseable hrefs */ }
-        }
-        return false;
-      }, secondPath);
-
-      if (found) {
-        await page.evaluate(() => {
-          document.querySelector('[data-do11y-test-nav]')?.scrollIntoView({ block: 'center' });
-        });
-        await sleep(300);
-        await Promise.all([
-          page.click('[data-do11y-test-nav]'),
-          page.waitForNavigation({ waitUntil: 'networkidle2', timeout: 15000 }).catch(() => {}),
-        ]);
-        clicked = true;
-      }
-    } catch { /* fall through to direct navigation */ }
-
-    if (!clicked) {
-      warn(`  ⚠ Could not find nav link to ${secondPath}, navigating directly`);
-      await page.goto(site.secondUrl, { waitUntil: 'networkidle2', timeout: 30000 });
-    }
-  } catch {
-    await page.goto(site.secondUrl, { waitUntil: 'networkidle2', timeout: 30000 });
-  }
-  await sleep(1500);
-
-  // 9. Trigger page_exit
-  log('  → page_exit');
-  await page.close({ runBeforeUnload: true });
-  await sleep(2000);
-}
-
 // ─── Supabase query ──────────────────────────────────────────────────────────
 
 async function querySupabase(testRunId: string): Promise<SupabaseRow[]> {
@@ -438,60 +108,6 @@ async function querySupabase(testRunId: string): Promise<SupabaseRow[]> {
   }
 
   return await res.json() as SupabaseRow[];
-}
-
-// ─── Validation ───────────────────────────────────────────────────────────────
-
-const EXPECTED_EVENTS: Record<string, EventExpectation> = {
-  'browser.do11y.page_view':       { min: 2 },
-  'browser.do11y.scroll_depth':    { min: 1 },
-  'browser.do11y.search_opened':   { min: 1 },
-  'browser.do11y.code_copied':     { min: 1 },
-  'browser.do11y.link_click':      { min: 1 },
-  'browser.do11y.page_exit':       { min: 1 },
-  'browser.do11y.expand_collapse': { min: 1 },
-  'browser.do11y.toc_click':       { min: 1 },
-  'browser.do11y.feedback':        { min: 0 },
-  'browser.do11y.section_visible': { min: 1 },
-};
-
-// Frameworks confirmed to have a page-level feedback widget on their test pages.
-const FEEDBACK_REQUIRED = new Set(['mkdocs-material']);
-
-// Frameworks whose test pages have no documentation-level expandable content.
-// expand_collapse events on these pages indicate a false positive in do11y
-// (e.g. a sidebar nav toggle being mis-classified), so we assert max: 0.
-const EXPAND_NONE = new Set(['nextra', 'docsy-dev']);
-
-function validateEvents(
-  framework: string,
-  rows: SupabaseRow[],
-): { pass: number; fail: number; lines: string[] } {
-  const byType: Record<string, number> = {};
-  for (const row of rows) {
-    const eventName = row.payload?.eventName;
-    if (eventName) byType[eventName] = (byType[eventName] ?? 0) + 1;
-  }
-
-  let pass = 0;
-  let failCount = 0;
-  const lines: string[] = [];
-
-  for (const [type, exp] of Object.entries(EXPECTED_EVENTS)) {
-    const min = (type === 'browser.do11y.feedback'        && FEEDBACK_REQUIRED.has(framework)) ? 1
-              : (type === 'browser.do11y.expand_collapse' && EXPAND_NONE.has(framework))       ? 0
-              : exp.min;
-    const max = (type === 'browser.do11y.expand_collapse' && EXPAND_NONE.has(framework))       ? 0
-              : exp.max;
-    const count = byType[type] ?? 0;
-    const ok    = count >= min && (max === undefined || count <= max);
-    if (ok) pass++; else failCount++;
-    const expectStr = max !== undefined ? `=${max}` : `≥${min}`;
-    const icon = ok ? '✅' : (min === 0 && max === undefined ? '⚠️' : '❌');
-    lines.push(`    ${icon} ${type.padEnd(18)} ${count} event(s) (expected ${expectStr})`);
-  }
-
-  return { pass, fail: failCount, lines };
 }
 
 // ─── Main ─────────────────────────────────────────────────────────────────────
@@ -535,7 +151,7 @@ function validateEvents(
     const patchedScript = buildPatchedScript(name, testRunId);
 
     try {
-      await runInteractions(browser, name, site, patchedScript);
+      await runInteractionsLive(browser, name, site, patchedScript);
       log('  Interactions complete');
       results[name] = { tested: true };
     } catch (err) {
@@ -579,7 +195,7 @@ function validateEvents(
       continue;
     }
 
-    const v = validateEvents(name, fwRows);
+    const v = validateEventsLive(name, fwRows);
     for (const line of v.lines) console.log(`│  ${line}`);
     grandPass += v.pass;
     grandFail += v.fail;
