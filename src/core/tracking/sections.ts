@@ -29,9 +29,9 @@ function emitSectionEvent(emit: EmitFn, el: Element, elapsedMs: number): void {
 let sectionObserver: IntersectionObserver | null = null;
 let sectionTimers: Record<string, SectionTimer> = {};
 
-export function setupSectionVisibilityTracking(config: Do11yConfig, emit: EmitFn): void {
-  if (!config.trackSectionVisibility) return;
-  if (typeof IntersectionObserver === 'undefined') return;
+export function setupSectionVisibilityTracking(config: Do11yConfig, emit: EmitFn): () => void {
+  if (!config.trackSectionVisibility) return () => { /* noop */ };
+  if (typeof IntersectionObserver === 'undefined') return () => { /* noop */ };
 
   const threshold = config.sectionVisibleThreshold * 1000;
 
@@ -72,6 +72,9 @@ export function setupSectionVisibilityTracking(config: Do11yConfig, emit: EmitFn
   }, { threshold: 0.5 });
 
   observeHeadings();
+
+  // Return cleanup that uses the module-level disconnectSectionObserver
+  return () => disconnectSectionObserver();
 }
 
 export function observeHeadings(): void {

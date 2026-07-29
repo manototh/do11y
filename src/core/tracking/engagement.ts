@@ -64,8 +64,8 @@ export function emitPageExit(config: Do11yConfig, emit: EmitFn, afterEmit?: () =
   afterEmit?.();
 }
 
-export function setupEngagementTracking(config: Do11yConfig, emit: EmitFn): void {
-  document.addEventListener('visibilitychange', () => {
+export function setupEngagementTracking(config: Do11yConfig, emit: EmitFn): () => void {
+  const visibilityHandler = (): void => {
     if (document.hidden) {
       if (isPageVisible) {
         totalActiveTime += Date.now() - lastActivityTime;
@@ -75,11 +75,18 @@ export function setupEngagementTracking(config: Do11yConfig, emit: EmitFn): void
       lastActivityTime = Date.now();
       isPageVisible = true;
     }
-  });
+  };
+  document.addEventListener('visibilitychange', visibilityHandler);
 
-  window.addEventListener('beforeunload', () => {
+  const beforeUnloadHandler = (): void => {
     emitPageExit(config, emit);
-  });
+  };
+  window.addEventListener('beforeunload', beforeUnloadHandler);
+
+  return () => {
+    document.removeEventListener('visibilitychange', visibilityHandler);
+    window.removeEventListener('beforeunload', beforeUnloadHandler);
+  };
 }
 
 export function resetEngagementState(): void {

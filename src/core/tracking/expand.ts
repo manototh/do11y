@@ -12,11 +12,11 @@ import {
   ATTR_DO11Y_EXPAND_SECTION,
 } from '../constants.js';
 
-export function setupExpandCollapseTracking(config: Do11yConfig, emit: EmitFn): void {
-  if (!config.trackExpandCollapse) return;
+export function setupExpandCollapseTracking(config: Do11yConfig, emit: EmitFn): () => void {
+  if (!config.trackExpandCollapse) return () => { /* noop */ };
 
   // Native <details> elements
-  document.addEventListener('toggle', (e) => {
+  const toggleHandler = (e: Event): void => {
     const details = e.target as HTMLDetailsElement;
     if (details.tagName !== 'DETAILS') return;
 
@@ -28,10 +28,11 @@ export function setupExpandCollapseTracking(config: Do11yConfig, emit: EmitFn): 
       [ATTR_DO11Y_EXPAND_ACTION]: details.open ? 'expand' : 'collapse',
       [ATTR_DO11Y_EXPAND_SECTION]: sanitizeText(getNearestHeading(details), 100),
     });
-  }, true);
+  };
+  document.addEventListener('toggle', toggleHandler, true);
 
   // Accordion-style elements controlled by aria-expanded
-  document.addEventListener('click', (e) => {
+  const clickHandler = (e: MouseEvent): void => {
     const trigger = (e.target as Element).closest(
       '[aria-expanded], [class*="accordion"] button, [class*="collapsible"] button'
     );
@@ -49,5 +50,11 @@ export function setupExpandCollapseTracking(config: Do11yConfig, emit: EmitFn): 
       [ATTR_DO11Y_EXPAND_ACTION]: wasExpanded ? 'collapse' : 'expand',
       [ATTR_DO11Y_EXPAND_SECTION]: sanitizeText(getNearestHeading(trigger), 100),
     });
-  });
+  };
+  document.addEventListener('click', clickHandler);
+
+  return () => {
+    document.removeEventListener('toggle', toggleHandler, true);
+    document.removeEventListener('click', clickHandler);
+  };
 }

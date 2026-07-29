@@ -13,10 +13,10 @@ import {
   ATTR_DO11Y_TAB_IS_DEFAULT,
 } from '../constants.js';
 
-export function setupTabSwitchTracking(config: Do11yConfig, emit: EmitFn): void {
-  if (!config.trackTabSwitches) return;
+export function setupTabSwitchTracking(config: Do11yConfig, emit: EmitFn): () => void {
+  if (!config.trackTabSwitches) return () => { /* noop */ };
 
-  document.addEventListener('click', (e) => {
+  const handler = (e: MouseEvent): void => {
     let baseSel = '[role="tab"], .tabs button, .tabs a, .tabbed-labels label';
     const safeTabSel = validateSelector(config.tabContainerSelector);
     if (safeTabSel) {
@@ -44,5 +44,7 @@ export function setupTabSwitchTracking(config: Do11yConfig, emit: EmitFn): void 
       [ATTR_DO11Y_TAB_GROUP]: section,
       [ATTR_DO11Y_TAB_IS_DEFAULT]: false,
     });
-  });
+  };
+  document.addEventListener('click', handler);
+  return () => document.removeEventListener('click', handler);
 }

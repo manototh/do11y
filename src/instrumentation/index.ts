@@ -30,13 +30,12 @@ import { getBrowserContext } from '../core/context.js';
 import { getPageInfo } from '../core/context.js';
 import { trackPageView } from '../core/tracking/page-view.js';
 import { setupLinkTracking } from '../core/tracking/links.js';
-import { setupScrollTracking, checkScrollDepth, resetTrackedScrollDepths } from '../core/tracking/scroll.js';
+import { setupScrollTracking, resetTrackedScrollDepths } from '../core/tracking/scroll.js';
 import { setupEngagementTracking, emitPageExit, resetEngagementState } from '../core/tracking/engagement.js';
 import { setupSearchTracking } from '../core/tracking/search.js';
 import { setupCopyTracking } from '../core/tracking/copy.js';
 import {
   setupSectionVisibilityTracking,
-  disconnectSectionObserver,
   observeHeadings,
 } from '../core/tracking/sections.js';
 import { setupTabSwitchTracking } from '../core/tracking/tabs.js';
@@ -53,6 +52,12 @@ export type { DocsInstrumentationConfig } from './config.js';
 let mutationObserver: MutationObserver | null = null;
 let pathPollId: ReturnType<typeof setInterval> | null = null;
 let popstateHandler: ((this: WindowEventHandlers, ev: PopStateEvent) => void) | null = null;
+let pathChangeTimer: ReturnType<typeof setTimeout> | null = null;
+
+// ─── Rate limiting state ───────────────────────────────────────────────────
+
+let lastEmitTime: Record<string, number> = {};
+const RATE_LIMIT_MS = 100;
 
 /**
  * OpenTelemetry instrumentation for documentation sites.
@@ -64,6 +69,7 @@ let popstateHandler: ((this: WindowEventHandlers, ev: PopStateEvent) => void) | 
  */
 export class DocsInstrumentation extends InstrumentationBase<DocsInstrumentationConfig> {
   private _do11yConfig: Partial<Do11yConfig> = {};
+  private _cleanupFns: Array<() => void> = [];
 
   constructor(config: DocsInstrumentationConfig = {}) {
     super('@manototh/do11y', VERSION, config);
@@ -91,6 +97,13 @@ export class DocsInstrumentation extends InstrumentationBase<DocsInstrumentation
     // Create emit function backed by the OTel Logger
     const logger = logs.getLogger('@manototh/do11y');
     const emit: EmitFn = (eventName, eventData) => {
+      // Rate limit: suppress same-type events within the window
+      const now = Date.now();
+      if (RATE_LIMIT_MS > 0 && lastEmitTime[eventName]) {
+        if (now - lastEmitTime[eventName] < RATE_LIMIT_MS) return;
+      }
+      lastEmitTime[eventName] = now;
+
       logger.emit({
         eventName,
         severityNumber: 9, // SEVERITY_NUMBER_INFO
@@ -104,18 +117,21 @@ export class DocsInstrumentation extends InstrumentationBase<DocsInstrumentation
       });
     };
 
-    // Wire up all tracking modules
+    // Wire up all tracking modules and collect cleanup handlers
+    this._cleanupFns = [
+      setupLinkTracking(this._do11yConfig as Do11yConfig, emit),
+      setupScrollTracking(this._do11yConfig as Do11yConfig, emit),
+      setupEngagementTracking(this._do11yConfig as Do11yConfig, emit),
+      setupSearchTracking(this._do11yConfig as Do11yConfig, emit),
+      setupCopyTracking(this._do11yConfig as Do11yConfig, emit),
+      setupSectionVisibilityTracking(this._do11yConfig as Do11yConfig, emit),
+      setupTabSwitchTracking(this._do11yConfig as Do11yConfig, emit),
+      setupTocClickTracking(this._do11yConfig as Do11yConfig, emit),
+      setupFeedbackTracking(this._do11yConfig as Do11yConfig, emit),
+      setupExpandCollapseTracking(this._do11yConfig as Do11yConfig, emit),
+    ];
+
     trackPageView(this._do11yConfig as Do11yConfig, emit);
-    setupLinkTracking(this._do11yConfig as Do11yConfig, emit);
-    setupScrollTracking(this._do11yConfig as Do11yConfig, emit);
-    setupEngagementTracking(this._do11yConfig as Do11yConfig, emit);
-    setupSearchTracking(this._do11yConfig as Do11yConfig, emit);
-    setupCopyTracking(this._do11yConfig as Do11yConfig, emit);
-    setupSectionVisibilityTracking(this._do11yConfig as Do11yConfig, emit);
-    setupTabSwitchTracking(this._do11yConfig as Do11yConfig, emit);
-    setupTocClickTracking(this._do11yConfig as Do11yConfig, emit);
-    setupFeedbackTracking(this._do11yConfig as Do11yConfig, emit);
-    setupExpandCollapseTracking(this._do11yConfig as Do11yConfig, emit);
 
     // ── SPA navigation detection ────────────────────────────────────────
     // Detects client-side route changes and emits page_exit + page_view so
@@ -123,18 +139,47 @@ export class DocsInstrumentation extends InstrumentationBase<DocsInstrumentation
 
     let lastPath = window.location.pathname;
 
-    const handlePathChange = (): void => {
-      if (window.location.pathname === lastPath) return;
-      lastPath = window.location.pathname;
-      emitPageExit(this._do11yConfig as Do11yConfig, emit);
-      resetTrackedScrollDepths();
-      resetEngagementState();
-      trackPageView(this._do11yConfig as Do11yConfig, emit);
+    // Separate the section heading re-observation from the debounced path
+    // change handler. The MutationObserver fires on every DOM mutation —
+    // we need to re-observe headings immediately so the IntersectionObserver
+    // picks up newly rendered headings, but we debounce the page transition
+    // events to collapse rapid SPA router path changes into one.
+    const onDomMutated = (): void => {
       observeHeadings();
-      checkScrollDepth(this._do11yConfig as Do11yConfig, emit);
     };
 
-    mutationObserver = new MutationObserver(handlePathChange);
+    const handlePathChange = (): void => {
+      if (window.location.pathname === lastPath) return;
+
+      // Debounce: cancel any pending transition and wait for the SPA
+      // router to settle. Intermediate states during initialization
+      // won't trigger events — only the settled path is recorded.
+      if (pathChangeTimer) clearTimeout(pathChangeTimer);
+
+      pathChangeTimer = setTimeout(() => {
+        pathChangeTimer = null;
+
+        // Re-read path at timer fire time — the SPA may have changed
+        // it further during the debounce window.
+        if (window.location.pathname === lastPath) return;
+        lastPath = window.location.pathname;
+
+        emitPageExit(this._do11yConfig as Do11yConfig, emit);
+        resetTrackedScrollDepths();
+        resetEngagementState();
+        trackPageView(this._do11yConfig as Do11yConfig, emit);
+        observeHeadings();
+        // checkScrollDepth deliberately omitted — the scroll listener
+        // in setupScrollTracking() fires thresholds naturally.
+      }, 500); // 500ms debounce: collapses rapid SPA router transitions
+    };
+
+    // MutationObserver: re-observe headings immediately on DOM changes,
+    // and detect path changes (debounced).
+    mutationObserver = new MutationObserver(() => {
+      onDomMutated();
+      handlePathChange();
+    });
     // document.body may be null if the page hasn't loaded yet (e.g. during
     // evaluateOnNewDocument bootstrap). When body exists, observe it directly;
     // otherwise, the 200ms path poll catches path changes until body arrives.
@@ -164,7 +209,15 @@ export class DocsInstrumentation extends InstrumentationBase<DocsInstrumentation
    * Disable the instrumentation: tear down all event listeners and observers.
    */
   override disable(): void {
-    disconnectSectionObserver();
+    // Clear any pending debounced path change
+    if (pathChangeTimer) {
+      clearTimeout(pathChangeTimer);
+      pathChangeTimer = null;
+    }
+
+    // Call all tracking module cleanup functions to remove DOM listeners
+    for (const fn of this._cleanupFns) fn();
+    this._cleanupFns = [];
 
     // Tear down SPA navigation detection
     if (mutationObserver) {

@@ -12,12 +12,12 @@ import {
   ATTR_DO11Y_TOC_POSITION,
 } from '../constants.js';
 
-export function setupTocClickTracking(config: Do11yConfig, emit: EmitFn): void {
-  if (!config.trackTocClicks) return;
+export function setupTocClickTracking(config: Do11yConfig, emit: EmitFn): () => void {
+  if (!config.trackTocClicks) return () => { /* noop */ };
 
   // Use capture phase so the event is seen even if the framework
   // calls stopPropagation() during the bubble phase.
-  document.addEventListener('click', (e) => {
+  const handler = (e: MouseEvent): void => {
     const link = (e.target as Element).closest('a');
     if (!link) return;
 
@@ -49,5 +49,7 @@ export function setupTocClickTracking(config: Do11yConfig, emit: EmitFn): void {
       [ATTR_DO11Y_TOC_HEADING_LEVEL]: headingLevel,
       [ATTR_DO11Y_TOC_POSITION]: tocPosition,
     });
-  }, true);
+  };
+  document.addEventListener('click', handler, true);
+  return () => document.removeEventListener('click', handler, true);
 }

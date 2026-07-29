@@ -88,8 +88,10 @@ export function checkScrollDepth(config: Do11yConfig, emit: EmitFn): void {
   });
 }
 
-export function setupScrollTracking(config: Do11yConfig, emit: EmitFn): void {
-  if (!config.trackScrollDepth) return;
+export function setupScrollTracking(config: Do11yConfig, emit: EmitFn): () => void {
+  const cleanupFns: Array<() => void> = [];
+
+  if (!config.trackScrollDepth) return () => { /* noop */ };
 
   if (config.contentSelector) {
     const contentEl = document.querySelector(config.contentSelector);
@@ -110,8 +112,10 @@ export function setupScrollTracking(config: Do11yConfig, emit: EmitFn): void {
   }
 
   window.addEventListener('scroll', onScroll);
+  cleanupFns.push(() => window.removeEventListener('scroll', onScroll));
   if (scrollContainer) {
     scrollContainer.addEventListener('scroll', onScroll);
+    cleanupFns.push(() => scrollContainer!.removeEventListener('scroll', onScroll));
     if (config.debug) {
       const sc = scrollContainer as HTMLElement;
       console.log('[do11y] Using container-based scroll tracking:', sc.className || sc.tagName);
@@ -121,6 +125,8 @@ export function setupScrollTracking(config: Do11yConfig, emit: EmitFn): void {
   // Run once on init so short pages that fit in the viewport get
   // recorded immediately (no scroll event will ever fire for them).
   checkScrollDepth(config, emit);
+
+  return () => { for (const fn of cleanupFns) fn(); };
 }
 
 export function resetTrackedScrollDepths(): void {

@@ -36,10 +36,10 @@ function getLinkIndex(link: Element, href: string): number {
   return 1;
 }
 
-export function setupLinkTracking(config: Do11yConfig, emit: EmitFn): void {
+export function setupLinkTracking(config: Do11yConfig, emit: EmitFn): () => void {
   // Use capture phase so the handler fires before SPA routers (VitePress,
   // Docusaurus, Nextra, etc.) can call stopPropagation / stopImmediatePropagation.
-  document.addEventListener('click', (e) => {
+  const handler = (e: MouseEvent): void => {
     const link = (e.target as Element).closest('a');
     if (!link) return;
 
@@ -81,5 +81,7 @@ export function setupLinkTracking(config: Do11yConfig, emit: EmitFn): void {
       [ATTR_DO11Y_LINK_SECTION]: sanitizeText(getNearestHeading(link), 100),
       [ATTR_DO11Y_LINK_INDEX]: getLinkIndex(link, href),
     });
-  }, true);
+  };
+  document.addEventListener('click', handler, true);
+  return () => document.removeEventListener('click', handler, true);
 }

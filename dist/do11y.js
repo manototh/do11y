@@ -577,7 +577,8 @@
 		});
 	}
 	function setupScrollTracking(config, emit) {
-		if (!config.trackScrollDepth) return;
+		const cleanupFns = [];
+		if (!config.trackScrollDepth) return () => {};
 		if (config.contentSelector) {
 			const contentEl = document.querySelector(config.contentSelector);
 			if (contentEl) scrollContainer = findScrollableAncestor(contentEl);
@@ -593,14 +594,19 @@
 			}
 		}
 		window.addEventListener("scroll", onScroll);
+		cleanupFns.push(() => window.removeEventListener("scroll", onScroll));
 		if (scrollContainer) {
 			scrollContainer.addEventListener("scroll", onScroll);
+			cleanupFns.push(() => scrollContainer.removeEventListener("scroll", onScroll));
 			if (config.debug) {
 				const sc = scrollContainer;
 				console.log("[do11y] Using container-based scroll tracking:", sc.className || sc.tagName);
 			}
 		}
 		checkScrollDepth(config, emit);
+		return () => {
+			for (const fn of cleanupFns) fn();
+		};
 	}
 	function resetTrackedScrollDepths() {
 		trackedScrollDepths = /* @__PURE__ */ new Set();
@@ -620,8 +626,8 @@
 	let sectionObserver = null;
 	let sectionTimers = {};
 	function setupSectionVisibilityTracking(config, emit) {
-		if (!config.trackSectionVisibility) return;
-		if (typeof IntersectionObserver === "undefined") return;
+		if (!config.trackSectionVisibility) return () => {};
+		if (typeof IntersectionObserver === "undefined") return () => {};
 		const threshold = config.sectionVisibleThreshold * 1e3;
 		sectionObserver = new IntersectionObserver((entries) => {
 			entries.forEach((entry) => {
@@ -658,6 +664,7 @@
 			});
 		}, { threshold: .5 });
 		observeHeadings();
+		return () => disconnectSectionObserver();
 	}
 	function observeHeadings() {
 		if (!sectionObserver) return;
@@ -683,6 +690,16 @@
 			}
 		});
 		sectionTimers = {};
+	}
+	function disconnectSectionObserver() {
+		if (sectionObserver) {
+			flushVisibleSections({
+				trackSectionVisibility: false,
+				sectionVisibleThreshold: 0
+			}, () => {});
+			sectionObserver.disconnect();
+			sectionObserver = null;
+		}
 	}
 	//#endregion
 	//#region src/core/tracking/engagement.ts
@@ -718,7 +735,7 @@
 		afterEmit?.();
 	}
 	function setupEngagementTracking(config, emit) {
-		document.addEventListener("visibilitychange", () => {
+		const visibilityHandler = () => {
 			if (document.hidden) {
 				if (isPageVisible) {
 					totalActiveTime += Date.now() - lastActivityTime;
@@ -728,10 +745,16 @@
 				lastActivityTime = Date.now();
 				isPageVisible = true;
 			}
-		});
-		window.addEventListener("beforeunload", () => {
+		};
+		document.addEventListener("visibilitychange", visibilityHandler);
+		const beforeUnloadHandler = () => {
 			emitPageExit(config, emit);
-		});
+		};
+		window.addEventListener("beforeunload", beforeUnloadHandler);
+		return () => {
+			document.removeEventListener("visibilitychange", visibilityHandler);
+			window.removeEventListener("beforeunload", beforeUnloadHandler);
+		};
 	}
 	function resetEngagementState() {
 		pageLoadTime = Date.now();
@@ -790,7 +813,7 @@
 		return 1;
 	}
 	function setupLinkTracking(config, emit) {
-		document.addEventListener("click", (e) => {
+		const handler = (e) => {
 			const link = e.target.closest("a");
 			if (!link) return;
 			const href = link.getAttribute("href");
@@ -820,17 +843,25 @@
 				[ATTR_DO11Y_LINK_SECTION]: sanitizeText(getNearestHeading(link), 100),
 				[ATTR_DO11Y_LINK_INDEX]: getLinkIndex(link, href)
 			});
-		}, true);
+		};
+		document.addEventListener("click", handler, true);
+		return () => document.removeEventListener("click", handler, true);
 	}
 	//#endregion
 	//#region src/core/tracking/search.ts
 	function setupSearchTracking(config, emit) {
-		document.addEventListener("click", (e) => {
+		const clickHandler = (e) => {
 			if (e.target.closest(config.searchSelector)) emit(EVENT_SEARCH_OPENED, {});
-		}, true);
-		document.addEventListener("keydown", (e) => {
+		};
+		document.addEventListener("click", clickHandler, true);
+		const keydownHandler = (e) => {
 			if ((e.metaKey || e.ctrlKey) && e.key === "k") emit(EVENT_SEARCH_OPENED, { [ATTR_DO11Y_SEARCH_TRIGGER]: "keyboard" });
-		});
+		};
+		document.addEventListener("keydown", keydownHandler);
+		return () => {
+			document.removeEventListener("click", clickHandler, true);
+			document.removeEventListener("keydown", keydownHandler);
+		};
 	}
 	//#endregion
 	//#region src/core/tracking/copy.ts
@@ -843,7 +874,7 @@
 		return 1;
 	}
 	function setupCopyTracking(config, emit) {
-		document.addEventListener("click", (e) => {
+		const handler = (e) => {
 			const copyButton = e.target.closest(config.copyButtonSelector);
 			if (copyButton) {
 				const codeBlock = copyButton.closest("[class*=\"language-\"], [language]") ?? copyButton.closest(config.codeBlockSelector) ?? copyButton.closest(".expressive-code")?.querySelector("pre") ?? copyButton.closest("div, section")?.querySelector("pre") ?? copyButton.parentElement?.querySelector("pre") ?? null;
@@ -854,13 +885,15 @@
 					[ATTR_DO11Y_CODE_INDEX]: getCodeBlockIndex(codeBlock, config)
 				});
 			}
-		}, true);
+		};
+		document.addEventListener("click", handler, true);
+		return () => document.removeEventListener("click", handler, true);
 	}
 	//#endregion
 	//#region src/core/tracking/tabs.ts
 	function setupTabSwitchTracking(config, emit) {
-		if (!config.trackTabSwitches) return;
-		document.addEventListener("click", (e) => {
+		if (!config.trackTabSwitches) return () => {};
+		const handler = (e) => {
 			let baseSel = "[role=\"tab\"], .tabs button, .tabs a, .tabbed-labels label";
 			const safeTabSel = validateSelector(config.tabContainerSelector);
 			if (safeTabSel) baseSel += ", " + safeTabSel + " button, " + safeTabSel + " a, " + safeTabSel + " label";
@@ -875,13 +908,15 @@
 				[ATTR_DO11Y_TAB_GROUP]: section,
 				[ATTR_DO11Y_TAB_IS_DEFAULT]: false
 			});
-		});
+		};
+		document.addEventListener("click", handler);
+		return () => document.removeEventListener("click", handler);
 	}
 	//#endregion
 	//#region src/core/tracking/toc.ts
 	function setupTocClickTracking(config, emit) {
-		if (!config.trackTocClicks) return;
-		document.addEventListener("click", (e) => {
+		if (!config.trackTocClicks) return () => {};
+		const handler = (e) => {
 			const link = e.target.closest("a");
 			if (!link) return;
 			const tocContainer = resolveTocContainer(link, config);
@@ -907,13 +942,15 @@
 				[ATTR_DO11Y_TOC_HEADING_LEVEL]: headingLevel,
 				[ATTR_DO11Y_TOC_POSITION]: tocPosition
 			});
-		}, true);
+		};
+		document.addEventListener("click", handler, true);
+		return () => document.removeEventListener("click", handler, true);
 	}
 	//#endregion
 	//#region src/core/tracking/feedback.ts
 	function setupFeedbackTracking(config, emit) {
-		if (!config.trackFeedback) return;
-		document.addEventListener("click", (e) => {
+		if (!config.trackFeedback) return () => {};
+		const handler = (e) => {
 			const button = e.target.closest("button, [role=\"button\"], a");
 			if (!button) return;
 			if (!button.closest(validateSelector(config.feedbackSelector) ?? "[class*=\"feedback\"], [class*=\"helpful\"], [class*=\"rating\"], [class*=\"was-this\"], [data-feedback]")) return;
@@ -928,13 +965,15 @@
 			else if (/\bno\b|👎|thumbs.?down|not.?helpful/i.test(buttonText + " " + ariaLabel + " " + titleAttr)) rating = "no";
 			if (!rating) return;
 			emit(EVENT_FEEDBACK, { [ATTR_DO11Y_FEEDBACK_RATING]: rating });
-		});
+		};
+		document.addEventListener("click", handler);
+		return () => document.removeEventListener("click", handler);
 	}
 	//#endregion
 	//#region src/core/tracking/expand.ts
 	function setupExpandCollapseTracking(config, emit) {
-		if (!config.trackExpandCollapse) return;
-		document.addEventListener("toggle", (e) => {
+		if (!config.trackExpandCollapse) return () => {};
+		const toggleHandler = (e) => {
 			const details = e.target;
 			if (details.tagName !== "DETAILS") return;
 			const summary = details.querySelector("summary");
@@ -944,8 +983,9 @@
 				[ATTR_DO11Y_EXPAND_ACTION]: details.open ? "expand" : "collapse",
 				[ATTR_DO11Y_EXPAND_SECTION]: sanitizeText(getNearestHeading(details), 100)
 			});
-		}, true);
-		document.addEventListener("click", (e) => {
+		};
+		document.addEventListener("toggle", toggleHandler, true);
+		const clickHandler = (e) => {
 			const trigger = e.target.closest("[aria-expanded], [class*=\"accordion\"] button, [class*=\"collapsible\"] button");
 			if (!trigger) return;
 			if (trigger.closest("details")) return;
@@ -956,7 +996,12 @@
 				[ATTR_DO11Y_EXPAND_ACTION]: wasExpanded ? "collapse" : "expand",
 				[ATTR_DO11Y_EXPAND_SECTION]: sanitizeText(getNearestHeading(trigger), 100)
 			});
-		});
+		};
+		document.addEventListener("click", clickHandler);
+		return () => {
+			document.removeEventListener("toggle", toggleHandler, true);
+			document.removeEventListener("click", clickHandler);
+		};
 	}
 	//#endregion
 	//#region src/standalone/transport.ts
@@ -1290,6 +1335,7 @@
 	if (_isInIframe && !_alreadyLoaded) window.__do11yInitialized = false;
 	let mutationObserver = null;
 	let pathPollId = null;
+	let pathChangeTimer = null;
 	function init() {
 		if (window.Do11yConfig && typeof window.Do11yConfig === "object") {
 			for (const key in config) if (Object.prototype.hasOwnProperty.call(window.Do11yConfig, key)) config[key] = window.Do11yConfig[key];
@@ -1364,17 +1410,27 @@
 		setupFeedbackTracking(config, emit);
 		setupExpandCollapseTracking(config, emit);
 		let lastPath = window.location.pathname;
+		const onDomMutated = () => {
+			observeHeadings();
+		};
 		const handlePathChange = () => {
 			if (window.location.pathname === lastPath) return;
-			lastPath = window.location.pathname;
-			emitPageExit(config, emit, () => flush(config));
-			resetTrackedScrollDepths();
-			resetEngagementState();
-			trackPageView(config, emit);
-			observeHeadings();
-			checkScrollDepth(config, emit);
+			if (pathChangeTimer) clearTimeout(pathChangeTimer);
+			pathChangeTimer = setTimeout(() => {
+				pathChangeTimer = null;
+				if (window.location.pathname === lastPath) return;
+				lastPath = window.location.pathname;
+				emitPageExit(config, emit, () => flush(config));
+				resetTrackedScrollDepths();
+				resetEngagementState();
+				trackPageView(config, emit);
+				observeHeadings();
+			}, 500);
 		};
-		mutationObserver = new MutationObserver(handlePathChange);
+		mutationObserver = new MutationObserver(() => {
+			onDomMutated();
+			handlePathChange();
+		});
 		mutationObserver.observe(document.body, {
 			childList: true,
 			subtree: true
@@ -1383,6 +1439,10 @@
 		pathPollId = window.setInterval(handlePathChange, 200);
 		Object.freeze(config);
 		window.addEventListener("beforeunload", () => {
+			if (pathChangeTimer) {
+				clearTimeout(pathChangeTimer);
+				pathChangeTimer = null;
+			}
 			if (pathPollId !== null) {
 				clearInterval(pathPollId);
 				pathPollId = null;

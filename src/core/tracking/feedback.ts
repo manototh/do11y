@@ -10,10 +10,10 @@ import {
   ATTR_DO11Y_FEEDBACK_RATING,
 } from '../constants.js';
 
-export function setupFeedbackTracking(config: Do11yConfig, emit: EmitFn): void {
-  if (!config.trackFeedback) return;
+export function setupFeedbackTracking(config: Do11yConfig, emit: EmitFn): () => void {
+  if (!config.trackFeedback) return () => { /* noop */ };
 
-  document.addEventListener('click', (e) => {
+  const handler = (e: MouseEvent): void => {
     const button = (e.target as Element).closest('button, [role="button"], a');
     if (!button) return;
 
@@ -50,5 +50,7 @@ export function setupFeedbackTracking(config: Do11yConfig, emit: EmitFn): void {
     if (!rating) return;
 
     emit(EVENT_FEEDBACK, { [ATTR_DO11Y_FEEDBACK_RATING]: rating });
-  });
+  };
+  document.addEventListener('click', handler);
+  return () => document.removeEventListener('click', handler);
 }

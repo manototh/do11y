@@ -25,8 +25,8 @@ function getCodeBlockIndex(codeBlock: Element | null, config: Do11yConfig): numb
   return 1;
 }
 
-export function setupCopyTracking(config: Do11yConfig, emit: EmitFn): void {
-  document.addEventListener('click', (e) => {
+export function setupCopyTracking(config: Do11yConfig, emit: EmitFn): () => void {
+  const handler = (e: MouseEvent): void => {
     const copyButton = (e.target as Element).closest(config.copyButtonSelector!);
     if (copyButton) {
       const codeBlock: Element | null =
@@ -54,5 +54,7 @@ export function setupCopyTracking(config: Do11yConfig, emit: EmitFn): void {
         [ATTR_DO11Y_CODE_INDEX]: getCodeBlockIndex(codeBlock, config),
       });
     }
-  }, true);
+  };
+  document.addEventListener('click', handler, true);
+  return () => document.removeEventListener('click', handler, true);
 }

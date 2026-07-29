@@ -1874,6 +1874,7 @@ function setupExpandCollapseTracking(): void {
 
 let mutationObserver: MutationObserver | null = null;
 let pathPollId: ReturnType<typeof setInterval> | null = null;
+let pathChangeTimer: ReturnType<typeof setTimeout> | null = null;
 
 function init(): void {
   if (window.Do11yConfig && typeof window.Do11yConfig === 'object') {
@@ -1990,21 +1991,50 @@ function init(): void {
 
   let lastPath = window.location.pathname;
 
-  const handlePathChange = (): void => {
-    if (window.location.pathname === lastPath) return;
-    lastPath = window.location.pathname;
-    emitPageExit();
-    trackedScrollDepths = new Set();
-    pageLoadTime = Date.now();
-    lastActivityTime = Date.now();
-    totalActiveTime = 0;
-    isPageVisible = true;
-    trackPageView();
+  // Separate the section heading re-observation from the debounced path
+  // change handler. The MutationObserver fires on every DOM mutation —
+  // we need to re-observe headings immediately so the IntersectionObserver
+  // picks up newly rendered headings, but we debounce the page transition
+  // events to collapse rapid SPA router path changes into one.
+  const onDomMutated = (): void => {
     observeHeadings();
-    checkScrollDepth();
   };
 
-  mutationObserver = new MutationObserver(handlePathChange);
+  const handlePathChange = (): void => {
+    if (window.location.pathname === lastPath) return;
+
+    // Debounce: cancel any pending transition and wait for the SPA
+    // router to settle. Intermediate states during initialization
+    // won't trigger events — only the settled path is recorded.
+    if (pathChangeTimer) clearTimeout(pathChangeTimer);
+
+    pathChangeTimer = setTimeout(() => {
+      pathChangeTimer = null;
+
+      // Re-read path at timer fire time — the SPA may have changed
+      // it further during the debounce window.
+      if (window.location.pathname === lastPath) return;
+      lastPath = window.location.pathname;
+
+      emitPageExit();
+      trackedScrollDepths = new Set();
+      pageLoadTime = Date.now();
+      lastActivityTime = Date.now();
+      totalActiveTime = 0;
+      isPageVisible = true;
+      trackPageView();
+      observeHeadings();
+      // checkScrollDepth deliberately omitted — the scroll listener
+      // in setupScrollTracking() fires thresholds naturally.
+    }, 500); // 500ms debounce: collapses rapid SPA router transitions
+  };
+
+  // MutationObserver: re-observe headings immediately on DOM changes,
+  // and detect path changes (debounced).
+  mutationObserver = new MutationObserver(() => {
+    onDomMutated();
+    handlePathChange();
+  });
   mutationObserver.observe(document.body, { childList: true, subtree: true });
 
   window.addEventListener('popstate', handlePathChange);
@@ -2024,6 +2054,10 @@ function init(): void {
 }
 
 function cleanup(): void {
+  if (pathChangeTimer) {
+    clearTimeout(pathChangeTimer);
+    pathChangeTimer = null;
+  }
   if (mutationObserver) {
     mutationObserver.disconnect();
     mutationObserver = null;
