@@ -32,6 +32,15 @@ export function getIsDisabled(): boolean { return isDisabled; }
 export function getQueueLength(): number { return eventQueue.length; }
 export function getOtelLogger(): typeof _otelLogger { return _otelLogger; }
 
+/** Reset all module-level state to initial values. Used by tests. */
+export function resetTransportState(): void {
+  eventQueue = [];
+  flushTimeout = null;
+  for (const key of Object.keys(lastEventTime)) delete lastEventTime[key];
+  isDisabled = false;
+  _otelLogger = null;
+}
+
 // ─── Queue & Flush ───────────────────────────────────────────────────────────
 
 export function queueEvent(config: Do11yConfig, eventName: string, eventData: Record<string, unknown>): void {
@@ -61,10 +70,6 @@ export function queueEvent(config: Do11yConfig, eventName: string, eventData: Re
     ...getBrowserContext(),
     ...eventData,
   };
-
-  // Inject test-run metadata (set via Do11yConfig for integration tests)
-  if (config.testRunId) event._testRunId = config.testRunId;
-  if (config.testFramework) event._testFramework = config.testFramework;
 
   if (config.debug) {
     console.log('[Do11y] Event queued:', eventName, event);

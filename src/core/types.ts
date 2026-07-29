@@ -80,10 +80,6 @@ export interface Do11yConfig {
   footerSelector: string | null;
   contentSelector: string | null;
   useOtelBrowserInstrumentations: boolean;
-  /** Test-run identifier for integration test isolation. Not for production use. */
-  testRunId?: string;
-  /** Test framework name for integration test filtering. Not for production use. */
-  testFramework?: string;
 }
 
 export interface Do11yEvent {

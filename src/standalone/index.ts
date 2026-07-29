@@ -85,8 +85,6 @@ const config: Do11yConfig = {
   footerSelector: null,
   contentSelector: null,
   useOtelBrowserInstrumentations: false,
-  testRunId: undefined,
-  testFramework: undefined,
 };
 
 // ─── Guard: prevent double-init ──────────────────────────────────────────────
