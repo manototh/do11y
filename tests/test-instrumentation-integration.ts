@@ -94,8 +94,8 @@ function installDepsLocal(fw: import('./shared/frameworks.js').Framework): void 
 
 function buildPatchedHarness(framework: string): string {
   const src = fs.readFileSync(HARNESS_SRC, 'utf8');
-  const configBlock = `window.__do11yTestSetConfig({ framework: '${framework}', debug: false, sectionVisibleThreshold: 1 });\n`;
-  return configBlock + src;
+  const configBlock = `\nwindow.__do11yTestSetConfig({ framework: '${framework}', debug: false, sectionVisibleThreshold: 1 });\nwindow.__do11yTestInit();\n`;
+  return src + configBlock;
 }
 
 /**
@@ -205,8 +205,7 @@ function validateFromMemory(
 ): ValidationResult {
   const byType: Record<string, number> = {};
   for (const record of logRecords) {
-    const attrs = typeof record.attributes === 'object' && record.attributes ? record.attributes : {};
-    const eventName = attrs?.eventName as string | undefined;
+    const eventName = record.eventName ?? record._eventName as string | undefined;
     if (eventName) byType[eventName] = (byType[eventName] ?? 0) + 1;
   }
 
