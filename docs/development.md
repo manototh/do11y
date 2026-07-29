@@ -48,7 +48,7 @@ The test suite is organized in layers, each catching a different class of failur
 | Framework CSS class rename (drift) | Selector snapshot fixtures | < 1s | None |
 | Real-world CSS drift on production | Selector snapshot live-sites (~30s) | ~30s | None (`TEST_LIVE=1`) |
 | Standalone file doesn't load/export | Export tests (HTTP/OTLP) | ~5s | None |
-| Instrumentation doesn't emit events | Export tests (instrumentation-otel) | < 1s | None |
+| Instrumentation emits all 11 event types | Export tests (instrumentation-otel) | < 1s | None |
 | Supabase export broken | Export smoke test | ~3s | `SUPABASE_*` |
 | Built bundle emits all event types in real browser | Integration tests (fixture-based) | ~30s | None |
 | SQL query correctness | `test-queries.ts` | ~10s | `SUPABASE_*` |
@@ -116,6 +116,26 @@ Verify that the built standalone and instrumentation files correctly send events
 npm run test:export
 ```
 
+#### Instrumentation coverage
+
+The `instrumentation-otel` export test (`tests/export/instrumentation-otel.test.ts`) validates that `DocsInstrumentation` emits all 11 event types through the OTel LoggerProvider API. Each event type is tested with representative DOM interactions:
+
+| Event type | Unit test | Instr. export test | Standalone E2E |
+|---|---|---|---|
+| `page_view` | ✅ | ✅ | ✅ |
+| `link_click` | ✅ | ✅ | ✅ |
+| `scroll_depth` | ✅ | ✅ | ✅ |
+| `search_opened` | ✅ | ✅ | ✅ |
+| `code_copied` | ✅ | ✅ | ✅ |
+| `expand_collapse` | ✅ | ✅ | ✅ |
+| `toc_click` | ✅ | ✅ | ✅ |
+| `feedback` | ✅ | ✅ | ✅ |
+| `page_exit` | ✅ | ✅ | ✅ |
+| `section_visible` | ✅ | ✅ | — |
+| `tab_switch` | ✅ | ✅ | — |
+
+`section_visible` and `tab_switch` are not tested in the Puppeteer-based standalone E2E because they require `IntersectionObserver` and specific DOM structures that are hard to trigger reliably across all 7 framework fixtures. Unit tests and the instrumentation export test cover them.
+
 ### Supabase smoke test (optional)
 
 Requires `SUPABASE_URL` and `SUPABASE_KEY` in `tests/.env`:
@@ -128,8 +148,6 @@ SUPABASE_KEY=sb_publishable_your_key
 ```bash
 npm run test:supabase
 ```
-
-
 
 ### Query validation
 
