@@ -15,9 +15,11 @@ import puppeteer from 'puppeteer';
 import path from 'path';
 import fs from 'fs';
 import { createTestServer } from '../helpers/http-server';
+import { createStaticServer } from '../helpers/static-server';
 import { runInteractions, sleep } from '../helpers/puppeteer-interactions';
 import type { Browser } from 'puppeteer';
 import type { TestServer, ReceivedRequest } from '../helpers/http-server';
+import type { StaticServer } from '../helpers/static-server';
 
 const DO11Y_PATH = path.resolve(__dirname, '../../dist/do11y.js');
 const FIXTURES_DIR = path.resolve(__dirname, 'fixtures');
@@ -65,6 +67,7 @@ function collectEvents(requests: ReceivedRequest[]): Record<string, unknown>[] {
 describe('integration / standalone', () => {
   let browser: Browser;
   let server: TestServer;
+  let fixtures: StaticServer;
 
   beforeAll(async () => {
     if (!fs.existsSync(DO11Y_PATH)) {
@@ -73,6 +76,7 @@ describe('integration / standalone', () => {
       );
     }
     server = await createTestServer();
+    fixtures = await createStaticServer(FIXTURES_DIR);
     browser = await puppeteer.launch({
       headless: true,
       args: process.env.CI ? ['--no-sandbox', '--disable-setuid-sandbox'] : [],
@@ -82,6 +86,7 @@ describe('integration / standalone', () => {
   afterAll(async () => {
     await browser.close();
     await server.close();
+    await fixtures.close();
   });
 
   for (const framework of FRAMEWORKS) {
@@ -108,12 +113,13 @@ window.Do11yConfig = {
 `;
       await page.evaluateOnNewDocument(configBlock + do11ySrc);
 
-      // Navigate to the start fixture page
-      const startUrl = `file://${path.join(FIXTURES_DIR, `${framework}-start.html`)}`;
+      // Navigate to the start fixture page via the static HTTP server so
+      // relative nav links resolve correctly for link-click tracking.
+      const startUrl = `${fixtures.url}/${framework}-start.html`;
       await page.goto(startUrl, { waitUntil: 'networkidle2', timeout: 15000 });
 
       // Run the full interaction sequence (navigates to guide page, then closes)
-      const guideUrl = `file://${path.join(FIXTURES_DIR, `${framework}-guide.html`)}`;
+      const guideUrl = `${fixtures.url}/${framework}-guide.html`;
       await runInteractions(page, { guidePath: guideUrl, pageLoadTimeout: 15000 });
 
       // Give pending flushes time to reach the mock server
@@ -171,13 +177,15 @@ window.Do11yConfig = {
         expect(codeCopied[0]).toHaveProperty('browser.do11y.code.index');
       }
 
-      // 6. link_click events should have link type
+      // 6. At least one link_click should be from internal navigation
       const linkClicks = events.filter(
         (e: any) => e?.eventName === 'browser.do11y.link_click',
       );
-      if (linkClicks.length > 0) {
-        expect(linkClicks[0]).toHaveProperty('browser.do11y.link.type');
-      }
+      expect(linkClicks.length).toBeGreaterThanOrEqual(1);
+      const internalNav = linkClicks.find(
+        (e: any) => e?.['browser.do11y.link.type'] === 'internal',
+      );
+      expect(internalNav).toBeDefined();
 
       // Reset the server log for the next framework
       server.clear();

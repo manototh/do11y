@@ -266,8 +266,11 @@ export async function runInteractions(
   log('  → link_click (internal) + page_view (guide)');
   try {
     const gp = config.guidePath;
+    // Extract the bare filename from the guide path (e.g. "mintlify-guide.html")
+    // so we can match both absolute and relative href variants.
+    const relHref = gp.split('/').pop() || gp;
     const relPath = gp.startsWith('/') ? gp.slice(1) : gp;
-    const linkSel = [gp, `${gp}.html`, `${gp}/`, relPath, `${relPath}.html`, `${relPath}/`, `${relPath}.md`]
+    const linkSel = [gp, `./${relHref}`, relHref, `${gp}.html`, `${gp}/`, relPath, `${relPath}.html`, `${relPath}/`, `${relPath}.md`]
       .map((h) => `a[href="${h}"]`).join(', ');
 
     // Try clicking a matching link
