@@ -37,6 +37,38 @@ const MIME_TYPES: Record<string, string> = {
 };
 
 /**
+ * Try to read a file, invoking the callback with (null, data, servedPath)
+ * on success, or (err) on failure.
+ */
+function tryReadFile(
+  filePath: string,
+  callback: (err: Error | null, data?: Buffer, servedPath?: string) => void,
+): void {
+  fs.readFile(filePath, (err, data) => {
+    if (err) {
+      // Check for directory/index.js pattern: if the path is a directory
+      // with an index.js, serve that.
+      fs.stat(filePath, (statErr, stats) => {
+        if (!statErr && stats.isDirectory()) {
+          const indexPath = path.join(filePath, 'index.js');
+          fs.readFile(indexPath, (idxErr, idxData) => {
+            if (idxErr) {
+              callback(new Error('Not found'));
+            } else {
+              callback(null, idxData, indexPath);
+            }
+          });
+        } else {
+          callback(new Error('Not found'));
+        }
+      });
+    } else {
+      callback(null, data, filePath);
+    }
+  });
+}
+
+/**
  * Create and start a local HTTP server that serves files from a directory.
  */
 export function createStaticServer(directory: string): Promise<StaticServer> {
@@ -55,14 +87,36 @@ export function createStaticServer(directory: string): Promise<StaticServer> {
         return;
       }
 
-      fs.readFile(filePath, (err, data) => {
+      // CORS headers so module scripts from cross-origin test pages load correctly
+      res.setHeader('Access-Control-Allow-Origin', '*');
+      res.setHeader('Access-Control-Allow-Methods', 'GET, POST, OPTIONS');
+      res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
+
+      if (req.method === 'OPTIONS') {
+        res.writeHead(204);
+        res.end();
+        return;
+      }
+
+      tryReadFile(filePath, (err, data, servedPath) => {
         if (err) {
-          res.writeHead(404);
-          res.end('Not found');
+          // Extensionless ESM imports (e.g. './types/LogRecord' without .js)
+          // are common in OTel packages. Try appending .js as a fallback.
+          const jsPath = filePath + '.js';
+          tryReadFile(jsPath, (err2, data2, servedPath2) => {
+            if (err2) {
+              res.writeHead(404);
+              res.end('Not found');
+              return;
+            }
+            const ext = path.extname(servedPath2);
+            const contentType = MIME_TYPES[ext] ?? 'application/javascript';
+            res.writeHead(200, { 'Content-Type': contentType });
+            res.end(data2);
+          });
           return;
         }
-
-        const ext = path.extname(filePath);
+        const ext = path.extname(servedPath);
         const contentType = MIME_TYPES[ext] ?? 'application/octet-stream';
         res.writeHead(200, { 'Content-Type': contentType });
         res.end(data);
