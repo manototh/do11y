@@ -16,7 +16,7 @@ import path from 'path';
 import fs from 'fs';
 import { createTestServer } from '../helpers/http-server';
 import { createStaticServer } from '../helpers/static-server';
-import { runInteractions, sleep } from '../helpers/puppeteer-interactions';
+import { runInteractions } from '../helpers/puppeteer-interactions';
 import type { Browser } from 'puppeteer';
 import type { TestServer, ReceivedRequest } from '../helpers/http-server';
 import type { StaticServer } from '../helpers/static-server';
@@ -94,24 +94,29 @@ describe('integration / standalone', () => {
       const page = await browser.newPage();
       await page.setViewport({ width: 1440, height: 900 });
 
-      // Build the patched script: config block + do11y.js source
-      // This is injected via evaluateOnNewDocument so it runs on every
-      // page load (start page → guide page navigation), just like a
-      // real script-tag deployment.
+      // Inject config via evaluateOnNewDocument with a function so values are
+      // passed as structured arguments (no string-escaping risks).
+      await page.evaluateOnNewDocument(
+        (url: string, fw: string) => {
+          (window as any).Do11yConfig = {
+            destination: 'http',
+            endpoint: url,
+            debug: true,
+            framework: fw,
+            allowedDomains: null,
+            maxBatchSize: 10,
+            flushInterval: 200,
+            sectionVisibleThreshold: 1,
+          };
+        },
+        server.url,
+        framework,
+      );
+
+      // Inject do11y.js source separately so it runs on every page load
+      // (start → guide navigation), just like a real script-tag deployment.
       const do11ySrc = fs.readFileSync(DO11Y_PATH, 'utf-8');
-      const configBlock = `
-window.Do11yConfig = {
-  destination: 'http',
-  endpoint: '${server.url}',
-  debug: true,
-  framework: '${framework}',
-  allowedDomains: null,
-  maxBatchSize: 10,
-  flushInterval: 200,
-  sectionVisibleThreshold: 1,
-};
-`;
-      await page.evaluateOnNewDocument(configBlock + do11ySrc);
+      await page.evaluateOnNewDocument(do11ySrc);
 
       // Navigate to the start fixture page via the static HTTP server so
       // relative nav links resolve correctly for link-click tracking.
@@ -122,8 +127,8 @@ window.Do11yConfig = {
       const guideUrl = `${fixtures.url}/${framework}-guide.html`;
       await runInteractions(page, { guidePath: guideUrl, pageLoadTimeout: 15000 });
 
-      // Give pending flushes time to reach the mock server
-      await sleep(3000);
+      // Wait deterministically for events to reach the mock server
+      await server.waitFor((reqs) => reqs.length > 0, 5000);
 
       // Collect all events from the mock server
       const requests = server.getReceived();

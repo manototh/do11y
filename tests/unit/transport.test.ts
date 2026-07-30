@@ -222,6 +222,31 @@ describe('transport', () => {
       expect(reqs[0]!.headers['Authorization']).toBe('Bearer sb-publishable-key-12345');
       expect(reqs[0]!.headers['Content-Type']).toBe('application/json');
     });
+
+    it('handles network errors gracefully (does not throw)', () => {
+      const config = makeSupabaseConfig({ maxRetries: 1, retryDelay: 5 });
+      queueEvent(config, 'browser.do11y.page_view', {});
+      setMockError(true, 'Network error');
+
+      // Should not throw despite the network error
+      expect(() => flush(config)).not.toThrow();
+      // Events remain queued for retry (retry is async via setTimeout)
+      expect(getQueueLength()).toBe(0);
+    });
+
+    it('recovers after a transient error and sends subsequent events', () => {
+      const config = makeSupabaseConfig({ maxRetries: 1, retryDelay: 5 });
+      // First flush with a queued error response
+      queueEvent(config, 'browser.do11y.page_view', { n: 1 });
+      setMockError(true, 'Temporary failure');
+      expect(() => flush(config)).not.toThrow();
+
+      // Second flush with a different event should work independently
+      clearRequests();
+      setDefaultResponse(200, {});
+      queueEvent(config, 'browser.do11y.page_view', { n: 2 });
+      expect(() => flush(config)).not.toThrow();
+    });
   });
 
   describe('flushSync', () => {

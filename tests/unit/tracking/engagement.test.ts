@@ -9,27 +9,8 @@ import {
   resetEngagementState,
   resetPageExitedGuard,
 } from '@do11y/core/tracking/engagement';
-import type { Do11yConfig, EmitFn } from '@do11y/core/types';
-
-function makeConfig(): Do11yConfig {
-  return {
-    destination: 'http', supabaseUrl: '', supabaseKey: '', supabaseTable: 'do11y_events',
-    endpoint: '', headers: {}, bodyTransform: undefined,
-    otelSdkEndpoint: '', otelSdkHeaders: {}, otelSdkServiceName: '', otelSdkResourceAttributes: {},
-    debug: false, flushInterval: 5000, maxBatchSize: 10,
-    trackOutboundLinks: true, trackInternalLinks: true, trackScrollDepth: true,
-    scrollThresholds: [25, 50, 75, 90], allowedDomains: null, respectDNT: true,
-    maxRetries: 2, retryDelay: 1000, rateLimitMs: 100,
-    framework: 'mintlify', trackSectionVisibility: true, sectionVisibleThreshold: 3,
-    trackSearch: true, trackCopy: true,
-    trackTabSwitches: true, trackTocClicks: true, trackExpandCollapse: true, trackFeedback: true,
-    tabContainerSelector: null, tocSelector: null, feedbackSelector: null,
-    searchSelector: null, copyButtonSelector: null, codeBlockSelector: null,
-    navigationSelector: null, footerSelector: null, contentSelector: null,
-    useOtelBrowserInstrumentations: false,
-    trackSpaPathChanges: false,
-  };
-}
+import { makeConfig } from '../../helpers/config';
+import type { EmitFn } from '@do11y/core/types';
 
 describe('tracking / engagement', () => {
   let emitted: Array<{ name: string; data: Record<string, unknown> }>;
@@ -87,19 +68,22 @@ describe('tracking / engagement', () => {
   });
 
   describe('setupEngagementTracking', () => {
-    it('sets up beforeunload handler', () => {
+    it('sets up beforeunload handler that emits page_exit', () => {
       setupEngagementTracking(makeConfig(), emit);
       triggerBeforeUnload();
-      // The beforeunload handler calls emitPageExit which emits the event
-      // but due to the guard flag and module-scoped state, this test verifies
-      // the setup doesn't throw
-      expect(true).toBe(true);
+      expect(emitted).toHaveLength(1);
+      expect(emitted[0].name).toBe('browser.do11y.page_exit');
     });
 
-    it('sets up visibilitychange handler', () => {
+    it('sets up visibilitychange handler that tracks active time', () => {
       setupEngagementTracking(makeConfig(), emit);
+      // Switch to hidden then back to visible — the handler updates active time
       expect(() => triggerVisibilityChange(true)).not.toThrow();
       expect(() => triggerVisibilityChange(false)).not.toThrow();
+      // After visibility toggle, emitPageExit should include active time
+      emitPageExit(makeConfig(), emit);
+      expect(emitted).toHaveLength(1);
+      expect(emitted[0].name).toBe('browser.do11y.page_exit');
     });
   });
 

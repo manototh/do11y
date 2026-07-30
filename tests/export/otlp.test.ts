@@ -60,7 +60,8 @@ describe('export / otlp', () => {
     const do11yContent = fs.readFileSync(DO11Y_PATH, 'utf-8');
     await page.addScriptTag({ content: do11yContent });
 
-    await new Promise(r => setTimeout(r, 2000));
+    // Wait for at least one request to reach the mock server
+    await server.waitFor((reqs) => reqs.length > 0, 10000);
     await page.close();
   }, 15000);
 
@@ -85,7 +86,11 @@ describe('export / otlp', () => {
     const do11yContent = fs.readFileSync(DO11Y_PATH, 'utf-8');
     await page.addScriptTag({ content: do11yContent });
 
-    await new Promise(r => setTimeout(r, 1000));
+    // Wait for Do11y to initialise despite unreachable endpoint
+    await page.waitForFunction(
+      () => typeof (window as any).Do11y?.flush === 'function',
+      { timeout: 5000 },
+    );
 
     const hasDo11y = await page.evaluate(() => {
       return !!(window as any).Do11y && typeof (window as any).Do11y.flush === 'function';

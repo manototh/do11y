@@ -51,7 +51,12 @@ describe('export / http', () => {
     });
 
     await page.addScriptTag({ content: fs.readFileSync(DO11Y_PATH, 'utf-8') });
-    await new Promise(r => setTimeout(r, 500));
+
+    // Wait until Do11y initialises (resolve as soon as API is available)
+    await page.waitForFunction(
+      () => typeof (window as any).Do11y?.getConfig === 'function',
+      { timeout: 5000 },
+    );
 
     const api = await page.evaluate(() => {
       const d = (window as any).Do11y;
@@ -89,7 +94,12 @@ describe('export / http', () => {
     });
 
     await page.addScriptTag({ content: fs.readFileSync(DO11Y_PATH, 'utf-8') });
-    await new Promise(r => setTimeout(r, 1000));
+
+    // Wait for initialisation even when the endpoint is unreachable
+    await page.waitForFunction(
+      () => typeof (window as any).Do11y?.isEnabled === 'function',
+      { timeout: 5000 },
+    );
 
     const isEnabled = await page.evaluate(() => (window as any).Do11y?.isEnabled());
     expect(isEnabled).toBe(true);

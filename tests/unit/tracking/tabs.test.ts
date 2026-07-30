@@ -4,27 +4,8 @@
 import { describe, it, expect, beforeEach, afterEach } from 'vitest';
 import { setupTestDOM, teardownTestDOM, clickElement } from '../../helpers/mock-dom';
 import { setupTabSwitchTracking } from '@do11y/core/tracking/tabs';
-import type { Do11yConfig, EmitFn } from '@do11y/core/types';
-
-function makeConfig(): Do11yConfig {
-  return {
-    destination: 'http', supabaseUrl: '', supabaseKey: '', supabaseTable: 'do11y_events',
-    endpoint: '', headers: {}, bodyTransform: undefined,
-    otelSdkEndpoint: '', otelSdkHeaders: {}, otelSdkServiceName: '', otelSdkResourceAttributes: {},
-    debug: false, flushInterval: 5000, maxBatchSize: 10,
-    trackOutboundLinks: true, trackInternalLinks: true, trackScrollDepth: true,
-    scrollThresholds: [25, 50, 75, 90], allowedDomains: null, respectDNT: true,
-    maxRetries: 2, retryDelay: 1000, rateLimitMs: 100,
-    framework: 'mintlify', trackSectionVisibility: true, sectionVisibleThreshold: 3,
-    trackSearch: true, trackCopy: true,
-    trackTabSwitches: true, trackTocClicks: true, trackExpandCollapse: true, trackFeedback: true,
-    tabContainerSelector: null, tocSelector: null, feedbackSelector: null,
-    searchSelector: null, copyButtonSelector: null, codeBlockSelector: null,
-    navigationSelector: null, footerSelector: null, contentSelector: null,
-    useOtelBrowserInstrumentations: false,
-    trackSpaPathChanges: false,
-  };
-}
+import { makeConfig } from '../../helpers/config';
+import type { EmitFn } from '@do11y/core/types';
 
 describe('tracking / tabs', () => {
   let emitted: Array<{ name: string; data: Record<string, unknown> }>;

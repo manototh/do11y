@@ -4,28 +4,12 @@
 import { describe, it, expect, beforeEach, afterEach } from 'vitest';
 import { setupTestDOM, teardownTestDOM, clickElement, pressKey } from '../../helpers/mock-dom';
 import { setupSearchTracking } from '@do11y/core/tracking/search';
-import type { Do11yConfig, EmitFn } from '@do11y/core/types';
+import { makeConfig } from '../../helpers/config';
+import type { EmitFn } from '@do11y/core/types';
 
-function makeConfig(): Do11yConfig {
-  return {
-    destination: 'http', supabaseUrl: '', supabaseKey: '', supabaseTable: 'do11y_events',
-    endpoint: '', headers: {}, bodyTransform: undefined,
-    otelSdkEndpoint: '', otelSdkHeaders: {}, otelSdkServiceName: '', otelSdkResourceAttributes: {},
-    debug: false, flushInterval: 5000, maxBatchSize: 10,
-    trackOutboundLinks: true, trackInternalLinks: true, trackScrollDepth: true,
-    scrollThresholds: [25, 50, 75, 90], allowedDomains: null, respectDNT: true,
-    maxRetries: 2, retryDelay: 1000, rateLimitMs: 100,
-    framework: 'mintlify', trackSectionVisibility: true, sectionVisibleThreshold: 3,
-    trackSearch: true, trackCopy: true,
-    trackTabSwitches: true, trackTocClicks: true, trackExpandCollapse: true, trackFeedback: true,
-    tabContainerSelector: null, tocSelector: null, feedbackSelector: null,
-    searchSelector: '.search-input, #search-bar-entry, .DocSearch-Button',
-    copyButtonSelector: null, codeBlockSelector: null,
-    navigationSelector: null, footerSelector: null, contentSelector: null,
-    useOtelBrowserInstrumentations: false,
-    trackSpaPathChanges: false,
-  };
-}
+const SEARCH_SELECTOR = {
+  searchSelector: '.search-input, #search-bar-entry, .DocSearch-Button',
+};
 
 describe('tracking / search', () => {
   let emitted: Array<{ name: string; data: Record<string, unknown> }>;
@@ -34,7 +18,7 @@ describe('tracking / search', () => {
   beforeEach(() => {
     setupTestDOM();
     emitted = [];
-    setupSearchTracking(makeConfig(), emit);
+    setupSearchTracking(makeConfig(SEARCH_SELECTOR), emit);
   });
 
   afterEach(() => {

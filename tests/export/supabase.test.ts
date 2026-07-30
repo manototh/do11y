@@ -61,7 +61,15 @@ describe.runIf(enabled)('export / supabase', () => {
     );
 
     await page.addScriptTag({ content: fs.readFileSync(DO11Y_PATH, 'utf-8') });
-    await new Promise(r => setTimeout(r, 500));
+
+    // Wait until Do11y initialises with Supabase config
+    await page.waitForFunction(
+      () => {
+        const d = (window as any).Do11y;
+        return typeof d?.isEnabled === 'function' && d?.isEnabled() === true;
+      },
+      { timeout: 5000 },
+    );
 
     const hasDo11y = await page.evaluate(() => {
       const d = (window as any).Do11y;
