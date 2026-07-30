@@ -23,6 +23,11 @@ export function setupSearchTracking(config: Do11yConfig, emit: EmitFn): void {
 
   document.addEventListener('keydown', (e) => {
     if ((e.metaKey || e.ctrlKey) && e.key === 'k') {
+      // Only emit if a search UI element actually exists on the page,
+      // to avoid false-positive events when Cmd+K is handled by the
+      // browser or another script.
+      const searchEl = document.querySelector(config.searchSelector!);
+      if (!searchEl) return;
       emit(EVENT_SEARCH_OPENED, { [ATTR_DO11Y_SEARCH_TRIGGER]: 'keyboard' });
     }
   });

@@ -15,6 +15,12 @@ export const ATTR_SESSION_ID = 'session.id';
 export const ATTR_URL_PATH = 'url.path';
 export const ATTR_URL_FRAGMENT = 'url.fragment';
 export const ATTR_URL_QUERY = 'url.query';
+/**
+ * NOTE: The value stored under `url.query` is intentionally always `null`.
+ * The actual query string is never sent for privacy reasons.
+ * Use `browser.do11y.url.has_params` instead to check for query params.
+ */
+export const ATTR_DO11Y_URL_HAS_PARAMS = 'browser.do11y.url.has_params';
 export const ATTR_DEVICE_TYPE = 'device.type';
 export const ATTR_BROWSER_FAMILY = 'browser.family';
 export const ATTR_BROWSER_LANGUAGE = 'browser.language';

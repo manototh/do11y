@@ -23,20 +23,35 @@ function getLinkContext(link: Element, config: Do11yConfig): string {
   return 'other';
 }
 
-function getLinkIndex(link: Element, href: string): number {
-  if (typeof CSS === 'undefined' || typeof CSS.escape !== 'function') return 1;
+/**
+ * Pre-compute same-href indices for all `<a>` elements on the page.
+ * This avoids O(n) querySelectorAll calls on every click.
+ * Data attributes are set at init time and read directly on click.
+ */
+function precomputeLinkIndices(): void {
   try {
-    const allLinks = document.querySelectorAll('a[href="' + CSS.escape(href) + '"]');
-    for (let i = 0; i < allLinks.length; i++) {
-      if (allLinks[i] === link) return i + 1;
-    }
+    const linkGroups = new Map<string, Element[]>();
+    const allLinks = document.querySelectorAll('a[href]');
+    allLinks.forEach((link) => {
+      const href = link.getAttribute('href') ?? '';
+      const group = linkGroups.get(href) ?? [];
+      group.push(link);
+      linkGroups.set(href, group);
+    });
+    linkGroups.forEach((links) => {
+      links.forEach((link, idx) => {
+        link.setAttribute('data-do11y-link-idx', String(idx + 1));
+      });
+    });
   } catch {
-    // Selector failed (malformed href), fall back to 1
+    // Selector or iteration failed — fall through to runtime attribute read
   }
-  return 1;
 }
 
 export function setupLinkTracking(config: Do11yConfig, emit: EmitFn): void {
+  // Pre-compute link indices at init time
+  precomputeLinkIndices();
+
   // Use capture phase so the handler fires before SPA routers (VitePress,
   // Docusaurus, Nextra, etc.) can call stopPropagation / stopImmediatePropagation.
   document.addEventListener('click', (e) => {
@@ -72,6 +87,9 @@ export function setupLinkTracking(config: Do11yConfig, emit: EmitFn): void {
     if (linkType === 'internal' && !config.trackInternalLinks) return;
     if (linkType === 'external' && !config.trackOutboundLinks) return;
 
+    // Read pre-computed index from data attribute; fall back to 1 if not found
+    const linkIndex = parseInt(link.getAttribute('data-do11y-link-idx') ?? '1', 10);
+
     emit(EVENT_LINK_CLICK, {
       [ATTR_DO11Y_LINK_TYPE]: linkType,
       [ATTR_DO11Y_LINK_TARGET_URL]: href,
@@ -79,7 +97,7 @@ export function setupLinkTracking(config: Do11yConfig, emit: EmitFn): void {
       [ATTR_DO11Y_LINK_TEXT]: sanitizeText(link.textContent, 100),
       [ATTR_DO11Y_LINK_CONTEXT]: getLinkContext(link, config),
       [ATTR_DO11Y_LINK_SECTION]: sanitizeText(getNearestHeading(link), 100),
-      [ATTR_DO11Y_LINK_INDEX]: getLinkIndex(link, href),
+      [ATTR_DO11Y_LINK_INDEX]: linkIndex,
     });
   }, true);
 }

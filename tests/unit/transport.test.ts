@@ -114,12 +114,12 @@ describe('transport', () => {
       expect(getQueueLength()).toBe(0);
     });
 
-    it('caps queue at 100 events', () => {
-      const config = makeSupabaseConfig({ maxBatchSize: 200 });
-      for (let i = 0; i < 150; i++) {
+    it('caps queue at 500 events', () => {
+      const config = makeSupabaseConfig({ maxBatchSize: 600 });
+      for (let i = 0; i < 550; i++) {
         queueEvent(config, 'browser.do11y.page_view', { idx: i });
       }
-      expect(getQueueLength()).toBeLessThanOrEqual(100);
+      expect(getQueueLength()).toBeLessThanOrEqual(500);
     });
 
     it('respects rate limiting when enabled', () => {

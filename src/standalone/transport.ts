@@ -87,13 +87,13 @@ export function queueEvent(config: Do11yConfig, eventName: string, eventData: Re
   }
 
   // In HTTP/Supabase mode, queue for batching
+  // The event object is built with all required Do11yEvent fields above;
+  // the cast is safe because the Record contains every Do11yEvent key.
   eventQueue.push(event as Do11yEvent);
 
-  if (eventQueue.length > 100) {
-    eventQueue = eventQueue.slice(-100);
-    if (config.debug) {
-      console.warn('[Do11y] Event queue capped at 100 events');
-    }
+  if (eventQueue.length > 500) {
+    eventQueue = eventQueue.slice(-500);
+    console.warn('[Do11y] Event queue capped at 500 events — oldest events dropped');
   }
 
   if (eventQueue.length >= config.maxBatchSize) {

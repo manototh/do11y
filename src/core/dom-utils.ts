@@ -77,23 +77,33 @@ export function resolveTocHash(href: string): string | null {
 }
 
 export function resolveTocContainer(link: Element, config: Do11yConfig): Element | null {
-  const selector =
-    validateSelector(config.tocSelector) ??
-    '.table-of-contents, .VPDocAsideOutline, .VPLocalNavOutlineDropdown, ' +
-    '[class*="toc"], [class*="TableOfContents"], [class*="page-outline"], ' +
-    '.right-sidebar-panel, starlight-toc';
-
-  let container = link.closest(selector);
-  if (!container) return null;
-
-  // Avoid treating the link itself as the container (for example a.outline-link).
-  if (container === link || container.tagName === 'A') {
-    container =
-      link.closest('.VPDocAsideOutline, .VPLocalNavOutlineDropdown, nav, aside, .right-sidebar-panel, starlight-toc') ??
-      container.parentElement;
+  // Try the user-configured selector first (highest priority)
+  const userSelector = validateSelector(config.tocSelector);
+  if (userSelector) {
+    const container = link.closest(userSelector);
+    if (container && container !== link && container.tagName !== 'A') return container;
   }
 
-  return container;
+  // Framework-specific selectors (ordered by specificity)
+  const knownContainers = [
+    '.VPDocAsideOutline',
+    '.VPLocalNavOutlineDropdown',
+    '.table-of-contents',
+    '.right-sidebar-panel',
+    'starlight-toc',
+    '[class*="TableOfContents"]',
+    '[class*="page-outline"]',
+    '[class*="toc"]',
+    'nav[id="TableOfContents"]',
+  ];
+
+  for (const sel of knownContainers) {
+    const container = link.closest(sel);
+    if (container && container !== link && container.tagName !== 'A') return container;
+  }
+
+  // Fallback: use parentElement if nothing matched
+  return link.parentElement && link.parentElement !== document.body ? link.parentElement : null;
 }
 
 export function getNearestHeading(element: Element): string | null {

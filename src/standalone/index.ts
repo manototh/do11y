@@ -109,10 +109,16 @@ let pathPollId: ReturnType<typeof setInterval> | null = null;
 function init(): void {
   // Read from window.Do11yConfig
   // Assign only known Do11yConfig keys from the user-supplied config.
-  if (window.Do11yConfig && typeof window.Do11yConfig === 'object') {
+  // Both configs are typed objects; the intermediate Record cast is
+  // needed because Partial<Do11yConfig> values may be a different
+  // type than Do11yConfig expects (e.g. undefined vs boolean).
+  const cfg = config as unknown as Record<string, unknown>;
+  const userCfg = window.Do11yConfig as unknown as Record<string, unknown>;
+  if (userCfg && typeof userCfg === 'object') {
     for (const key in config) {
-      if (Object.prototype.hasOwnProperty.call(window.Do11yConfig, key)) {
-        (config as unknown as Record<string, unknown>)[key] = (window.Do11yConfig as unknown as Record<string, unknown>)[key];
+      if (Object.prototype.hasOwnProperty.call(userCfg, key)) {
+        const val = userCfg[key];
+        if (val !== undefined) cfg[key] = val;
       }
     }
   }
@@ -162,7 +168,13 @@ function init(): void {
 
   const metaFramework = document.querySelector('meta[name="do11y-framework"]');
   if (metaFramework) {
-    config.framework = (metaFramework.getAttribute('content') ?? config.framework) as import('../core/types.js').FrameworkPreset;
+    const rawFramework = metaFramework.getAttribute('content');
+    const validFrameworks: readonly string[] = ['mintlify', 'docusaurus', 'nextra', 'mkdocs-material', 'vitepress', 'starlight', 'docsy', 'custom'];
+    if (rawFramework && validFrameworks.includes(rawFramework)) {
+      config.framework = rawFramework as import('../core/types.js').FrameworkPreset;
+    } else if (rawFramework && config.debug) {
+      console.warn('[Do11y] Unknown framework in meta tag: "' + rawFramework + '". Using default: ' + config.framework);
+    }
   }
 
   const metaUseOtelInstrumentations = document.querySelector('meta[name="do11y-use-otel-instrumentations"]');
@@ -173,13 +185,8 @@ function init(): void {
   applyFrameworkSelectors(config);
 
   if (config.debug) {
-    const hasCreds =
-      config.destination === 'supabase' ? !!config.supabaseKey :
-      config.destination === 'otlp' ? !!config.otelSdkEndpoint :
-      !!config.endpoint;
     console.log('[Do11y] Initializing with config:', {
       destination: config.destination,
-      hasCredentials: hasCreds,
       framework: config.framework,
       allowedDomains: config.allowedDomains,
       respectDNT: config.respectDNT,
@@ -197,15 +204,13 @@ function init(): void {
     config.destination === 'otlp' ? !!config.otelSdkEndpoint :
     !!config.endpoint;
   if (!hasDestination) {
-    if (config.debug) {
-      console.warn('[Do11y] No destination configured. Events will not be sent.');
-      if (config.destination === 'supabase') {
-        console.warn('[Do11y] Add <meta name="do11y-url"> and <meta name="do11y-key"> to enable.');
-      } else if (config.destination === 'otlp') {
-        console.warn('[Do11y] Add <meta name="do11y-otlp-endpoint"> to enable.');
-      } else {
-        console.warn('[Do11y] Add <meta name="do11y-endpoint"> to enable.');
-      }
+    console.warn('[Do11y] No destination configured. Events will not be sent.');
+    if (config.destination === 'supabase') {
+      console.warn('[Do11y] Add <meta name="do11y-url"> and <meta name="do11y-key"> to enable.');
+    } else if (config.destination === 'otlp') {
+      console.warn('[Do11y] Add <meta name="do11y-otlp-endpoint"> to enable.');
+    } else {
+      console.warn('[Do11y] Add <meta name="do11y-endpoint"> to enable.');
     }
   }
 
@@ -256,18 +261,15 @@ function init(): void {
   // through window.Do11yConfig or direct property assignment.
   Object.freeze(config);
 
-  // Add standalone-specific beforeunload handler to emit the exit event
-  // and flush remaining events. The setupEngagementTracking listener only
-  // emits the event without flushing — this listener ensures the flush
-  // happens. emitPageExit is called without afterEmit because we call
-  // flushSync directly afterwards; this means it works regardless of
-  // listener ordering (the pageExited guard deduplicates).
+  // Standalone beforeunload handler: flush remaining events on page unload.
+  // The page_exit event is already emitted by setupEngagementTracking's
+  // beforeunload listener (registered above), so we only flush the transport.
+  // The pageExited guard in emitPageExit prevents double emission.
   window.addEventListener('beforeunload', () => {
     if (pathPollId !== null) {
       clearInterval(pathPollId);
       pathPollId = null;
     }
-    emitPageExit(config, emit);
     flushSync(config);
     transportCleanup();
   });

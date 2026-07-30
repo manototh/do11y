@@ -14,6 +14,7 @@ import {
   ATTR_URL_PATH,
   ATTR_URL_FRAGMENT,
   ATTR_URL_QUERY,
+  ATTR_DO11Y_URL_HAS_PARAMS,
   ATTR_DO11Y_PAGE_TITLE,
 } from './constants.js';
 
@@ -131,7 +132,8 @@ export function getPageInfo(): PageInfo {
   return {
     [ATTR_URL_PATH]: window.location.pathname,
     [ATTR_URL_FRAGMENT]: window.location.hash || null,
-    [ATTR_URL_QUERY]: window.location.search ? 'has_params' : null,
+    [ATTR_URL_QUERY]: null, // Always null for privacy; use browser.do11y.url.has_params
+    [ATTR_DO11Y_URL_HAS_PARAMS]: window.location.search ? 'has_params' : null,
     [ATTR_DO11Y_PAGE_TITLE]: sanitizeText(document.title, 150),
   };
 }

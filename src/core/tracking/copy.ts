@@ -12,21 +12,27 @@ import {
   ATTR_DO11Y_CODE_INDEX,
 } from '../constants.js';
 
-function getCodeBlockIndex(codeBlock: Element | null, config: Do11yConfig): number {
-  if (!codeBlock) return 1;
+/**
+ * Pre-compute code block indices at init time to avoid O(n) querySelectorAll
+ * calls on every copy button click. Elements are assigned a
+ * data-do11y-code-idx attribute read directly on click.
+ */
+function precomputeCodeBlockIndices(config: Do11yConfig): void {
   try {
     const allBlocks = document.querySelectorAll(config.codeBlockSelector!);
-    for (let i = 0; i < allBlocks.length; i++) {
-      if (allBlocks[i] === codeBlock) return i + 1;
-    }
+    allBlocks.forEach((block, idx) => {
+      block.setAttribute('data-do11y-code-idx', String(idx + 1));
+    });
   } catch {
-    // Selector failed
+    // Selector failed — fall through to runtime attribute read
   }
-  return 1;
 }
 
 export function setupCopyTracking(config: Do11yConfig, emit: EmitFn): void {
   if (!config.trackCopy) return;
+
+  // Pre-compute code block indices at init time
+  precomputeCodeBlockIndices(config);
 
   document.addEventListener('click', (e) => {
     const copyButton = (e.target as Element).closest(config.copyButtonSelector!);
@@ -50,10 +56,13 @@ export function setupCopyTracking(config: Do11yConfig, emit: EmitFn): void {
 
       const language = extractCodeLanguage(codeEl ?? codeBlock ?? copyButton);
 
+      // Read pre-computed index from data attribute; fall back to 1 if not found
+      const codeIndex = parseInt(codeBlock?.getAttribute('data-do11y-code-idx') ?? '1', 10);
+
       emit(EVENT_CODE_COPIED, {
         [ATTR_DO11Y_CODE_LANGUAGE]: language,
         [ATTR_DO11Y_CODE_SECTION]: sanitizeText(getNearestHeading(codeBlock ?? copyButton), 100),
-        [ATTR_DO11Y_CODE_INDEX]: getCodeBlockIndex(codeBlock, config),
+        [ATTR_DO11Y_CODE_INDEX]: codeIndex,
       });
     }
   }, true);

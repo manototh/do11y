@@ -144,6 +144,7 @@ export interface PageInfo {
   'url.fragment': string | null;
   'url.query': string | null;
   'browser.do11y.page_title': string | null;
+  'browser.do11y.url.has_params': string | null;
 }
 
 export interface ReferrerInfo {
