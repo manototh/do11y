@@ -584,6 +584,9 @@ function setupScrollTracking(config, emit) {
 	}
 	checkScrollDepth(config, emit);
 }
+function resetTrackedScrollDepths() {
+	trackedScrollDepths = /* @__PURE__ */ new Set();
+}
 function getTrackedScrollDepths() {
 	return trackedScrollDepths;
 }
@@ -721,6 +724,13 @@ function setupEngagementTracking(config, emit) {
 	window.addEventListener("beforeunload", () => {
 		emitPageExit(config, emit);
 	});
+}
+function resetEngagementState() {
+	pageLoadTime = Date.now();
+	lastActivityTime = Date.now();
+	totalActiveTime = 0;
+	isPageVisible = true;
+	pageExited = false;
 }
 /**
 * Reset only the page_exit guard flag, without affecting timing data.
@@ -966,6 +976,7 @@ function buildConfig(userConfig) {
 		trackTocClicks: userConfig.trackTocClicks ?? true,
 		trackExpandCollapse: userConfig.trackExpandCollapse ?? true,
 		trackFeedback: userConfig.trackFeedback ?? true,
+		trackSpaPathChanges: userConfig.trackSpaPathChanges ?? false,
 		searchSelector: userConfig.selectors?.searchSelector ?? null,
 		copyButtonSelector: userConfig.selectors?.copyButtonSelector ?? null,
 		codeBlockSelector: userConfig.selectors?.codeBlockSelector ?? null,
@@ -1014,6 +1025,12 @@ var DocsInstrumentation = class extends InstrumentationBase {
 	constructor(config = {}) {
 		super("@manototh/do11y", VERSION, config);
 		this._do11yConfig = {};
+		this._emit = () => {};
+		this._mutationObserver = null;
+		this._pathPollId = null;
+		this._lastPath = "";
+		this._boundHandlePathChange = null;
+		this._boundPopstateHandler = null;
 	}
 	/**
 	* Init is called by the base class constructor.
@@ -1041,6 +1058,7 @@ var DocsInstrumentation = class extends InstrumentationBase {
 				body: ""
 			});
 		};
+		this._emit = emit;
 		trackPageView(this._do11yConfig, emit);
 		setupLinkTracking(this._do11yConfig, emit);
 		setupScrollTracking(this._do11yConfig, emit);
@@ -1052,12 +1070,49 @@ var DocsInstrumentation = class extends InstrumentationBase {
 		setupTocClickTracking(this._do11yConfig, emit);
 		setupFeedbackTracking(this._do11yConfig, emit);
 		setupExpandCollapseTracking(this._do11yConfig, emit);
+		if (this._do11yConfig.trackSpaPathChanges) {
+			this._lastPath = window.location.pathname;
+			const config = this._do11yConfig;
+			this._boundHandlePathChange = () => {
+				if (window.location.pathname === this._lastPath) return;
+				this._lastPath = window.location.pathname;
+				emitPageExit(config, emit);
+				resetTrackedScrollDepths();
+				resetEngagementState();
+				trackPageView(config, emit);
+				observeHeadings();
+				checkScrollDepth(config, emit);
+			};
+			this._boundPopstateHandler = this._boundHandlePathChange;
+			window.addEventListener("popstate", this._boundPopstateHandler);
+			this._mutationObserver = new MutationObserver(this._boundHandlePathChange);
+			this._mutationObserver.observe(document.body, {
+				childList: true,
+				subtree: true
+			});
+			this._pathPollId = window.setInterval(this._boundHandlePathChange, 200);
+		}
 	}
 	/**
 	* Disable the instrumentation: tear down all event listeners and observers.
 	*/
 	disable() {
 		disconnectSectionObserver();
+		if (this._mutationObserver) {
+			this._mutationObserver.disconnect();
+			this._mutationObserver = null;
+		}
+		if (this._pathPollId !== null) {
+			clearInterval(this._pathPollId);
+			this._pathPollId = null;
+		}
+		if (this._boundPopstateHandler) {
+			window.removeEventListener("popstate", this._boundPopstateHandler);
+			this._boundPopstateHandler = null;
+		}
+		this._boundHandlePathChange = null;
+		this._lastPath = "";
+		this._emit = () => {};
 		this._do11yConfig = {};
 	}
 };

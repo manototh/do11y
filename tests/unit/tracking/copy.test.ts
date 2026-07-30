@@ -21,6 +21,7 @@ function makeConfig(overrides: Partial<Do11yConfig> = {}): Do11yConfig {
     searchSelector: null, copyButtonSelector: 'button[class*="copy"], button[aria-label*="copy" i]', codeBlockSelector: 'pre, [class*="code"]',
     navigationSelector: null, footerSelector: null, contentSelector: null,
     useOtelBrowserInstrumentations: false,
+    trackSpaPathChanges: false,
     ...overrides,
   };
 }

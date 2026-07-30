@@ -30,13 +30,22 @@ import { getBrowserContext } from '../core/context.js';
 import { getPageInfo } from '../core/context.js';
 import { trackPageView } from '../core/tracking/page-view.js';
 import { setupLinkTracking } from '../core/tracking/links.js';
-import { setupScrollTracking } from '../core/tracking/scroll.js';
-import { setupEngagementTracking } from '../core/tracking/engagement.js';
+import {
+  setupScrollTracking,
+  resetTrackedScrollDepths,
+  checkScrollDepth,
+} from '../core/tracking/scroll.js';
+import {
+  setupEngagementTracking,
+  emitPageExit,
+  resetEngagementState,
+} from '../core/tracking/engagement.js';
 import { setupSearchTracking } from '../core/tracking/search.js';
 import { setupCopyTracking } from '../core/tracking/copy.js';
 import {
   setupSectionVisibilityTracking,
   disconnectSectionObserver,
+  observeHeadings,
 } from '../core/tracking/sections.js';
 import { setupTabSwitchTracking } from '../core/tracking/tabs.js';
 import { setupTocClickTracking } from '../core/tracking/toc.js';
@@ -57,6 +66,12 @@ export type { DocsInstrumentationConfig } from './config.js';
  */
 export class DocsInstrumentation extends InstrumentationBase<DocsInstrumentationConfig> {
   private _do11yConfig: Partial<Do11yConfig> = {};
+  private _emit: EmitFn = () => {};
+  private _mutationObserver: MutationObserver | null = null;
+  private _pathPollId: ReturnType<typeof setInterval> | null = null;
+  private _lastPath: string = '';
+  private _boundHandlePathChange: (() => void) | null = null;
+  private _boundPopstateHandler: (() => void) | null = null;
 
   constructor(config: DocsInstrumentationConfig = {}) {
     super('@manototh/do11y', VERSION, config);
@@ -96,6 +111,7 @@ export class DocsInstrumentation extends InstrumentationBase<DocsInstrumentation
         body: '',
       });
     };
+    this._emit = emit;
 
     // Wire up all tracking modules
     trackPageView(this._do11yConfig as Do11yConfig, emit);
@@ -109,6 +125,34 @@ export class DocsInstrumentation extends InstrumentationBase<DocsInstrumentation
     setupTocClickTracking(this._do11yConfig as Do11yConfig, emit);
     setupFeedbackTracking(this._do11yConfig as Do11yConfig, emit);
     setupExpandCollapseTracking(this._do11yConfig as Do11yConfig, emit);
+
+    // SPA path-change detection
+    if (this._do11yConfig.trackSpaPathChanges) {
+      this._lastPath = window.location.pathname;
+
+      const config = this._do11yConfig as Do11yConfig;
+      this._boundHandlePathChange = (): void => {
+        if (window.location.pathname === this._lastPath) return;
+        this._lastPath = window.location.pathname;
+        emitPageExit(config, emit);
+        resetTrackedScrollDepths();
+        resetEngagementState();
+        trackPageView(config, emit);
+        observeHeadings();
+        checkScrollDepth(config, emit);
+      };
+
+      this._boundPopstateHandler = this._boundHandlePathChange;
+      window.addEventListener('popstate', this._boundPopstateHandler);
+
+      this._mutationObserver = new MutationObserver(this._boundHandlePathChange);
+      this._mutationObserver.observe(document.body, {
+        childList: true,
+        subtree: true,
+      });
+
+      this._pathPollId = window.setInterval(this._boundHandlePathChange, 200);
+    }
   }
 
   /**
@@ -116,6 +160,24 @@ export class DocsInstrumentation extends InstrumentationBase<DocsInstrumentation
    */
   override disable(): void {
     disconnectSectionObserver();
+
+    // Tear down SPA tracking
+    if (this._mutationObserver) {
+      this._mutationObserver.disconnect();
+      this._mutationObserver = null;
+    }
+    if (this._pathPollId !== null) {
+      clearInterval(this._pathPollId);
+      this._pathPollId = null;
+    }
+    if (this._boundPopstateHandler) {
+      window.removeEventListener('popstate', this._boundPopstateHandler);
+      this._boundPopstateHandler = null;
+    }
+    this._boundHandlePathChange = null;
+    this._lastPath = '';
+    this._emit = () => {};
+
     this._do11yConfig = {};
   }
 }

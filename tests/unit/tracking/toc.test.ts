@@ -22,6 +22,7 @@ function makeConfig(overrides: Partial<Do11yConfig> = {}): Do11yConfig {
     searchSelector: null, copyButtonSelector: null, codeBlockSelector: null,
     navigationSelector: null, footerSelector: null, contentSelector: null,
     useOtelBrowserInstrumentations: false,
+    trackSpaPathChanges: false,
     ...overrides,
   };
 }

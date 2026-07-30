@@ -22,6 +22,7 @@ function makeConfig(): Do11yConfig {
     copyButtonSelector: null, codeBlockSelector: null,
     navigationSelector: null, footerSelector: null, contentSelector: null,
     useOtelBrowserInstrumentations: false,
+    trackSpaPathChanges: false,
   };
 }
 

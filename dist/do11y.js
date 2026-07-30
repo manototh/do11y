@@ -1279,7 +1279,8 @@
 		navigationSelector: null,
 		footerSelector: null,
 		contentSelector: null,
-		useOtelBrowserInstrumentations: false
+		useOtelBrowserInstrumentations: false,
+		trackSpaPathChanges: false
 	};
 	const _alreadyLoaded = !!window.__do11yInitialized;
 	window.__do11yInitialized = true;

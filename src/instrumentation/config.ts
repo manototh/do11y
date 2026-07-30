@@ -40,6 +40,8 @@ export interface DocsInstrumentationConfig extends InstrumentationConfig {
   trackFeedback?: boolean;
   trackSearch?: boolean;
   trackCopy?: boolean;
+  /** SPA path-change detection (MutationObserver + popstate + poll). Default: false. */
+  trackSpaPathChanges?: boolean;
 
   /** Debug logging */
   debug?: boolean;
@@ -64,6 +66,7 @@ export function buildConfig(userConfig: DocsInstrumentationConfig): Partial<Do11
     trackTocClicks: userConfig.trackTocClicks ?? true,
     trackExpandCollapse: userConfig.trackExpandCollapse ?? true,
     trackFeedback: userConfig.trackFeedback ?? true,
+    trackSpaPathChanges: userConfig.trackSpaPathChanges ?? false,
     // Selector overrides from user config
     searchSelector: userConfig.selectors?.searchSelector ?? null,
     copyButtonSelector: userConfig.selectors?.copyButtonSelector ?? null,

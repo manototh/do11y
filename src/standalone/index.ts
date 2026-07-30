@@ -85,6 +85,7 @@ const config: Do11yConfig = {
   footerSelector: null,
   contentSelector: null,
   useOtelBrowserInstrumentations: false,
+  trackSpaPathChanges: false,
 };
 
 // ─── Guard: prevent double-init ──────────────────────────────────────────────

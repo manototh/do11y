@@ -70,6 +70,7 @@ export interface Do11yConfig {
   trackTocClicks: boolean;
   trackExpandCollapse: boolean;
   trackFeedback: boolean;
+  trackSpaPathChanges: boolean;
   tabContainerSelector: string | null;
   tocSelector: string | null;
   feedbackSelector: string | null;

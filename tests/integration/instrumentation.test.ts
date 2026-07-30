@@ -160,6 +160,78 @@ function escapeRegex(str: string): string {
   return str.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
 }
 
+// ─── SPA test fixture generation ─────────────────────────────────────────────
+
+/**
+ * Generate the SPA test fixture HTML page.
+ *
+ * This page loads DocsInstrumentation with trackSpaPathChanges: true,
+ * then after a brief delay simulates an SPA navigation via pushState
+ * + DOM content swap. The test validates that page_exit + new page_view
+ * are emitted with the correct paths.
+ */
+function generateSpaTestFixture(rootUrl: string, fixtureDir: string): void {
+  const framework = 'mintlify';
+  const startBody = fs.readFileSync(
+    path.join(fixtureDir, `${framework}-start.html`),
+    'utf-8',
+  );
+
+  const importmap = {
+    imports: {
+      '@opentelemetry/api': `${rootUrl}/node_modules/@opentelemetry/api/build/esm/index.js`,
+      '@opentelemetry/api-logs': `${rootUrl}/node_modules/@opentelemetry/api-logs/build/esm/index.js`,
+      '@opentelemetry/instrumentation': `${rootUrl}/node_modules/@opentelemetry/instrumentation/build/esm/platform/browser/index.js`,
+    },
+  };
+
+  const html = `<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Do11y SPA Test</title>
+<script type="importmap">${JSON.stringify(importmap, null, 2)}</script>
+</head>
+<body>
+${startBody}
+<script type="module">
+const STORAGE_KEY = 'do11y_test_records';
+const { logs } = await import('@opentelemetry/api-logs');
+logs.setGlobalLoggerProvider({
+  getLogger: () => ({
+    emit: (record) => {
+      try {
+        const stored = JSON.parse(sessionStorage.getItem(STORAGE_KEY) || '[]');
+        stored.push(record);
+        if (stored.length > 200) stored.splice(0, stored.length - 200);
+        sessionStorage.setItem(STORAGE_KEY, JSON.stringify(stored));
+      } catch { /* best-effort */ }
+    },
+  }),
+});
+
+const { DocsInstrumentation } = await import('${rootUrl}/dist/instrumentation/index.js');
+const inst = new DocsInstrumentation({
+  framework: '${framework}',
+  debug: false,
+  trackSpaPathChanges: true,
+});
+inst.enable();
+window.__do11yTestInstrumentation = inst;
+
+// Wait a moment for initial page_view, then simulate SPA navigation
+await new Promise(r => setTimeout(r, 500));
+history.pushState({}, '', '/spa-new-page');
+document.title = 'SPA New Page';
+document.body.innerHTML = '<main><h1>SPA New Content</h1></main>';
+window.__do11ySpaNavigated = true;
+</script>
+</body>
+</html>`;
+
+  fs.writeFileSync(path.join(fixtureDir, 'spa-test.otel.html'), html);
+}
+
 // ─── Interaction sequence ───────────────────────────────────────────────────
 
 /**
@@ -453,6 +525,9 @@ describe('integration / instrumentation', () => {
     for (const framework of FRAMEWORKS) {
       generateOtelFixtureFiles(framework, server.url, FIXTURES_DIR);
     }
+
+    // 5. Generate SPA test fixture (framework-agnostic, uses mintlify)
+    generateSpaTestFixture(server.url, FIXTURES_DIR);
   });
 
   afterAll(async () => {
@@ -466,6 +541,12 @@ describe('integration / instrumentation', () => {
           // File may not exist if beforeAll failed
         }
       }
+    }
+    // Clean up SPA fixture
+    try {
+      fs.unlinkSync(path.join(FIXTURES_DIR, 'spa-test.otel.html'));
+    } catch {
+      // File may not exist if beforeAll failed
     }
 
     await browser.close();
@@ -517,6 +598,20 @@ describe('integration / instrumentation', () => {
         await sleep(500);
 
         const rawRecords = await readAndClearRecords(page);
+        expect(rawRecords.length).toBeGreaterThan(0);
+
+        // Phase 1: Validate OTel log record envelope shape on the first record.
+        // The instrumentation emits records with eventName, severityNumber,
+        // attributes (object), and body (empty string). This checks our
+        // contract with the OTel API layer.
+        const firstRecord = rawRecords[0] as Record<string, unknown>;
+        expect(firstRecord).toHaveProperty('eventName');
+        expect(firstRecord.eventName).toBe('browser.do11y.page_view');
+        expect(firstRecord).toHaveProperty('severityNumber', 9);
+        expect(firstRecord).toHaveProperty('body', '');
+        expect(firstRecord).toHaveProperty('attributes');
+        expect(typeof firstRecord.attributes).toBe('object');
+
         const events = extractEvents(rawRecords as any[]);
         const eventNames = events
           .map((e: any) => e?.eventName as string | undefined)
@@ -607,4 +702,105 @@ describe('integration / instrumentation', () => {
       }
     }, 120000);
   }
+
+  // ─── Phase 2: Disable integration test ──────────────────────────────────
+  it('disable() stops emitting events in a real browser', async () => {
+    const page = await browser.newPage();
+    await page.setViewport({ width: 1440, height: 900 });
+
+    try {
+      const startUrl = `${server.url}/tests/integration/fixtures/mintlify-start.otel.html`;
+      await page.goto(startUrl, { waitUntil: 'networkidle2', timeout: 15000 });
+      await page.waitForFunction(
+        () => !!(window as any).__do11yTestInstrumentation,
+        { timeout: 15000 },
+      );
+      await sleep(500);
+
+      // Clear any records emitted during init (first page_view, etc.)
+      await readAndClearRecords(page);
+
+      // Disable the instrumentation
+      await page.evaluate(() => {
+        (window as any).__do11yTestInstrumentation.disable();
+      });
+      await sleep(300);
+
+      // Fire events that should NOT produce records after disable.
+      // Note: beforeunload listeners added by setupEngagementTracking are
+      // not removed by disable() — that's a known limitation tracked
+      // separately. We test that click and scroll events are suppressed.
+      await page.evaluate(() => {
+        document.body.click();
+        window.dispatchEvent(new Event('scroll'));
+      });
+      await sleep(500);
+
+      const records = await readAndClearRecords(page);
+      expect(records.length).toBe(0);
+    } finally {
+      await page.close();
+    }
+  }, 30000);
+
+  // ─── Phase 3b: SPA path-change integration test ─────────────────────────
+  it('emits page_exit + page_view on SPA navigation when trackSpaPathChanges is enabled', async () => {
+    const page = await browser.newPage();
+    await page.setViewport({ width: 1440, height: 900 });
+
+    try {
+      const spaUrl = `${server.url}/tests/integration/fixtures/spa-test.otel.html`;
+      await page.goto(spaUrl, { waitUntil: 'networkidle2', timeout: 15000 });
+
+      // Wait for both the instrumentation to initialize AND the SPA navigation
+      // to complete (the page script simulates pushState after 500ms).
+      await page.waitForFunction(
+        () => !!(window as any).__do11ySpaNavigated,
+        { timeout: 15000 },
+      );
+      await sleep(1000);
+
+      // Trigger page_exit manually, then read records
+      await page.evaluate(() => {
+        window.dispatchEvent(new Event('beforeunload'));
+      });
+      await sleep(500);
+
+      const rawRecords = await readAndClearRecords(page);
+      const events = extractEvents(rawRecords as any[]);
+
+      // Should have at least: initial page_view, SPA page_exit, SPA page_view
+      const pageViews = events.filter(
+        (e: any) => e?.eventName === 'browser.do11y.page_view',
+      );
+      const pageExits = events.filter(
+        (e: any) => e?.eventName === 'browser.do11y.page_exit',
+      );
+
+      expect(pageViews.length).toBeGreaterThanOrEqual(2);
+      expect(pageExits.length).toBeGreaterThanOrEqual(1);
+
+      // The first page_view should be for the original path
+      expect(pageViews[0]).toHaveProperty('url.path');
+      expect(pageViews[0]?.['url.path']).toContain('/spa-test.otel.html');
+
+      // A page_view with the SPA path should exist, with is_first_page: false
+      const spaPageView = pageViews.find(
+        (pv: any) => pv?.['url.path'] === '/spa-new-page',
+      );
+      expect(spaPageView).toBeDefined();
+      expect(spaPageView?.['browser.do11y.is_first_page']).toBe(false);
+
+      // page_exit fires with the *current* pathname at emission time, which
+      // after the SPA navigation is the new path. This matches the behavior
+      // of the standalone build's handlePathChange.
+      expect(pageExits[0]).toHaveProperty('url.path');
+      expect(pageExits[0]?.['url.path']).toBe('/spa-new-page');
+      expect(pageExits[0]).toHaveProperty(
+        'browser.do11y.page_exit.total_time_seconds',
+      );
+    } finally {
+      await page.close();
+    }
+  }, 30000);
 });
