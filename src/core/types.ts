@@ -5,14 +5,14 @@
  */
 
 export type FrameworkPreset =
-  | 'mintlify'
-  | 'docusaurus'
-  | 'nextra'
-  | 'mkdocs-material'
-  | 'vitepress'
-  | 'starlight'
-  | 'docsy'
-  | 'custom';
+  | "mintlify"
+  | "docusaurus"
+  | "nextra"
+  | "mkdocs-material"
+  | "vitepress"
+  | "starlight"
+  | "docsy"
+  | "custom";
 
 export interface FrameworkSelectors {
   searchSelector: string;
@@ -26,7 +26,7 @@ export interface FrameworkSelectors {
   feedbackSelector: string;
 }
 
-export type Destination = 'supabase' | 'http' | 'otlp';
+export type Destination = "supabase" | "http" | "otlp";
 
 export interface Do11yConfig {
   destination: Destination;
@@ -87,17 +87,17 @@ export interface Do11yConfig {
 export interface Do11yEvent {
   _time: string;
   eventName: string;
-  'session.id': string;
-  'browser.do11y.session_page_count': number;
-  'url.path': string;
-  'url.fragment': string | null;
-  'browser.do11y.page_title': string | null;
-  'browser.do11y.url.has_params': string | null;
-  'browser.do11y.viewport_category': string;
-  'browser.family': string;
-  'device.type': string;
-  'browser.language': string;
-  'browser.do11y.timezone_offset': number;
+  "session.id": string;
+  "browser.do11y.session_page_count": number;
+  "url.path": string;
+  "url.fragment": string | null;
+  "browser.do11y.page_title": string | null;
+  "browser.do11y.url.has_params": string | null;
+  "browser.do11y.viewport_category": string;
+  "browser.family": string;
+  "device.type": string;
+  "browser.language": string;
+  "browser.do11y.timezone_offset": number;
   [key: string]: unknown;
 }
 
@@ -131,18 +131,18 @@ export interface SessionData {
 // ─── Context ─────────────────────────────────────────────────────────────────
 
 export interface BrowserContext {
-  'browser.do11y.viewport_category': string;
-  'browser.family': string;
-  'device.type': string;
-  'browser.language': string;
-  'browser.do11y.timezone_offset': number;
+  "browser.do11y.viewport_category": string;
+  "browser.family": string;
+  "device.type": string;
+  "browser.language": string;
+  "browser.do11y.timezone_offset": number;
 }
 
 export interface PageInfo {
-  'url.path': string;
-  'url.fragment': string | null;
-  'browser.do11y.page_title': string | null;
-  'browser.do11y.url.has_params': string | null;
+  "url.path": string;
+  "url.fragment": string | null;
+  "browser.do11y.page_title": string | null;
+  "browser.do11y.url.has_params": string | null;
 }
 
 export interface ReferrerInfo {

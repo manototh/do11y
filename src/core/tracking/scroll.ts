@@ -8,12 +8,12 @@
  * container by walking up from the content element and listen on it in
  * addition to the window.
  */
-import type { Do11yConfig, EmitFn } from '../types.js';
+import type { Do11yConfig, EmitFn } from "../types.js";
 import {
   EVENT_SCROLL_DEPTH,
   ATTR_DO11Y_SCROLL_THRESHOLD,
   ATTR_DO11Y_SCROLL_PERCENT,
-} from '../constants.js';
+} from "../constants.js";
 
 let trackedScrollDepths = new Set<number>();
 let scrollContainer: Element | null = null;
@@ -23,8 +23,10 @@ function findScrollableAncestor(el: Element): Element | null {
   while (current && current !== document.body && current !== document.documentElement) {
     const style = window.getComputedStyle(current);
     const overflowY = style.overflowY;
-    if ((overflowY === 'auto' || overflowY === 'scroll') &&
-        current.scrollHeight > current.clientHeight) {
+    if (
+      (overflowY === "auto" || overflowY === "scroll") &&
+      current.scrollHeight > current.clientHeight
+    ) {
       return current;
     }
     current = current.parentElement;
@@ -105,12 +107,12 @@ export function setupScrollTracking(config: Do11yConfig, emit: EmitFn): void {
     }
   }
 
-  window.addEventListener('scroll', onScroll);
+  window.addEventListener("scroll", onScroll);
   if (scrollContainer) {
-    scrollContainer.addEventListener('scroll', onScroll);
+    scrollContainer.addEventListener("scroll", onScroll);
     if (config.debug) {
       const sc = scrollContainer as HTMLElement;
-      console.log('[do11y] Using container-based scroll tracking:', sc.className || sc.tagName);
+      console.log("[do11y] Using container-based scroll tracking:", sc.className || sc.tagName);
     }
   }
 

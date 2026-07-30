@@ -18,7 +18,7 @@ export type {
   BrowserContext,
   PageInfo,
   ReferrerInfo,
-} from './types.js';
+} from "./types.js";
 
 // Constants
 export {
@@ -82,13 +82,13 @@ export {
   EVENT_FEEDBACK,
   EVENT_EXPAND_COLLAPSE,
   SELECTOR_KEYS,
-} from './constants.js';
+} from "./constants.js";
 
 // Presets
-export { FRAMEWORK_PRESETS, applyFrameworkSelectors } from './presets.js';
+export { FRAMEWORK_PRESETS, applyFrameworkSelectors } from "./presets.js";
 
 // Privacy
-export { validateSelector, shouldDisableTracking } from './privacy.js';
+export { validateSelector, shouldDisableTracking } from "./privacy.js";
 
 // DOM utilities
 export {
@@ -99,10 +99,10 @@ export {
   resolveTocContainer,
   sanitizeText,
   getNearestHeading,
-} from './dom-utils.js';
+} from "./dom-utils.js";
 
 // Session
-export { getSession, saveSession, updatePageSequence, generateSessionId } from './session.js';
+export { getSession, saveSession, updatePageSequence, generateSessionId } from "./session.js";
 
 // Context
 export {
@@ -114,32 +114,32 @@ export {
   classifyReferrer,
   getReferrerDomain,
   getPageInfo,
-} from './context.js';
+} from "./context.js";
 
 // Tracking
-export { trackPageView } from './tracking/page-view.js';
-export { setupLinkTracking } from './tracking/links.js';
+export { trackPageView } from "./tracking/page-view.js";
+export { setupLinkTracking } from "./tracking/links.js";
 export {
   setupScrollTracking,
   checkScrollDepth,
   resetTrackedScrollDepths,
   getTrackedScrollDepths,
-} from './tracking/scroll.js';
+} from "./tracking/scroll.js";
 export {
   setupEngagementTracking,
   emitPageExit,
   resetEngagementState,
   pageExited,
-} from './tracking/engagement.js';
-export { setupSearchTracking } from './tracking/search.js';
-export { setupCopyTracking } from './tracking/copy.js';
+} from "./tracking/engagement.js";
+export { setupSearchTracking } from "./tracking/search.js";
+export { setupCopyTracking } from "./tracking/copy.js";
 export {
   setupSectionVisibilityTracking,
   observeHeadings,
   flushVisibleSections,
   disconnectSectionObserver,
-} from './tracking/sections.js';
-export { setupTabSwitchTracking } from './tracking/tabs.js';
-export { setupTocClickTracking } from './tracking/toc.js';
-export { setupFeedbackTracking } from './tracking/feedback.js';
-export { setupExpandCollapseTracking } from './tracking/expand.js';
+} from "./tracking/sections.js";
+export { setupTabSwitchTracking } from "./tracking/tabs.js";
+export { setupTocClickTracking } from "./tracking/toc.js";
+export { setupFeedbackTracking } from "./tracking/feedback.js";
+export { setupExpandCollapseTracking } from "./tracking/expand.js";

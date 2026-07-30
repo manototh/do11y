@@ -3,8 +3,8 @@
  *
  * DocsInstrumentation configuration types.
  */
-import type { InstrumentationConfig } from '@opentelemetry/instrumentation';
-import type { Do11yConfig, FrameworkPreset } from '../core/types.js';
+import type { InstrumentationConfig } from "@opentelemetry/instrumentation";
+import type { Do11yConfig, FrameworkPreset } from "../core/types.js";
 
 /**
  * Configuration options for DocsInstrumentation.
@@ -54,7 +54,7 @@ export interface DocsInstrumentationConfig extends InstrumentationConfig {
  */
 export function buildConfig(userConfig: DocsInstrumentationConfig): Partial<Do11yConfig> {
   return {
-    framework: userConfig.framework ?? 'mintlify',
+    framework: userConfig.framework ?? "mintlify",
     debug: userConfig.debug ?? false,
     trackScrollDepth: userConfig.trackScrollDepth ?? true,
     scrollThresholds: userConfig.scrollThresholds ?? [25, 50, 75, 90],

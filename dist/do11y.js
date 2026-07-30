@@ -1189,10 +1189,10 @@ var Do11yBundle = (function(exports) {
 			return {
 				url,
 				headers: {
-					"apikey": config.supabaseKey,
-					"Authorization": "Bearer " + config.supabaseKey,
+					apikey: config.supabaseKey,
+					Authorization: "Bearer " + config.supabaseKey,
 					"Content-Type": "application/json",
-					"Prefer": "return=minimal"
+					Prefer: "return=minimal"
 				},
 				body: JSON.stringify(bodyTransform(events))
 			};

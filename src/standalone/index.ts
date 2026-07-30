@@ -9,29 +9,33 @@
  *
  * Behaviour is identical to the pre-refactor src/do11y.ts.
  */
-import type { Do11yConfig } from '../core/types.js';
-import { VERSION } from '../core/constants.js';
-import { applyFrameworkSelectors } from '../core/presets.js';
-import { shouldDisableTracking } from '../core/privacy.js';
-import { trackPageView } from '../core/tracking/page-view.js';
-import { setupLinkTracking } from '../core/tracking/links.js';
-import { setupScrollTracking, checkScrollDepth, resetTrackedScrollDepths } from '../core/tracking/scroll.js';
+import type { Do11yConfig } from "../core/types.js";
+import { VERSION } from "../core/constants.js";
+import { applyFrameworkSelectors } from "../core/presets.js";
+import { shouldDisableTracking } from "../core/privacy.js";
+import { trackPageView } from "../core/tracking/page-view.js";
+import { setupLinkTracking } from "../core/tracking/links.js";
+import {
+  setupScrollTracking,
+  checkScrollDepth,
+  resetTrackedScrollDepths,
+} from "../core/tracking/scroll.js";
 import {
   setupEngagementTracking,
   emitPageExit,
   resetEngagementState,
-} from '../core/tracking/engagement.js';
-import { setupSearchTracking } from '../core/tracking/search.js';
-import { setupCopyTracking } from '../core/tracking/copy.js';
+} from "../core/tracking/engagement.js";
+import { setupSearchTracking } from "../core/tracking/search.js";
+import { setupCopyTracking } from "../core/tracking/copy.js";
 import {
   setupSectionVisibilityTracking,
   observeHeadings,
   disconnectSectionObserver,
-} from '../core/tracking/sections.js';
-import { setupTabSwitchTracking } from '../core/tracking/tabs.js';
-import { setupTocClickTracking } from '../core/tracking/toc.js';
-import { setupFeedbackTracking } from '../core/tracking/feedback.js';
-import { setupExpandCollapseTracking } from '../core/tracking/expand.js';
+} from "../core/tracking/sections.js";
+import { setupTabSwitchTracking } from "../core/tracking/tabs.js";
+import { setupTocClickTracking } from "../core/tracking/toc.js";
+import { setupFeedbackTracking } from "../core/tracking/feedback.js";
+import { setupExpandCollapseTracking } from "../core/tracking/expand.js";
 import {
   queueEvent,
   flush,
@@ -40,21 +44,21 @@ import {
   setIsDisabled,
   getIsDisabled,
   getQueueLength,
-} from './transport.js';
+} from "./transport.js";
 
 // ─── Configuration ───────────────────────────────────────────────────────────
 
 const config: Do11yConfig = {
-  destination: 'supabase',
-  supabaseUrl: '',
-  supabaseKey: '',
-  supabaseTable: 'do11y_events',
-  endpoint: '',
+  destination: "supabase",
+  supabaseUrl: "",
+  supabaseKey: "",
+  supabaseTable: "do11y_events",
+  endpoint: "",
   headers: {},
   bodyTransform: undefined,
-  otelSdkEndpoint: '',
+  otelSdkEndpoint: "",
   otelSdkHeaders: {},
-  otelSdkServiceName: 'do11y',
+  otelSdkServiceName: "do11y",
   otelSdkResourceAttributes: {},
   debug: false,
   flushInterval: 5000,
@@ -68,7 +72,7 @@ const config: Do11yConfig = {
   maxRetries: 2,
   retryDelay: 1000,
   rateLimitMs: 100,
-  framework: 'mintlify',
+  framework: "mintlify",
   trackSectionVisibility: true,
   sectionVisibleThreshold: 3,
   trackSearch: true,
@@ -113,7 +117,7 @@ function init(): void {
   // type than Do11yConfig expects (e.g. undefined vs boolean).
   const cfg = config as unknown as Record<string, unknown>;
   const userCfg = window.Do11yConfig as unknown as Record<string, unknown>;
-  if (userCfg && typeof userCfg === 'object') {
+  if (userCfg && typeof userCfg === "object") {
     for (const key in config) {
       if (Object.prototype.hasOwnProperty.call(userCfg, key)) {
         const val = userCfg[key];
@@ -125,66 +129,88 @@ function init(): void {
   // Read from meta tags
   const metaDestination = document.querySelector('meta[name="do11y-destination"]');
   if (metaDestination) {
-    const dest = metaDestination.getAttribute('content');
-    if (dest === 'supabase' || dest === 'http' || dest === 'otlp') config.destination = dest;
+    const dest = metaDestination.getAttribute("content");
+    if (dest === "supabase" || dest === "http" || dest === "otlp") config.destination = dest;
   }
 
   const metaUrl = document.querySelector('meta[name="do11y-url"]');
-  if (metaUrl) config.supabaseUrl = metaUrl.getAttribute('content') ?? config.supabaseUrl;
+  if (metaUrl) config.supabaseUrl = metaUrl.getAttribute("content") ?? config.supabaseUrl;
 
   const metaKey = document.querySelector('meta[name="do11y-key"]');
-  if (metaKey) config.supabaseKey = metaKey.getAttribute('content') ?? config.supabaseKey;
+  if (metaKey) config.supabaseKey = metaKey.getAttribute("content") ?? config.supabaseKey;
 
   const metaTable = document.querySelector('meta[name="do11y-table"]');
-  if (metaTable) config.supabaseTable = metaTable.getAttribute('content') ?? config.supabaseTable;
+  if (metaTable) config.supabaseTable = metaTable.getAttribute("content") ?? config.supabaseTable;
 
   const metaEndpoint = document.querySelector('meta[name="do11y-endpoint"]');
-  if (metaEndpoint) config.endpoint = metaEndpoint.getAttribute('content') ?? config.endpoint;
+  if (metaEndpoint) config.endpoint = metaEndpoint.getAttribute("content") ?? config.endpoint;
 
   const metaOtlpEndpoint = document.querySelector('meta[name="do11y-otlp-endpoint"]');
-  if (metaOtlpEndpoint) config.otelSdkEndpoint = metaOtlpEndpoint.getAttribute('content') ?? config.otelSdkEndpoint;
+  if (metaOtlpEndpoint)
+    config.otelSdkEndpoint = metaOtlpEndpoint.getAttribute("content") ?? config.otelSdkEndpoint;
 
   const metaOtlpHeaders = document.querySelector('meta[name="do11y-otlp-headers"]');
   if (metaOtlpHeaders) {
     try {
-      const parsed = JSON.parse(metaOtlpHeaders.getAttribute('content') ?? '{}');
-      if (typeof parsed === 'object' && parsed !== null) {
+      const parsed = JSON.parse(metaOtlpHeaders.getAttribute("content") ?? "{}");
+      if (typeof parsed === "object" && parsed !== null) {
         config.otelSdkHeaders = parsed;
       }
-    } catch { /* ignore invalid JSON */ }
+    } catch {
+      /* ignore invalid JSON */
+    }
   }
 
   const metaDebug = document.querySelector('meta[name="do11y-debug"]');
-  if (metaDebug && metaDebug.getAttribute('content') === 'true') config.debug = true;
+  if (metaDebug && metaDebug.getAttribute("content") === "true") config.debug = true;
 
   const metaDomains = document.querySelector('meta[name="do11y-domains"]');
   if (metaDomains) {
-    const domainsStr = metaDomains.getAttribute('content');
+    const domainsStr = metaDomains.getAttribute("content");
     if (domainsStr) {
-      config.allowedDomains = domainsStr.split(',').map((d) => d.trim());
+      config.allowedDomains = domainsStr.split(",").map((d) => d.trim());
     }
   }
 
   const metaFramework = document.querySelector('meta[name="do11y-framework"]');
   if (metaFramework) {
-    const rawFramework = metaFramework.getAttribute('content');
-    const validFrameworks: readonly string[] = ['mintlify', 'docusaurus', 'nextra', 'mkdocs-material', 'vitepress', 'starlight', 'docsy', 'custom'];
+    const rawFramework = metaFramework.getAttribute("content");
+    const validFrameworks: readonly string[] = [
+      "mintlify",
+      "docusaurus",
+      "nextra",
+      "mkdocs-material",
+      "vitepress",
+      "starlight",
+      "docsy",
+      "custom",
+    ];
     if (rawFramework && validFrameworks.includes(rawFramework)) {
-      config.framework = rawFramework as import('../core/types.js').FrameworkPreset;
+      config.framework = rawFramework as import("../core/types.js").FrameworkPreset;
     } else if (rawFramework && config.debug) {
-      console.warn('[Do11y] Unknown framework in meta tag: "' + rawFramework + '". Using default: ' + config.framework);
+      console.warn(
+        '[Do11y] Unknown framework in meta tag: "' +
+          rawFramework +
+          '". Using default: ' +
+          config.framework,
+      );
     }
   }
 
-  const metaUseOtelInstrumentations = document.querySelector('meta[name="do11y-use-otel-instrumentations"]');
-  if (metaUseOtelInstrumentations && metaUseOtelInstrumentations.getAttribute('content') === 'true') {
+  const metaUseOtelInstrumentations = document.querySelector(
+    'meta[name="do11y-use-otel-instrumentations"]',
+  );
+  if (
+    metaUseOtelInstrumentations &&
+    metaUseOtelInstrumentations.getAttribute("content") === "true"
+  ) {
     config.useOtelBrowserInstrumentations = true;
   }
 
   applyFrameworkSelectors(config);
 
   if (config.debug) {
-    console.log('[Do11y] Initializing with config:', {
+    console.log("[Do11y] Initializing with config:", {
       destination: config.destination,
       framework: config.framework,
       allowedDomains: config.allowedDomains,
@@ -194,19 +220,21 @@ function init(): void {
 
   if (shouldDisableTracking(config)) {
     setIsDisabled(true);
-    if (config.debug) console.log('[Do11y] Tracking disabled');
+    if (config.debug) console.log("[Do11y] Tracking disabled");
     return;
   }
 
   const hasDestination =
-    config.destination === 'supabase' ? !!config.supabaseKey :
-    config.destination === 'otlp' ? !!config.otelSdkEndpoint :
-    !!config.endpoint;
+    config.destination === "supabase"
+      ? !!config.supabaseKey
+      : config.destination === "otlp"
+        ? !!config.otelSdkEndpoint
+        : !!config.endpoint;
   if (!hasDestination) {
-    console.warn('[Do11y] No destination configured. Events will not be sent.');
-    if (config.destination === 'supabase') {
+    console.warn("[Do11y] No destination configured. Events will not be sent.");
+    if (config.destination === "supabase") {
       console.warn('[Do11y] Add <meta name="do11y-url"> and <meta name="do11y-key"> to enable.');
-    } else if (config.destination === 'otlp') {
+    } else if (config.destination === "otlp") {
       console.warn('[Do11y] Add <meta name="do11y-otlp-endpoint"> to enable.');
     } else {
       console.warn('[Do11y] Add <meta name="do11y-endpoint"> to enable.');
@@ -247,7 +275,7 @@ function init(): void {
   mutationObserver = new MutationObserver(handlePathChange);
   mutationObserver.observe(document.body, { childList: true, subtree: true });
 
-  window.addEventListener('popstate', handlePathChange);
+  window.addEventListener("popstate", handlePathChange);
 
   // Supplementary pathname poll: some SPA routers (e.g. Mintlify) update
   // the DOM before calling history.pushState, causing the MutationObserver
@@ -264,7 +292,7 @@ function init(): void {
   // The page_exit event is already emitted by setupEngagementTracking's
   // beforeunload listener (registered above), so we only flush the transport.
   // The pageExited guard in emitPageExit prevents double emission.
-  window.addEventListener('beforeunload', () => {
+  window.addEventListener("beforeunload", () => {
     if (pathPollId !== null) {
       clearInterval(pathPollId);
       pathPollId = null;
@@ -275,7 +303,7 @@ function init(): void {
 
   // Pause the SPA path poll when the tab is hidden (no need to check
   // for path changes when the user can't see the page).
-  document.addEventListener('visibilitychange', () => {
+  document.addEventListener("visibilitychange", () => {
     if (document.hidden && pathPollId !== null) {
       clearInterval(pathPollId);
       pathPollId = null;
@@ -284,7 +312,7 @@ function init(): void {
     }
   });
 
-  if (config.debug) console.log('[Do11y] Initialized successfully');
+  if (config.debug) console.log("[Do11y] Initialized successfully");
 }
 
 /** Tear down all tracking: remove listeners, disconnect observers, flush queue. */
@@ -309,8 +337,8 @@ export function destroy(): void {
 // ─── Auto-bootstrap ──────────────────────────────────────────────────────────
 
 if (!_alreadyLoaded && !_isInIframe) {
-  if (document.readyState === 'loading') {
-    document.addEventListener('DOMContentLoaded', init);
+  if (document.readyState === "loading") {
+    document.addEventListener("DOMContentLoaded", init);
   } else {
     init();
   }
@@ -322,9 +350,11 @@ window.Do11y = window.Do11y ?? {
   getConfig: () => ({
     destination: config.destination,
     hasCredentials:
-      config.destination === 'supabase' ? !!config.supabaseKey :
-      config.destination === 'otlp' ? !!config.otelSdkEndpoint :
-      !!config.endpoint,
+      config.destination === "supabase"
+        ? !!config.supabaseKey
+        : config.destination === "otlp"
+          ? !!config.otelSdkEndpoint
+          : !!config.endpoint,
     isDisabled: getIsDisabled(),
     allowedDomains: config.allowedDomains,
     respectDNT: config.respectDNT,
@@ -332,8 +362,8 @@ window.Do11y = window.Do11y ?? {
   flush: () => flush(config),
   isEnabled: () => {
     if (getIsDisabled()) return false;
-    if (config.destination === 'supabase') return !!config.supabaseKey;
-    if (config.destination === 'otlp') return !!config.otelSdkEndpoint;
+    if (config.destination === "supabase") return !!config.supabaseKey;
+    if (config.destination === "otlp") return !!config.otelSdkEndpoint;
     return !!config.endpoint;
   },
   getQueueSize: () => getQueueLength(),

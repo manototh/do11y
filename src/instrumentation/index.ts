@@ -21,40 +21,40 @@
  *     ],
  *   });
  */
-import { InstrumentationBase } from '@opentelemetry/instrumentation';
-import { logs } from '@opentelemetry/api-logs';
-import type { Do11yConfig, EmitFn } from '../core/types.js';
-import { VERSION } from '../core/constants.js';
-import { applyFrameworkSelectors } from '../core/presets.js';
-import { getBrowserContext } from '../core/context.js';
-import { getPageInfo } from '../core/context.js';
-import { trackPageView } from '../core/tracking/page-view.js';
-import { setupLinkTracking } from '../core/tracking/links.js';
+import { InstrumentationBase } from "@opentelemetry/instrumentation";
+import { logs } from "@opentelemetry/api-logs";
+import type { Do11yConfig, EmitFn } from "../core/types.js";
+import { VERSION } from "../core/constants.js";
+import { applyFrameworkSelectors } from "../core/presets.js";
+import { getBrowserContext } from "../core/context.js";
+import { getPageInfo } from "../core/context.js";
+import { trackPageView } from "../core/tracking/page-view.js";
+import { setupLinkTracking } from "../core/tracking/links.js";
 import {
   setupScrollTracking,
   resetTrackedScrollDepths,
   checkScrollDepth,
-} from '../core/tracking/scroll.js';
+} from "../core/tracking/scroll.js";
 import {
   setupEngagementTracking,
   emitPageExit,
   resetEngagementState,
-} from '../core/tracking/engagement.js';
-import { setupSearchTracking } from '../core/tracking/search.js';
-import { setupCopyTracking } from '../core/tracking/copy.js';
+} from "../core/tracking/engagement.js";
+import { setupSearchTracking } from "../core/tracking/search.js";
+import { setupCopyTracking } from "../core/tracking/copy.js";
 import {
   setupSectionVisibilityTracking,
   disconnectSectionObserver,
   observeHeadings,
-} from '../core/tracking/sections.js';
-import { setupTabSwitchTracking } from '../core/tracking/tabs.js';
-import { setupTocClickTracking } from '../core/tracking/toc.js';
-import { setupFeedbackTracking } from '../core/tracking/feedback.js';
-import { setupExpandCollapseTracking } from '../core/tracking/expand.js';
-import type { DocsInstrumentationConfig } from './config.js';
-import { buildConfig } from './config.js';
+} from "../core/tracking/sections.js";
+import { setupTabSwitchTracking } from "../core/tracking/tabs.js";
+import { setupTocClickTracking } from "../core/tracking/toc.js";
+import { setupFeedbackTracking } from "../core/tracking/feedback.js";
+import { setupExpandCollapseTracking } from "../core/tracking/expand.js";
+import type { DocsInstrumentationConfig } from "./config.js";
+import { buildConfig } from "./config.js";
 
-export type { DocsInstrumentationConfig } from './config.js';
+export type { DocsInstrumentationConfig } from "./config.js";
 
 /**
  * OpenTelemetry instrumentation for documentation sites.
@@ -69,12 +69,12 @@ export class DocsInstrumentation extends InstrumentationBase<DocsInstrumentation
   private _emit: EmitFn = () => {};
   private _mutationObserver: MutationObserver | null = null;
   private _pathPollId: ReturnType<typeof setInterval> | null = null;
-  private _lastPath: string = '';
+  private _lastPath: string = "";
   private _boundHandlePathChange: (() => void) | null = null;
   private _boundPopstateHandler: (() => void) | null = null;
 
   constructor(config: DocsInstrumentationConfig = {}) {
-    super('@manototh/do11y', VERSION, config);
+    super("@manototh/do11y", VERSION, config);
   }
 
   /**
@@ -97,18 +97,18 @@ export class DocsInstrumentation extends InstrumentationBase<DocsInstrumentation
     applyFrameworkSelectors(this._do11yConfig as Do11yConfig);
 
     // Create emit function backed by the OTel Logger
-    const logger = logs.getLogger('@manototh/do11y');
+    const logger = logs.getLogger("@manototh/do11y");
     const emit: EmitFn = (eventName, eventData) => {
       logger.emit({
         eventName,
         severityNumber: 9, // SEVERITY_NUMBER_INFO
         attributes: {
-          'browser.do11y.version': VERSION,
+          "browser.do11y.version": VERSION,
           ...getBrowserContext(),
           ...getPageInfo(),
           ...eventData,
         },
-        body: '',
+        body: "",
       });
     };
     this._emit = emit;
@@ -143,7 +143,7 @@ export class DocsInstrumentation extends InstrumentationBase<DocsInstrumentation
       };
 
       this._boundPopstateHandler = this._boundHandlePathChange;
-      window.addEventListener('popstate', this._boundPopstateHandler);
+      window.addEventListener("popstate", this._boundPopstateHandler);
 
       this._mutationObserver = new MutationObserver(this._boundHandlePathChange);
       this._mutationObserver.observe(document.body, {
@@ -171,11 +171,11 @@ export class DocsInstrumentation extends InstrumentationBase<DocsInstrumentation
       this._pathPollId = null;
     }
     if (this._boundPopstateHandler) {
-      window.removeEventListener('popstate', this._boundPopstateHandler);
+      window.removeEventListener("popstate", this._boundPopstateHandler);
       this._boundPopstateHandler = null;
     }
     this._boundHandlePathChange = null;
-    this._lastPath = '';
+    this._lastPath = "";
     this._emit = () => {};
 
     this._do11yConfig = {};

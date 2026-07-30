@@ -9,47 +9,55 @@
  * a path-visit sequence (no query parameters, no PII). It is cleared
  * automatically when the browser tab closes.
  */
-import type { SessionData } from './types.js';
+import type { SessionData } from "./types.js";
 
 function generateSessionId(): string {
   // Math.random() is not cryptographically secure and must not be used as
   // a fallback for session ID generation. Both crypto APIs below are
   // available in every browser that supports fetch (our minimum baseline).
-  if (window.crypto && typeof window.crypto.randomUUID === 'function') {
+  if (window.crypto && typeof window.crypto.randomUUID === "function") {
     return window.crypto.randomUUID();
   }
-  if (window.crypto && typeof window.crypto.getRandomValues === 'function') {
+  if (window.crypto && typeof window.crypto.getRandomValues === "function") {
     const arr = new Uint8Array(16);
     window.crypto.getRandomValues(arr);
     arr[6] = (arr[6]! & 0x0f) | 0x40;
     arr[8] = (arr[8]! & 0x3f) | 0x80;
-    const hex = Array.from(arr, (b) => b.toString(16).padStart(2, '0')).join('');
+    const hex = Array.from(arr, (b) => b.toString(16).padStart(2, "0")).join("");
     return (
-      hex.slice(0, 8) + '-' + hex.slice(8, 12) + '-' +
-      hex.slice(12, 16) + '-' + hex.slice(16, 20) + '-' + hex.slice(20)
+      hex.slice(0, 8) +
+      "-" +
+      hex.slice(8, 12) +
+      "-" +
+      hex.slice(12, 16) +
+      "-" +
+      hex.slice(16, 20) +
+      "-" +
+      hex.slice(20)
     );
   }
   // crypto is unavailable — return a fixed sentinel so the event is still
   // recorded but is clearly not a real session ID, rather than using
   // a predictable Math.random()-based value.
-  return 'no-crypto-00-0000-0000-000000000000';
+  return "no-crypto-00-0000-0000-000000000000";
 }
 
 function isValidSessionData(value: unknown): value is SessionData {
-  if (!value || typeof value !== 'object') return false;
+  if (!value || typeof value !== "object") return false;
   const v = value as Record<string, unknown>;
   return (
-    typeof v.id === 'string' && v.id.length > 0 &&
-    typeof v.startTime === 'string' &&
+    typeof v.id === "string" &&
+    v.id.length > 0 &&
+    typeof v.startTime === "string" &&
     Array.isArray(v.pageSequence) &&
-    typeof v.pageCount === 'number'
+    typeof v.pageCount === "number"
   );
 }
 
 export function getSession(): SessionData {
   let session: SessionData | null = null;
   try {
-    const stored = sessionStorage.getItem('do11y_session');
+    const stored = sessionStorage.getItem("do11y_session");
     if (stored) {
       const parsed: unknown = JSON.parse(stored);
       if (isValidSessionData(parsed)) {
@@ -77,7 +85,7 @@ export function getSession(): SessionData {
 
 export function saveSession(session: SessionData): void {
   try {
-    sessionStorage.setItem('do11y_session', JSON.stringify(session));
+    sessionStorage.setItem("do11y_session", JSON.stringify(session));
   } catch {
     // sessionStorage not available
   }

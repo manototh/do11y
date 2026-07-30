@@ -3,8 +3,8 @@
  *
  * Time on page and engagement tracking.
  */
-import type { Do11yConfig, EmitFn } from '../types.js';
-import { getSession } from '../session.js';
+import type { Do11yConfig, EmitFn } from "../types.js";
+import { getSession } from "../session.js";
 import {
   EVENT_PAGE_EXIT,
   ATTR_DO11Y_TOTAL_TIME_SECONDS,
@@ -13,9 +13,9 @@ import {
   ATTR_DO11Y_MAX_SCROLL_DEPTH,
   ATTR_DO11Y_REFERRER_CATEGORY,
   ATTR_DO11Y_AI_PLATFORM,
-} from '../constants.js';
-import { getTrackedScrollDepths } from './scroll.js';
-import { flushVisibleSections } from './sections.js';
+} from "../constants.js";
+import { getTrackedScrollDepths } from "./scroll.js";
+import { flushVisibleSections } from "./sections.js";
 
 let pageLoadTime = Date.now();
 let lastActivityTime = Date.now();
@@ -65,7 +65,7 @@ export function emitPageExit(config: Do11yConfig, emit: EmitFn, afterEmit?: () =
 }
 
 export function setupEngagementTracking(config: Do11yConfig, emit: EmitFn): void {
-  document.addEventListener('visibilitychange', () => {
+  document.addEventListener("visibilitychange", () => {
     if (document.hidden) {
       if (isPageVisible) {
         totalActiveTime += Date.now() - lastActivityTime;
@@ -77,7 +77,7 @@ export function setupEngagementTracking(config: Do11yConfig, emit: EmitFn): void
     }
   });
 
-  window.addEventListener('beforeunload', () => {
+  window.addEventListener("beforeunload", () => {
     emitPageExit(config, emit);
   });
 }

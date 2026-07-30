@@ -3,9 +3,9 @@
  *
  * Page view tracking.
  */
-import type { Do11yConfig, EmitFn } from '../types.js';
-import { getReferrerDomain, classifyReferrer } from '../context.js';
-import { updatePageSequence, saveSession } from '../session.js';
+import type { Do11yConfig, EmitFn } from "../types.js";
+import { getReferrerDomain, classifyReferrer } from "../context.js";
+import { updatePageSequence, saveSession } from "../session.js";
 import {
   EVENT_PAGE_VIEW,
   ATTR_DO11Y_REFERRER_DOMAIN,
@@ -13,8 +13,8 @@ import {
   ATTR_DO11Y_AI_PLATFORM,
   ATTR_DO11Y_IS_FIRST_PAGE,
   ATTR_DO11Y_PREVIOUS_PATH,
-} from '../constants.js';
-import { resetPageExitedGuard } from './engagement.js';
+} from "../constants.js";
+import { resetPageExitedGuard } from "./engagement.js";
 
 export function trackPageView(config: Do11yConfig, emit: EmitFn): void {
   // Reset the page_exit guard so the new page can emit its exit cleanly.
@@ -37,10 +37,9 @@ export function trackPageView(config: Do11yConfig, emit: EmitFn): void {
     [ATTR_DO11Y_REFERRER_CATEGORY]: referrerInfo.referrerCategory,
     [ATTR_DO11Y_AI_PLATFORM]: referrerInfo.aiPlatform,
     [ATTR_DO11Y_IS_FIRST_PAGE]: session.pageCount === 1,
-    [ATTR_DO11Y_PREVIOUS_PATH]: session.pageSequence.length > 1
-      ? session.pageSequence[session.pageSequence.length - 2]!.path
-      : null,
+    [ATTR_DO11Y_PREVIOUS_PATH]:
+      session.pageSequence.length > 1
+        ? session.pageSequence[session.pageSequence.length - 2]!.path
+        : null,
   });
 }
-
-
