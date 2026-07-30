@@ -10,6 +10,8 @@ import {
 } from '../constants.js';
 
 export function setupSearchTracking(config: Do11yConfig, emit: EmitFn): void {
+  if (!config.trackSearch) return;
+
   // Use capture phase so the handler fires before framework event handlers
   // (e.g. Starlight's <site-search>) can call stopPropagation().
   document.addEventListener('click', (e) => {

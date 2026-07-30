@@ -66,6 +66,8 @@ export interface Do11yConfig {
   framework: FrameworkPreset;
   trackSectionVisibility: boolean;
   sectionVisibleThreshold: number;
+  trackSearch: boolean;
+  trackCopy: boolean;
   trackTabSwitches: boolean;
   trackTocClicks: boolean;
   trackExpandCollapse: boolean;
@@ -106,6 +108,7 @@ export interface Do11yAPI {
   isEnabled: () => boolean;
   getQueueSize: () => number;
   version: string;
+  destroy?: () => void;
 }
 
 /**

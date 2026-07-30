@@ -26,6 +26,7 @@ import { setupCopyTracking } from '../core/tracking/copy.js';
 import {
   setupSectionVisibilityTracking,
   observeHeadings,
+  disconnectSectionObserver,
 } from '../core/tracking/sections.js';
 import { setupTabSwitchTracking } from '../core/tracking/tabs.js';
 import { setupTocClickTracking } from '../core/tracking/toc.js';
@@ -71,6 +72,8 @@ const config: Do11yConfig = {
   framework: 'mintlify',
   trackSectionVisibility: true,
   sectionVisibleThreshold: 3,
+  trackSearch: true,
+  trackCopy: true,
   trackTabSwitches: true,
   trackTocClicks: true,
   trackExpandCollapse: true,
@@ -269,7 +272,37 @@ function init(): void {
     transportCleanup();
   });
 
+  // Pause the SPA path poll when the tab is hidden (no need to check
+  // for path changes when the user can't see the page).
+  document.addEventListener('visibilitychange', () => {
+    if (document.hidden && pathPollId !== null) {
+      clearInterval(pathPollId);
+      pathPollId = null;
+    } else if (!document.hidden && pathPollId === null && config.trackSpaPathChanges) {
+      pathPollId = window.setInterval(handlePathChange, 200);
+    }
+  });
+
   if (config.debug) console.log('[Do11y] Initialized successfully');
+}
+
+/** Tear down all tracking: remove listeners, disconnect observers, flush queue. */
+export function destroy(): void {
+  if (mutationObserver) {
+    mutationObserver.disconnect();
+    mutationObserver = null;
+  }
+  if (pathPollId !== null) {
+    clearInterval(pathPollId);
+    pathPollId = null;
+  }
+  // disconnectSectionObserver cleans up the IntersectionObserver and pending timers
+  disconnectSectionObserver();
+  // Flush any remaining events synchronously
+  flushSync(config);
+  transportCleanup();
+  setIsDisabled(true);
+  window.__do11yInitialized = false;
 }
 
 // ─── Auto-bootstrap ──────────────────────────────────────────────────────────
@@ -304,4 +337,5 @@ window.Do11y = window.Do11y ?? {
   },
   getQueueSize: () => getQueueLength(),
   version: VERSION,
+  destroy: () => destroy(),
 };

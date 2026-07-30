@@ -62,6 +62,8 @@ export function buildConfig(userConfig: DocsInstrumentationConfig): Partial<Do11
     trackInternalLinks: userConfig.trackInternalLinks ?? true,
     trackSectionVisibility: userConfig.trackSectionVisibility ?? true,
     sectionVisibleThreshold: userConfig.sectionVisibleThreshold ?? 3,
+    trackSearch: userConfig.trackSearch ?? true,
+    trackCopy: userConfig.trackCopy ?? true,
     trackTabSwitches: userConfig.trackTabSwitches ?? true,
     trackTocClicks: userConfig.trackTocClicks ?? true,
     trackExpandCollapse: userConfig.trackExpandCollapse ?? true,

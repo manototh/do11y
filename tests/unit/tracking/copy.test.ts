@@ -16,6 +16,7 @@ function makeConfig(overrides: Partial<Do11yConfig> = {}): Do11yConfig {
     scrollThresholds: [25, 50, 75, 90], allowedDomains: null, respectDNT: true,
     maxRetries: 2, retryDelay: 1000, rateLimitMs: 100,
     framework: 'mintlify', trackSectionVisibility: true, sectionVisibleThreshold: 3,
+    trackSearch: true, trackCopy: true,
     trackTabSwitches: true, trackTocClicks: true, trackExpandCollapse: true, trackFeedback: true,
     tabContainerSelector: null, tocSelector: null, feedbackSelector: null,
     searchSelector: null, copyButtonSelector: 'button[class*="copy"], button[aria-label*="copy" i]', codeBlockSelector: 'pre, [class*="code"]',

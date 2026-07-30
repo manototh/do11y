@@ -26,6 +26,8 @@ function getCodeBlockIndex(codeBlock: Element | null, config: Do11yConfig): numb
 }
 
 export function setupCopyTracking(config: Do11yConfig, emit: EmitFn): void {
+  if (!config.trackCopy) return;
+
   document.addEventListener('click', (e) => {
     const copyButton = (e.target as Element).closest(config.copyButtonSelector!);
     if (copyButton) {

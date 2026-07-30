@@ -32,8 +32,8 @@
   ],
   "license": "MIT",
   "peerDependencies": {
-    "@opentelemetry/api-logs": "^0.57.0",
-    "@opentelemetry/instrumentation": "^0.57.0"
+    "@opentelemetry/api-logs": "^0.221.0",
+    "@opentelemetry/instrumentation": "^0.221.0"
   },
   "peerDependenciesMeta": {
     "@opentelemetry/api-logs": {

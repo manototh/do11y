@@ -5,7 +5,7 @@
  */
 import type { Do11yConfig, EmitFn } from '../types.js';
 import { getReferrerDomain, classifyReferrer } from '../context.js';
-import { updatePageSequence } from '../session.js';
+import { updatePageSequence, saveSession } from '../session.js';
 import {
   EVENT_PAGE_VIEW,
   ATTR_DO11Y_REFERRER_DOMAIN,
@@ -43,10 +43,4 @@ export function trackPageView(config: Do11yConfig, emit: EmitFn): void {
   });
 }
 
-function saveSession(session: import('../types.js').SessionData): void {
-  try {
-    sessionStorage.setItem('do11y_session', JSON.stringify(session));
-  } catch {
-    // sessionStorage not available
-  }
-}
+

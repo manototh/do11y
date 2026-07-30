@@ -96,9 +96,12 @@ export function flushVisibleSections(config: Do11yConfig, emit: EmitFn): void {
       if (timer.timeoutId) clearTimeout(timer.timeoutId);
       const elapsed = now - timer.start;
       if (elapsed >= threshold) {
+        // CSS.escape is available in all browsers that support IntersectionObserver.
+        // The fallback handles the rare case where a test environment (e.g. jsdom)
+        // doesn't implement CSS.escape.
         const escapedId = typeof CSS !== 'undefined' && typeof CSS.escape === 'function'
           ? CSS.escape(id)
-          : id.replace(/["\\]/g, '\\$&');
+          : id.replace(/[!"#$%&'()*+,.\/:;<=>?@[\\\]^`{|}~ ]/g, '\\$&');
         const el = document.querySelector('[data-do11y-section-id="' + escapedId + '"]');
         if (el) {
           emitSectionEvent(emit, el, elapsed);
@@ -111,7 +114,19 @@ export function flushVisibleSections(config: Do11yConfig, emit: EmitFn): void {
 
 export function disconnectSectionObserver(): void {
   if (sectionObserver) {
-    flushVisibleSections({ trackSectionVisibility: false, sectionVisibleThreshold: 0 } as Do11yConfig, () => {});
+    // Flush pending timers at their elapsed time instead of discarding them.
+    // We still pass a noop emit to avoid emitting during teardown;
+    // callers that need final emission should flushVisibleSections themselves.
+    if (sectionTimers && Object.keys(sectionTimers).length > 0) {
+      const now = Date.now();
+      Object.keys(sectionTimers).forEach((id) => {
+        const timer = sectionTimers[id];
+        if (timer && !timer.reported) {
+          if (timer.timeoutId) clearTimeout(timer.timeoutId);
+        }
+      });
+      sectionTimers = {};
+    }
     sectionObserver.disconnect();
     sectionObserver = null;
   }

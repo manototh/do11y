@@ -177,7 +177,7 @@ export function validateConfig(config: Do11yConfig): boolean {
     }
     // Lazy init the OTel SDK on first validateConfig call
     initOtelSdk(config).catch((err) => {
-      if (config.debug) console.warn('[Do11y] OTel SDK initialization failed:', err);
+      console.warn('[Do11y] OTel SDK initialization failed:', err);
     });
     return true;
   }
