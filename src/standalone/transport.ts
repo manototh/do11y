@@ -99,15 +99,23 @@ export function queueEvent(
     console.log("[Do11y] Event queued:", eventName, event);
   }
 
-  // In OTLP mode, emit directly through the OTel SDK
-  if (config.destination === "otlp" && _otelLogger) {
-    _otelLogger.emit({
-      eventName,
-      severityNumber: 9, // SEVERITY_NUMBER_INFO
-      attributes: event,
-      body: "",
-    });
-    return;
+  // In OTLP mode, emit directly through the OTel SDK.
+  // Lazy-init the SDK on first use if it hasn't been loaded yet.
+  if (config.destination === "otlp") {
+    if (!_otelLogger) {
+      initOtelSdk(config).catch((err) => {
+        console.warn("[Do11y] OTel SDK initialization failed:", err);
+      });
+    }
+    if (_otelLogger) {
+      _otelLogger.emit({
+        eventName,
+        severityNumber: 9, // SEVERITY_NUMBER_INFO
+        attributes: event,
+        body: "",
+      });
+      return;
+    }
   }
 
   // In HTTP/Supabase mode, queue for batching
@@ -208,10 +216,6 @@ export function validateConfig(config: Do11yConfig): boolean {
       if (config.debug) console.warn("[Do11y] No OTLP endpoint configured");
       return false;
     }
-    // Lazy init the OTel SDK on first validateConfig call
-    initOtelSdk(config).catch((err) => {
-      console.warn("[Do11y] OTel SDK initialization failed:", err);
-    });
     return true;
   }
 

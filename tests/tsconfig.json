@@ -2,12 +2,21 @@
   "compilerOptions": {
     "target": "ES2020",
     "lib": ["ES2020", "DOM"],
-    "module": "node16",
-    "moduleResolution": "node16",
+    "module": "ESNext",
+    "moduleResolution": "bundler",
     "esModuleInterop": true,
+    "types": ["vitest/globals"],
     "strict": true,
     "noUncheckedIndexedAccess": true,
-    "skipLibCheck": true
+    "skipLibCheck": true,
+    "paths": {
+      "@do11y/core": ["../src/core"],
+      "@do11y/core/*": ["../src/core/*"],
+      "@do11y/standalone": ["../src/standalone"],
+      "@do11y/standalone/*": ["../src/standalone/*"],
+      "@do11y/instrumentation": ["../src/instrumentation"],
+      "@do11y/instrumentation/*": ["../src/instrumentation/*"]
+    }
   },
   "include": ["."],
   "exclude": ["sites"]

@@ -227,7 +227,7 @@ describe('transport', () => {
     it('handles network errors gracefully (does not throw)', () => {
       const config = makeSupabaseConfig({ maxRetries: 1, retryDelay: 5 });
       queueEvent(config, 'browser.do11y.page_view', {});
-      setMockError(true, 'Network error');
+      setMockError('Network error');
 
       // Should not throw despite the network error
       expect(() => flush(config)).not.toThrow();
@@ -239,7 +239,7 @@ describe('transport', () => {
       const config = makeSupabaseConfig({ maxRetries: 1, retryDelay: 5 });
       // First flush with a queued error response
       queueEvent(config, 'browser.do11y.page_view', { n: 1 });
-      setMockError(true, 'Temporary failure');
+      setMockError('Temporary failure');
       expect(() => flush(config)).not.toThrow();
 
       // Second flush with a different event should work independently

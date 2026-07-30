@@ -1053,14 +1053,19 @@ var Do11yBundle = (function(exports) {
 			...eventData
 		};
 		if (config.debug) console.log("[Do11y] Event queued:", eventName, event);
-		if (config.destination === "otlp" && _otelLogger) {
-			_otelLogger.emit({
-				eventName,
-				severityNumber: 9,
-				attributes: event,
-				body: ""
+		if (config.destination === "otlp") {
+			if (!_otelLogger) initOtelSdk(config).catch((err) => {
+				console.warn("[Do11y] OTel SDK initialization failed:", err);
 			});
-			return;
+			if (_otelLogger) {
+				_otelLogger.emit({
+					eventName,
+					severityNumber: 9,
+					attributes: event,
+					body: ""
+				});
+				return;
+			}
 		}
 		eventQueue.push(event);
 		if (eventQueue.length > 500) {
@@ -1133,9 +1138,6 @@ var Do11yBundle = (function(exports) {
 				if (config.debug) console.warn("[Do11y] No OTLP endpoint configured");
 				return false;
 			}
-			initOtelSdk(config).catch((err) => {
-				console.warn("[Do11y] OTel SDK initialization failed:", err);
-			});
 			return true;
 		}
 		if (config.debug) console.warn("[Do11y] Unknown destination:", config.destination);
