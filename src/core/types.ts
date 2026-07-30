@@ -92,8 +92,8 @@ export interface Do11yEvent {
   'browser.do11y.session_page_count': number;
   'url.path': string;
   'url.fragment': string | null;
-  'url.query': string | null;
   'browser.do11y.page_title': string | null;
+  'browser.do11y.url.has_params': string | null;
   'browser.do11y.viewport_category': string;
   'browser.family': string;
   'device.type': string;
@@ -142,7 +142,6 @@ export interface BrowserContext {
 export interface PageInfo {
   'url.path': string;
   'url.fragment': string | null;
-  'url.query': string | null;
   'browser.do11y.page_title': string | null;
   'browser.do11y.url.has_params': string | null;
 }

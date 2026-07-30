@@ -257,7 +257,7 @@ describe('context', () => {
       const info = getPageInfo();
       expect(info['url.path']).toBe('/');
       expect('url.fragment' in info).toBe(true);
-      expect('url.query' in info).toBe(true);
+      expect('browser.do11y.url.has_params' in info).toBe(true);
       expect(info['browser.do11y.page_title']).toBe('Test Documentation');
     });
   });
