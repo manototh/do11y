@@ -18,7 +18,7 @@ const DO11Y_PATH = path.resolve(__dirname, '../../dist/do11y.js');
 
 describe('export / otlp', () => {
   let server: TestServer;
-  let browser: Browser;
+  let browser: Browser | null = null;
 
   beforeAll(async () => {
     if (!fs.existsSync(DO11Y_PATH)) {
@@ -26,11 +26,14 @@ describe('export / otlp', () => {
     }
 
     server = await createTestServer();
-    browser = await puppeteer.launch({ headless: true });
+    browser = await puppeteer.launch({
+      headless: true,
+      args: process.env.CI ? ['--no-sandbox', '--disable-setuid-sandbox'] : [],
+    });
   });
 
   afterAll(async () => {
-    await browser.close();
+    await browser?.close();
     await server.close();
   });
 

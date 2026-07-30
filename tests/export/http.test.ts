@@ -19,17 +19,20 @@ import type { Browser } from 'puppeteer';
 const DO11Y_PATH = path.resolve(__dirname, '../../dist/do11y.js');
 
 describe('export / http', () => {
-  let browser: Browser;
+  let browser: Browser | null = null;
 
   beforeAll(async () => {
     if (!fs.existsSync(DO11Y_PATH)) {
       throw new Error(`dist/do11y.js not found at ${DO11Y_PATH}. Run \`npm run build\` first.`);
     }
-    browser = await puppeteer.launch({ headless: true });
+    browser = await puppeteer.launch({
+      headless: true,
+      args: process.env.CI ? ['--no-sandbox', '--disable-setuid-sandbox'] : [],
+    });
   });
 
   afterAll(async () => {
-    await browser.close();
+    await browser?.close();
   });
 
   it('loads and exposes the Do11y public API', async () => {
