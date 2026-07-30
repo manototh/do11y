@@ -192,10 +192,14 @@ export function validateConfig(config: Do11yConfig): boolean {
  * Dynamically import the OTel Browser SDK and set up the LoggerProvider.
  * Only called when destination is 'otlp'.
  */
+/** CDN base URL for dynamic OTel SDK imports. Pinned at build time.
+ *  Change this constant (not a config field) to switch CDN providers. */
+const OTEL_CDN_BASE = 'https://esm.sh/';
+
 async function initOtelSdk(config: Do11yConfig): Promise<void> {
   if (_otelLogger) return; // already initialized
 
-  const cdnBase = config.otelSdkCdnUrl.replace(/\/+$/, '') + '/';
+  const cdnBase = OTEL_CDN_BASE;
   const apiLogs = await import(/* @vite-ignore */ `${cdnBase}@opentelemetry/api-logs`);
   const sdkLogs = await import(/* @vite-ignore */ `${cdnBase}@opentelemetry/sdk-logs`);
   const otlpExporter = await import(/* @vite-ignore */ `${cdnBase}@opentelemetry/exporter-logs-otlp-http`);

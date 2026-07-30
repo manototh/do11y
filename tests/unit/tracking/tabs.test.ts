@@ -10,7 +10,7 @@ function makeConfig(): Do11yConfig {
   return {
     destination: 'http', supabaseUrl: '', supabaseKey: '', supabaseTable: 'do11y_events',
     endpoint: '', headers: {}, bodyTransform: undefined,
-    otelSdkEndpoint: '', otelSdkHeaders: {}, otelSdkServiceName: '', otelSdkResourceAttributes: {}, otelSdkCdnUrl: '',
+    otelSdkEndpoint: '', otelSdkHeaders: {}, otelSdkServiceName: '', otelSdkResourceAttributes: {},
     debug: false, flushInterval: 5000, maxBatchSize: 10,
     trackOutboundLinks: true, trackInternalLinks: true, trackScrollDepth: true,
     scrollThresholds: [25, 50, 75, 90], allowedDomains: null, respectDNT: true,

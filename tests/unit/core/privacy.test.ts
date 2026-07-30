@@ -22,7 +22,6 @@ function makeConfig(overrides: Partial<Do11yConfig> = {}): Do11yConfig {
     otelSdkHeaders: {},
     otelSdkServiceName: 'do11y',
     otelSdkResourceAttributes: {},
-    otelSdkCdnUrl: '',
     debug: false,
     flushInterval: 5000,
     maxBatchSize: 10,

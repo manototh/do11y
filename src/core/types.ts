@@ -49,7 +49,6 @@ export interface Do11yConfig {
   otelSdkHeaders: Record<string, string>;
   otelSdkServiceName: string;
   otelSdkResourceAttributes: Record<string, string>;
-  otelSdkCdnUrl: string;
   // Behavior
   debug: boolean;
   flushInterval: number;

@@ -1,4 +1,5 @@
-(function() {
+var Do11yBundle = (function(exports) {
+	Object.defineProperty(exports, Symbol.toStringTag, { value: "Module" });
 	//#region src/core/constants.ts
 	/**
 	* Do11y — Documentation Observability
@@ -12,7 +13,12 @@
 	const ATTR_SESSION_ID = "session.id";
 	const ATTR_URL_PATH = "url.path";
 	const ATTR_URL_FRAGMENT = "url.fragment";
-	const ATTR_URL_QUERY = "url.query";
+	/**
+	* Privacy-safe query parameter indicator. The actual query string is never
+	* sent. Emits `'has_params'` or `null` to indicate whether the URL contained
+	* query parameters.
+	*/
+	const ATTR_DO11Y_URL_HAS_PARAMS = "browser.do11y.url.has_params";
 	const ATTR_DEVICE_TYPE = "device.type";
 	const ATTR_BROWSER_FAMILY = "browser.family";
 	const ATTR_BROWSER_LANGUAGE = "browser.language";
@@ -263,11 +269,26 @@
 		return null;
 	}
 	function resolveTocContainer(link, config) {
-		const selector = validateSelector(config.tocSelector) ?? ".table-of-contents, .VPDocAsideOutline, .VPLocalNavOutlineDropdown, [class*=\"toc\"], [class*=\"TableOfContents\"], [class*=\"page-outline\"], .right-sidebar-panel, starlight-toc";
-		let container = link.closest(selector);
-		if (!container) return null;
-		if (container === link || container.tagName === "A") container = link.closest(".VPDocAsideOutline, .VPLocalNavOutlineDropdown, nav, aside, .right-sidebar-panel, starlight-toc") ?? container.parentElement;
-		return container;
+		const userSelector = validateSelector(config.tocSelector);
+		if (userSelector) {
+			const container = link.closest(userSelector);
+			if (container && container !== link && container.tagName !== "A") return container;
+		}
+		for (const sel of [
+			".VPDocAsideOutline",
+			".VPLocalNavOutlineDropdown",
+			".table-of-contents",
+			".right-sidebar-panel",
+			"starlight-toc",
+			"[class*=\"TableOfContents\"]",
+			"[class*=\"page-outline\"]",
+			"[class*=\"toc\"]",
+			"nav[id=\"TableOfContents\"]"
+		]) {
+			const container = link.closest(sel);
+			if (container && container !== link && container.tagName !== "A") return container;
+		}
+		return link.parentElement && link.parentElement !== document.body ? link.parentElement : null;
 	}
 	function getNearestHeading(element) {
 		let current = element;
@@ -455,7 +476,7 @@
 		return {
 			[ATTR_URL_PATH]: window.location.pathname,
 			[ATTR_URL_FRAGMENT]: window.location.hash || null,
-			[ATTR_URL_QUERY]: window.location.search ? "has_params" : null,
+			[ATTR_DO11Y_URL_HAS_PARAMS]: window.location.search ? "has_params" : null,
 			[ATTR_DO11Y_PAGE_TITLE]: sanitizeText(document.title, 150)
 		};
 	}
@@ -496,11 +517,11 @@
 				referrerCategory: null,
 				aiPlatform: null
 			};
-			saveSession$1(session);
+			saveSession(session);
 		}
 		return session;
 	}
-	function saveSession$1(session) {
+	function saveSession(session) {
 		try {
 			sessionStorage.setItem("do11y_session", JSON.stringify(session));
 		} catch {}
@@ -514,7 +535,7 @@
 			index: session.pageCount
 		});
 		if (session.pageSequence.length > 50) session.pageSequence = session.pageSequence.slice(-50);
-		saveSession$1(session);
+		saveSession(session);
 		return session;
 	}
 	//#endregion
@@ -676,13 +697,28 @@
 				if (timer.timeoutId) clearTimeout(timer.timeoutId);
 				const elapsed = now - timer.start;
 				if (elapsed >= threshold) {
-					const escapedId = typeof CSS !== "undefined" && typeof CSS.escape === "function" ? CSS.escape(id) : id.replace(/["\\]/g, "\\$&");
+					const escapedId = typeof CSS !== "undefined" && typeof CSS.escape === "function" ? CSS.escape(id) : id.replace(/[!"#$%&'()*+,.\/:;<=>?@[\\\]^`{|}~ ]/g, "\\$&");
 					const el = document.querySelector("[data-do11y-section-id=\"" + escapedId + "\"]");
 					if (el) emitSectionEvent(emit, el, elapsed);
 				}
 			}
 		});
 		sectionTimers = {};
+	}
+	function disconnectSectionObserver() {
+		if (sectionObserver) {
+			if (sectionTimers && Object.keys(sectionTimers).length > 0) {
+				Object.keys(sectionTimers).forEach((id) => {
+					const timer = sectionTimers[id];
+					if (timer && !timer.reported) {
+						if (timer.timeoutId) clearTimeout(timer.timeoutId);
+					}
+				});
+				sectionTimers = {};
+			}
+			sectionObserver.disconnect();
+			sectionObserver = null;
+		}
 	}
 	//#endregion
 	//#region src/core/tracking/engagement.ts
@@ -768,11 +804,6 @@
 			[ATTR_DO11Y_PREVIOUS_PATH]: session.pageSequence.length > 1 ? session.pageSequence[session.pageSequence.length - 2].path : null
 		});
 	}
-	function saveSession(session) {
-		try {
-			sessionStorage.setItem("do11y_session", JSON.stringify(session));
-		} catch {}
-	}
 	//#endregion
 	//#region src/core/tracking/links.ts
 	function getLinkContext(link, config) {
@@ -781,15 +812,29 @@
 		if (link.closest(config.contentSelector)) return "content";
 		return "other";
 	}
-	function getLinkIndex(link, href) {
-		if (typeof CSS === "undefined" || typeof CSS.escape !== "function") return 1;
+	/**
+	* Pre-compute same-href indices for all `<a>` elements on the page.
+	* This avoids O(n) querySelectorAll calls on every click.
+	* Data attributes are set at init time and read directly on click.
+	*/
+	function precomputeLinkIndices() {
 		try {
-			const allLinks = document.querySelectorAll("a[href=\"" + CSS.escape(href) + "\"]");
-			for (let i = 0; i < allLinks.length; i++) if (allLinks[i] === link) return i + 1;
+			const linkGroups = /* @__PURE__ */ new Map();
+			document.querySelectorAll("a[href]").forEach((link) => {
+				const href = link.getAttribute("href") ?? "";
+				const group = linkGroups.get(href) ?? [];
+				group.push(link);
+				linkGroups.set(href, group);
+			});
+			linkGroups.forEach((links) => {
+				links.forEach((link, idx) => {
+					link.setAttribute("data-do11y-link-idx", String(idx + 1));
+				});
+			});
 		} catch {}
-		return 1;
 	}
 	function setupLinkTracking(config, emit) {
+		precomputeLinkIndices();
 		document.addEventListener("click", (e) => {
 			const link = e.target.closest("a");
 			if (!link) return;
@@ -811,6 +856,7 @@
 			} catch {}
 			if (linkType === "internal" && !config.trackInternalLinks) return;
 			if (linkType === "external" && !config.trackOutboundLinks) return;
+			const linkIndex = parseInt(link.getAttribute("data-do11y-link-idx") ?? "1", 10);
 			emit(EVENT_LINK_CLICK, {
 				[ATTR_DO11Y_LINK_TYPE]: linkType,
 				[ATTR_DO11Y_LINK_TARGET_URL]: href,
@@ -818,40 +864,51 @@
 				[ATTR_DO11Y_LINK_TEXT]: sanitizeText(link.textContent, 100),
 				[ATTR_DO11Y_LINK_CONTEXT]: getLinkContext(link, config),
 				[ATTR_DO11Y_LINK_SECTION]: sanitizeText(getNearestHeading(link), 100),
-				[ATTR_DO11Y_LINK_INDEX]: getLinkIndex(link, href)
+				[ATTR_DO11Y_LINK_INDEX]: linkIndex
 			});
 		}, true);
 	}
 	//#endregion
 	//#region src/core/tracking/search.ts
 	function setupSearchTracking(config, emit) {
+		if (!config.trackSearch) return;
 		document.addEventListener("click", (e) => {
 			if (e.target.closest(config.searchSelector)) emit(EVENT_SEARCH_OPENED, {});
 		}, true);
 		document.addEventListener("keydown", (e) => {
-			if ((e.metaKey || e.ctrlKey) && e.key === "k") emit(EVENT_SEARCH_OPENED, { [ATTR_DO11Y_SEARCH_TRIGGER]: "keyboard" });
+			if ((e.metaKey || e.ctrlKey) && e.key === "k") {
+				if (!document.querySelector(config.searchSelector)) return;
+				emit(EVENT_SEARCH_OPENED, { [ATTR_DO11Y_SEARCH_TRIGGER]: "keyboard" });
+			}
 		});
 	}
 	//#endregion
 	//#region src/core/tracking/copy.ts
-	function getCodeBlockIndex(codeBlock, config) {
-		if (!codeBlock) return 1;
+	/**
+	* Pre-compute code block indices at init time to avoid O(n) querySelectorAll
+	* calls on every copy button click. Elements are assigned a
+	* data-do11y-code-idx attribute read directly on click.
+	*/
+	function precomputeCodeBlockIndices(config) {
 		try {
-			const allBlocks = document.querySelectorAll(config.codeBlockSelector);
-			for (let i = 0; i < allBlocks.length; i++) if (allBlocks[i] === codeBlock) return i + 1;
+			document.querySelectorAll(config.codeBlockSelector).forEach((block, idx) => {
+				block.setAttribute("data-do11y-code-idx", String(idx + 1));
+			});
 		} catch {}
-		return 1;
 	}
 	function setupCopyTracking(config, emit) {
+		if (!config.trackCopy) return;
+		precomputeCodeBlockIndices(config);
 		document.addEventListener("click", (e) => {
 			const copyButton = e.target.closest(config.copyButtonSelector);
 			if (copyButton) {
 				const codeBlock = copyButton.closest("[class*=\"language-\"], [language]") ?? copyButton.closest(config.codeBlockSelector) ?? copyButton.closest(".expressive-code")?.querySelector("pre") ?? copyButton.closest("div, section")?.querySelector("pre") ?? copyButton.parentElement?.querySelector("pre") ?? null;
 				const language = extractCodeLanguage((codeBlock ? codeBlock.tagName === "PRE" ? codeBlock.querySelector("code") : codeBlock.querySelector("code[class*=\"language-\"], code[language]") ?? codeBlock.querySelector("code") : null) ?? codeBlock ?? copyButton);
+				const codeIndex = parseInt(codeBlock?.getAttribute("data-do11y-code-idx") ?? "1", 10);
 				emit(EVENT_CODE_COPIED, {
 					[ATTR_DO11Y_CODE_LANGUAGE]: language,
 					[ATTR_DO11Y_CODE_SECTION]: sanitizeText(getNearestHeading(codeBlock ?? copyButton), 100),
-					[ATTR_DO11Y_CODE_INDEX]: getCodeBlockIndex(codeBlock, config)
+					[ATTR_DO11Y_CODE_INDEX]: codeIndex
 				});
 			}
 		}, true);
@@ -1006,9 +1063,9 @@
 			return;
 		}
 		eventQueue.push(event);
-		if (eventQueue.length > 100) {
-			eventQueue = eventQueue.slice(-100);
-			if (config.debug) console.warn("[Do11y] Event queue capped at 100 events");
+		if (eventQueue.length > 500) {
+			eventQueue = eventQueue.slice(-500);
+			console.warn("[Do11y] Event queue capped at 500 events — oldest events dropped");
 		}
 		if (eventQueue.length >= config.maxBatchSize) flush(config);
 		else scheduleFlush(config);
@@ -1077,7 +1134,7 @@
 				return false;
 			}
 			initOtelSdk(config).catch((err) => {
-				if (config.debug) console.warn("[Do11y] OTel SDK initialization failed:", err);
+				console.warn("[Do11y] OTel SDK initialization failed:", err);
 			});
 			return true;
 		}
@@ -1088,9 +1145,12 @@
 	* Dynamically import the OTel Browser SDK and set up the LoggerProvider.
 	* Only called when destination is 'otlp'.
 	*/
+	/** CDN base URL for dynamic OTel SDK imports. Pinned at build time.
+	*  Change this constant (not a config field) to switch CDN providers. */
+	const OTEL_CDN_BASE = "https://esm.sh/";
 	async function initOtelSdk(config) {
 		if (_otelLogger) return;
-		const cdnBase = config.otelSdkCdnUrl.replace(/\/+$/, "") + "/";
+		const cdnBase = OTEL_CDN_BASE;
 		const apiLogs = await import(
 			/* @vite-ignore */
 			`${cdnBase}@opentelemetry/api-logs`
@@ -1245,7 +1305,6 @@
 		otelSdkHeaders: {},
 		otelSdkServiceName: "do11y",
 		otelSdkResourceAttributes: {},
-		otelSdkCdnUrl: "https://esm.sh/",
 		debug: false,
 		flushInterval: 5e3,
 		maxBatchSize: 10,
@@ -1266,6 +1325,8 @@
 		framework: "mintlify",
 		trackSectionVisibility: true,
 		sectionVisibleThreshold: 3,
+		trackSearch: true,
+		trackCopy: true,
 		trackTabSwitches: true,
 		trackTocClicks: true,
 		trackExpandCollapse: true,
@@ -1289,8 +1350,13 @@
 	let mutationObserver = null;
 	let pathPollId = null;
 	function init() {
-		if (window.Do11yConfig && typeof window.Do11yConfig === "object") {
-			for (const key in config) if (Object.prototype.hasOwnProperty.call(window.Do11yConfig, key)) config[key] = window.Do11yConfig[key];
+		const cfg = config;
+		const userCfg = window.Do11yConfig;
+		if (userCfg && typeof userCfg === "object") {
+			for (const key in config) if (Object.prototype.hasOwnProperty.call(userCfg, key)) {
+				const val = userCfg[key];
+				if (val !== void 0) cfg[key] = val;
+			}
 		}
 		const metaDestination = document.querySelector("meta[name=\"do11y-destination\"]");
 		if (metaDestination) {
@@ -1320,32 +1386,39 @@
 			if (domainsStr) config.allowedDomains = domainsStr.split(",").map((d) => d.trim());
 		}
 		const metaFramework = document.querySelector("meta[name=\"do11y-framework\"]");
-		if (metaFramework) config.framework = metaFramework.getAttribute("content") ?? config.framework;
+		if (metaFramework) {
+			const rawFramework = metaFramework.getAttribute("content");
+			if (rawFramework && [
+				"mintlify",
+				"docusaurus",
+				"nextra",
+				"mkdocs-material",
+				"vitepress",
+				"starlight",
+				"docsy",
+				"custom"
+			].includes(rawFramework)) config.framework = rawFramework;
+			else if (rawFramework && config.debug) console.warn("[Do11y] Unknown framework in meta tag: \"" + rawFramework + "\". Using default: " + config.framework);
+		}
 		const metaUseOtelInstrumentations = document.querySelector("meta[name=\"do11y-use-otel-instrumentations\"]");
 		if (metaUseOtelInstrumentations && metaUseOtelInstrumentations.getAttribute("content") === "true") config.useOtelBrowserInstrumentations = true;
 		applyFrameworkSelectors(config);
-		if (config.debug) {
-			const hasCreds = config.destination === "supabase" ? !!config.supabaseKey : config.destination === "otlp" ? !!config.otelSdkEndpoint : !!config.endpoint;
-			console.log("[Do11y] Initializing with config:", {
-				destination: config.destination,
-				hasCredentials: hasCreds,
-				framework: config.framework,
-				allowedDomains: config.allowedDomains,
-				respectDNT: config.respectDNT
-			});
-		}
+		if (config.debug) console.log("[Do11y] Initializing with config:", {
+			destination: config.destination,
+			framework: config.framework,
+			allowedDomains: config.allowedDomains,
+			respectDNT: config.respectDNT
+		});
 		if (shouldDisableTracking(config)) {
 			setIsDisabled(true);
 			if (config.debug) console.log("[Do11y] Tracking disabled");
 			return;
 		}
 		if (!(config.destination === "supabase" ? !!config.supabaseKey : config.destination === "otlp" ? !!config.otelSdkEndpoint : !!config.endpoint)) {
-			if (config.debug) {
-				console.warn("[Do11y] No destination configured. Events will not be sent.");
-				if (config.destination === "supabase") console.warn("[Do11y] Add <meta name=\"do11y-url\"> and <meta name=\"do11y-key\"> to enable.");
-				else if (config.destination === "otlp") console.warn("[Do11y] Add <meta name=\"do11y-otlp-endpoint\"> to enable.");
-				else console.warn("[Do11y] Add <meta name=\"do11y-endpoint\"> to enable.");
-			}
+			console.warn("[Do11y] No destination configured. Events will not be sent.");
+			if (config.destination === "supabase") console.warn("[Do11y] Add <meta name=\"do11y-url\"> and <meta name=\"do11y-key\"> to enable.");
+			else if (config.destination === "otlp") console.warn("[Do11y] Add <meta name=\"do11y-otlp-endpoint\"> to enable.");
+			else console.warn("[Do11y] Add <meta name=\"do11y-endpoint\"> to enable.");
 		}
 		const emit = (eventName, eventData) => {
 			queueEvent(config, eventName, eventData);
@@ -1385,11 +1458,32 @@
 				clearInterval(pathPollId);
 				pathPollId = null;
 			}
-			emitPageExit(config, emit);
 			flushSync(config);
 			cleanup();
 		});
+		document.addEventListener("visibilitychange", () => {
+			if (document.hidden && pathPollId !== null) {
+				clearInterval(pathPollId);
+				pathPollId = null;
+			} else if (!document.hidden && pathPollId === null && config.trackSpaPathChanges) pathPollId = window.setInterval(handlePathChange, 200);
+		});
 		if (config.debug) console.log("[Do11y] Initialized successfully");
+	}
+	/** Tear down all tracking: remove listeners, disconnect observers, flush queue. */
+	function destroy() {
+		if (mutationObserver) {
+			mutationObserver.disconnect();
+			mutationObserver = null;
+		}
+		if (pathPollId !== null) {
+			clearInterval(pathPollId);
+			pathPollId = null;
+		}
+		disconnectSectionObserver();
+		flushSync(config);
+		cleanup();
+		setIsDisabled(true);
+		window.__do11yInitialized = false;
 	}
 	if (!_alreadyLoaded && !_isInIframe) if (document.readyState === "loading") document.addEventListener("DOMContentLoaded", init);
 	else init();
@@ -1409,7 +1503,10 @@
 			return !!config.endpoint;
 		},
 		getQueueSize: () => getQueueLength(),
-		version: "0.2.0"
+		version: "0.2.0",
+		destroy: () => destroy()
 	};
 	//#endregion
-})();
+	exports.destroy = destroy;
+	return exports;
+})({});

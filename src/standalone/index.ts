@@ -56,7 +56,6 @@ const config: Do11yConfig = {
   otelSdkHeaders: {},
   otelSdkServiceName: 'do11y',
   otelSdkResourceAttributes: {},
-  otelSdkCdnUrl: 'https://esm.sh/',
   debug: false,
   flushInterval: 5000,
   maxBatchSize: 10,
