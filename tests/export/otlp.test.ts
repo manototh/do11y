@@ -41,7 +41,9 @@ describe('export / otlp', () => {
     const page = await browser.newPage();
     await page.setViewport({ width: 1440, height: 900 });
 
-    await page.goto('about:blank');
+    // Navigate to the test server so the page origin matches (avoids CORS
+    // issues when sending events — the server responds with a synthetic page).
+    await page.goto(server.url);
 
     // Configure do11y with HTTP destination (OTLP over HTTP is proxied through the same transport)
     await page.evaluate((endpoint: string) => {
@@ -60,8 +62,9 @@ describe('export / otlp', () => {
     const do11yContent = fs.readFileSync(DO11Y_PATH, 'utf-8');
     await page.addScriptTag({ content: do11yContent });
 
-    // Wait for at least one request to reach the mock server
-    await server.waitFor((reqs) => reqs.length > 0, 10000);
+    // Wait for at least one event POST to reach the mock server
+    // (the initial navigation GET does not count)
+    await server.waitFor((reqs) => reqs.some(r => r.method === 'POST'), 10000);
     await page.close();
   }, 15000);
 
@@ -69,7 +72,8 @@ describe('export / otlp', () => {
     const page = await browser.newPage();
     await page.setViewport({ width: 1440, height: 900 });
 
-    await page.goto('about:blank');
+    // Navigate to the test server first for same-origin compatibility
+    await page.goto(server.url);
 
     await page.evaluate(() => {
       (window as any).Do11yConfig = {

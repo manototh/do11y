@@ -123,7 +123,7 @@ describe('transport', () => {
 
     it('respects rate limiting when enabled', () => {
       const config = makeSupabaseConfig({ rateLimitMs: 1000 });
-      const uniqueEvent = 'browser.do11y.test_rate_limit_' + Date.now();
+      const uniqueEvent = 'browser.do11y.test_rate_limit';
       queueEvent(config, uniqueEvent, {});
       queueEvent(config, uniqueEvent, {});
       expect(getQueueLength()).toBe(1);

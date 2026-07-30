@@ -521,12 +521,19 @@ describe('integration / instrumentation', () => {
         : [],
     });
 
-    // 4. Generate .otel.html fixture files for each framework
+    // 4. Clean up any stale .otel.html files from a previously aborted run
+    for (const file of fs.readdirSync(FIXTURES_DIR)) {
+      if (file.endsWith('.otel.html')) {
+        try { fs.unlinkSync(path.join(FIXTURES_DIR, file)); } catch { /* ignore */ }
+      }
+    }
+
+    // 5. Generate .otel.html fixture files for each framework
     for (const framework of FRAMEWORKS) {
       generateOtelFixtureFiles(framework, server.url, FIXTURES_DIR);
     }
 
-    // 5. Generate SPA test fixture (framework-agnostic, uses mintlify)
+    // 6. Generate SPA test fixture (framework-agnostic, uses mintlify)
     generateSpaTestFixture(server.url, FIXTURES_DIR);
   });
 
