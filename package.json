@@ -20,7 +20,8 @@
     "lint": "oxlint src",
     "format": "oxfmt src",
     "check": "tsc --noEmit",
-    "all": "npm run build && npm run lint && npm run format && npm run check"
+    "ci": "npm run build && npm run lint && npm run format && npm run check",
+    "all": "npm run ci && npm -C tests run test:all"
   },
   "keywords": [
     "opentelemetry",
