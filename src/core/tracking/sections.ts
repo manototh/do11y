@@ -101,7 +101,7 @@ export function flushVisibleSections(config: Do11yConfig, emit: EmitFn): void {
         // doesn't implement CSS.escape.
         const escapedId = typeof CSS !== 'undefined' && typeof CSS.escape === 'function'
           ? CSS.escape(id)
-          : id.replace(/[!"#$%&'()*+,.\/:;<=>?@[\\\]^`{|}~ ]/g, '\\$&');
+          : id.replace(/[!"#$%&'()*+,./:;<=>?@[\\\]^`{|}~ ]/g, '\\$&');
         const el = document.querySelector('[data-do11y-section-id="' + escapedId + '"]');
         if (el) {
           emitSectionEvent(emit, el, elapsed);
@@ -118,7 +118,6 @@ export function disconnectSectionObserver(): void {
     // We still pass a noop emit to avoid emitting during teardown;
     // callers that need final emission should flushVisibleSections themselves.
     if (sectionTimers && Object.keys(sectionTimers).length > 0) {
-      const now = Date.now();
       Object.keys(sectionTimers).forEach((id) => {
         const timer = sectionTimers[id];
         if (timer && !timer.reported) {

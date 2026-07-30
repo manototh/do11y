@@ -678,7 +678,7 @@ function flushVisibleSections(config, emit) {
 			if (timer.timeoutId) clearTimeout(timer.timeoutId);
 			const elapsed = now - timer.start;
 			if (elapsed >= threshold) {
-				const escapedId = typeof CSS !== "undefined" && typeof CSS.escape === "function" ? CSS.escape(id) : id.replace(/[!"#$%&'()*+,.\/:;<=>?@[\\\]^`{|}~ ]/g, "\\$&");
+				const escapedId = typeof CSS !== "undefined" && typeof CSS.escape === "function" ? CSS.escape(id) : id.replace(/[!"#$%&'()*+,./:;<=>?@[\\\]^`{|}~ ]/g, "\\$&");
 				const el = document.querySelector("[data-do11y-section-id=\"" + escapedId + "\"]");
 				if (el) emitSectionEvent(emit, el, elapsed);
 			}
