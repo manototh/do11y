@@ -1,0 +1,10 @@
+{
+  "name": "do11y-test-mintlify",
+  "private": true,
+  "scripts": {
+    "start": "mintlify dev --port 4005"
+  },
+  "dependencies": {
+    "mintlify": "^4.2.521"
+  }
+}

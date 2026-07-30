@@ -1,0 +1,17 @@
+{
+  "name": "do11y-test-docsy",
+  "scripts": {
+    "build": "hugo --cleanDestinationDir --minify",
+    "serve": "hugo --cleanDestinationDir --minify serve --renderToMemory",
+    "clean": "rm -Rf public/* resources"
+  },
+  "devDependencies": {
+    "autoprefixer": "^10.5.0",
+    "hugo-extended": "0.163.3",
+    "postcss-cli": "^11.0.1"
+  },
+  "private": true,
+  "workspaces": [
+    "packages/hugoautogen"
+  ]
+}

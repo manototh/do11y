@@ -21,3 +21,6 @@ build/
 /tests/sites/docsy/public
 /tests/sites/docsy/resources
 /tests/sites/starlight/.astro
+
+## Config for test sites
+/tests/sites/do11y-config.js
