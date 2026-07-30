@@ -85,8 +85,6 @@ When using the npm package, the `@opentelemetry/browser-sdk` handles the OTel pi
 | `otelSdkHeaders` | `{}` | Custom headers for the OTLP request (for example, authorization). |
 | `otelSdkServiceName` | `'do11y'` | Value of the `service.name` resource attribute. |
 | `otelSdkResourceAttributes` | `{}` | Extra resource attributes to attach to every exported LogRecord. |
-| `otelSdkCdnUrl` | `'https://esm.sh/'` | CDN base URL for dynamically importing OTel SDK packages. Override for self-hosted or mirrored packages. |
-| `useOtelBrowserInstrumentations` (coming soon) | `false` | When `true`, also registers standard OTel Browser instrumentations (navigation, user action, web vitals, errors). |
 
 #### CORS and the OTel Collector
 
