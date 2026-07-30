@@ -10,6 +10,7 @@
     "test:export": "vitest run export",
     "test:integration": "vitest run integration",
     "test:supabase": "vitest run export/supabase.test.ts",
+    "test:spa": "vitest run export/spa.test.ts",
     "test:live-selectors": "TEST_LIVE=1 vitest run selector-snapshots/live-sites.test.ts",
     "test:all": "vitest run --reporter verbose",
     "test:queries": "tsx test-queries.ts"

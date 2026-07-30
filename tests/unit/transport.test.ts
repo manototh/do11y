@@ -21,6 +21,7 @@ import {
   getQueueLength,
   cleanup,
   resetTransportState,
+  __testing_setOtelLogger,
 } from '@do11y/standalone/transport';
 
 function makeSupabaseConfig(overrides: Partial<Do11yConfig> = {}): Do11yConfig {
@@ -326,6 +327,87 @@ describe('transport', () => {
     it('can be called multiple times', () => {
       cleanup();
       cleanup();
+    });
+  });
+
+  describe('otlp destination', () => {
+    let mockOtelRecords: Array<{
+      eventName: string;
+      severityNumber: number;
+      attributes: Record<string, unknown>;
+      body: string;
+    }>;
+
+    beforeEach(() => {
+      mockOtelRecords = [];
+      __testing_setOtelLogger({
+        emit: (record) => {
+          mockOtelRecords.push({ ...record, attributes: { ...record.attributes } });
+        },
+      });
+    });
+
+    afterEach(() => {
+      __testing_setOtelLogger(null);
+    });
+
+    it('emits events through OTel logger with correct envelope shape', () => {
+      const config = makeSupabaseConfig({
+        destination: 'otlp',
+        otelSdkEndpoint: 'https://otel.example.com',
+      });
+      queueEvent(config, 'browser.do11y.page_view', { custom_attr: 'hello' });
+
+      expect(mockOtelRecords).toHaveLength(1);
+      const record = mockOtelRecords[0]!;
+      expect(record.eventName).toBe('browser.do11y.page_view');
+      expect(record.severityNumber).toBe(9); // SEVERITY_NUMBER_INFO
+      expect(record.body).toBe('');
+      expect(record.attributes).toBeDefined();
+      expect(typeof record.attributes).toBe('object');
+    });
+
+    it('includes standard attributes in the OTel record', () => {
+      const config = makeSupabaseConfig({
+        destination: 'otlp',
+        otelSdkEndpoint: 'https://otel.example.com',
+      });
+      queueEvent(config, 'browser.do11y.scroll_depth', {});
+
+      const record = mockOtelRecords[0]!;
+      expect(record.attributes['browser.do11y.version']).toBe('0.2.0');
+      expect(record.attributes).toHaveProperty('session.id');
+      expect(record.attributes).toHaveProperty('browser.family');
+      expect(record.attributes).toHaveProperty('device.type');
+      expect(record.attributes).toHaveProperty('browser.language');
+      expect(record.attributes).toHaveProperty('url.path');
+    });
+
+    it('merges eventData attributes into the OTel record', () => {
+      const config = makeSupabaseConfig({
+        destination: 'otlp',
+        otelSdkEndpoint: 'https://otel.example.com',
+      });
+      queueEvent(config, 'browser.do11y.link_click', {
+        'browser.do11y.link.type': 'internal',
+        'browser.do11y.link.target_url': '/guide',
+      });
+
+      const record = mockOtelRecords[0]!;
+      expect(record.attributes['browser.do11y.link.type']).toBe('internal');
+      expect(record.attributes['browser.do11y.link.target_url']).toBe('/guide');
+    });
+
+    it('skips the event queue for OTLP destination', () => {
+      const config = makeSupabaseConfig({
+        destination: 'otlp',
+        otelSdkEndpoint: 'https://otel.example.com',
+        maxBatchSize: 1,
+      });
+      queueEvent(config, 'browser.do11y.page_view', {});
+
+      // OTLP events bypass the queue, so queue should be empty
+      expect(getQueueLength()).toBe(0);
     });
   });
 });

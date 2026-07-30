@@ -315,4 +315,41 @@ describe('export / instrumentation-otel', () => {
     const records = getRecords();
     expect(records.length).toBe(0);
   });
+
+  describe('OTel API envelope shape', () => {
+    it('every emitted record has eventName, severityNumber, attributes and body', () => {
+      instrumentation = new DocsInstrumentation(makeConfig());
+      instrumentation.enable();
+
+      const records = getRecords();
+      expect(records.length).toBeGreaterThan(0);
+
+      for (const record of records) {
+        expect(record).toHaveProperty('eventName');
+        expect(typeof record.eventName).toBe('string');
+        expect(record.eventName).toMatch(/^browser\.do11y\./);
+        expect(record).toHaveProperty('severityNumber', 9);
+        expect(record).toHaveProperty('body');
+        expect(typeof record.body).toBe('string');
+        expect(record).toHaveProperty('attributes');
+        expect(typeof record.attributes).toBe('object');
+        expect(record.attributes).not.toBeNull();
+      }
+    });
+
+    it('includes standard attributes on every record', () => {
+      instrumentation = new DocsInstrumentation(makeConfig());
+      instrumentation.enable();
+
+      const records = getRecords();
+      const first = records[0]!;
+
+      expect(first.attributes).toHaveProperty('browser.do11y.version');
+      expect(first.attributes['browser.do11y.version']).toBe('0.2.0');
+      expect(first.attributes).toHaveProperty('browser.family');
+      expect(first.attributes).toHaveProperty('device.type');
+      expect(first.attributes).toHaveProperty('browser.language');
+      expect(first.attributes).toHaveProperty('url.path');
+    });
+  });
 });
