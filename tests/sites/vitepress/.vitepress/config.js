@@ -17,6 +17,3 @@ export default {
     }
   },
 };
-
-SYMLINK
-ln -sf ../../../dist/do11y.js public/do11y.js
