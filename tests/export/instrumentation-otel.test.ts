@@ -272,6 +272,63 @@ describe('export / instrumentation-otel', () => {
     expect(scrolls[0]!.attributes['browser.do11y.scroll.threshold']).toBeDefined();
   });
 
+  it('emits every scroll_depth threshold through the rate limiter', () => {
+    // Reset module-level state that may have been populated by earlier tests.
+    resetTrackedScrollDepths();
+
+    // Scroll far past 100% so every threshold is crossed in a single frame.
+    Object.defineProperty(window, 'scrollY', {
+      value: 100000,
+      configurable: true,
+      writable: true,
+    });
+    Object.defineProperty(document.documentElement, 'scrollHeight', {
+      value: 3000,
+      configurable: true,
+    });
+    Object.defineProperty(window, 'innerHeight', {
+      value: 900,
+      configurable: true,
+    });
+
+    // Large rate-limit window to force collisions between milestones.
+    // enabled:false avoids the base constructor auto-enabling as well, which
+    // would register a second (unrate-limited) emit path.
+    instrumentation = new DocsInstrumentation(makeConfig({
+      enabled: false,
+      scrollThresholds: [25, 50, 75, 90],
+      rateLimitMs: 1000,
+    }));
+    instrumentation.enable();
+
+    const records = getRecords();
+    const thresholds = records
+      .filter(r => r.eventName === 'browser.do11y.scroll_depth')
+      .map(r => r.attributes['browser.do11y.scroll.threshold']);
+    expect(thresholds).toEqual([25, 50, 75, 90]);
+  });
+
+  it('rate-limits duplicate same-type events', () => {
+    // enabled:false so the base constructor doesn't auto-enable too; a single
+    // enable() registers one listener set sharing one rate limiter.
+    instrumentation = new DocsInstrumentation(makeConfig({
+      enabled: false,
+      rateLimitMs: 1000,
+    }));
+    instrumentation.enable();
+    clearRecords();
+
+    // Two synchronous clicks on the same TOC link: only the first should
+    // pass the rate limiter.
+    const tocLink = document.querySelector('.table-of-contents a')!;
+    clickElement(tocLink);
+    clickElement(tocLink);
+
+    const records = getRecords();
+    const tocClicks = records.filter(r => r.eventName === 'browser.do11y.toc_click');
+    expect(tocClicks.length).toBe(1);
+  });
+
   it('emits section_visible event when headings are observed', async () => {
     instrumentation = new DocsInstrumentation(makeConfig({
       sectionVisibleThreshold: 0,

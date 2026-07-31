@@ -142,7 +142,7 @@ If you cannot run a collector, use a lightweight CORS proxy (such as [cors-anywh
 | `respectDNT` | `true` | Honor the browser's Do Not Track setting. |
 | `maxRetries` | `2` | Retry count for failed requests. |
 | `retryDelay` | `1000` | Base delay between retries in milliseconds (doubles each attempt). |
-| `rateLimitMs` | `100` | Minimum gap between events of the same type. |
+| `rateLimitMs` | `100` | Minimum gap between events of the same type (applies to both the script-tag build and `DocsInstrumentation`). Distinct scroll depth thresholds are exempt, so a fast scroll still records every milestone. |
 
 ## Framework
 

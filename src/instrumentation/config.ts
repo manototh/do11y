@@ -5,6 +5,7 @@
  */
 import type { InstrumentationConfig } from "@opentelemetry/instrumentation";
 import type { Do11yConfig, FrameworkPreset } from "../core/types.js";
+import { DEFAULT_RATE_LIMIT_MS } from "../core/rate-limit.js";
 
 /**
  * Configuration options for DocsInstrumentation.
@@ -45,6 +46,9 @@ export interface DocsInstrumentationConfig extends InstrumentationConfig {
 
   /** Debug logging */
   debug?: boolean;
+
+  /** Minimum gap between events of the same type. Default: 100. */
+  rateLimitMs?: number;
 }
 
 /**
@@ -56,6 +60,7 @@ export function buildConfig(userConfig: DocsInstrumentationConfig): Partial<Do11
   return {
     framework: userConfig.framework ?? "mintlify",
     debug: userConfig.debug ?? false,
+    rateLimitMs: userConfig.rateLimitMs ?? DEFAULT_RATE_LIMIT_MS,
     trackScrollDepth: userConfig.trackScrollDepth ?? true,
     scrollThresholds: userConfig.scrollThresholds ?? [25, 50, 75, 90],
     trackOutboundLinks: userConfig.trackOutboundLinks ?? true,

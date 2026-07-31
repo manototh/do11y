@@ -51,6 +51,7 @@ import { setupTabSwitchTracking } from "../core/tracking/tabs.js";
 import { setupTocClickTracking } from "../core/tracking/toc.js";
 import { setupFeedbackTracking } from "../core/tracking/feedback.js";
 import { setupExpandCollapseTracking } from "../core/tracking/expand.js";
+import { createRateLimiter, DEFAULT_RATE_LIMIT_MS } from "../core/rate-limit.js";
 import type { DocsInstrumentationConfig } from "./config.js";
 import { buildConfig } from "./config.js";
 
@@ -96,9 +97,24 @@ export class DocsInstrumentation extends InstrumentationBase<DocsInstrumentation
     // Apply framework presets to resolve selectors
     applyFrameworkSelectors(this._do11yConfig as Do11yConfig);
 
-    // Create emit function backed by the OTel Logger
+    // Create emit function backed by the OTel Logger, rate-limited to match
+    // the standalone transport so rapid duplicate events don't spam the
+    // collector while distinct scroll milestones still get through. The
+    // limiter is created here (not as a class field) because the base class
+    // constructor calls enable() before subclass field initializers run.
+    const rateLimiter = createRateLimiter();
     const logger = logs.getLogger("@manototh/do11y");
     const emit: EmitFn = (eventName, eventData) => {
+      if (
+        !rateLimiter.allow(
+          eventName,
+          eventData,
+          this._do11yConfig.rateLimitMs ?? DEFAULT_RATE_LIMIT_MS,
+          this._do11yConfig.debug ?? false,
+        )
+      ) {
+        return;
+      }
       logger.emit({
         eventName,
         severityNumber: 9, // SEVERITY_NUMBER_INFO

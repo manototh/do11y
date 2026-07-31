@@ -100,6 +100,7 @@ startBrowserSdk({
 | `trackSearch` | `boolean` | `true` | Track search dialog opens. |
 | `trackCopy` | `boolean` | `true` | Track code copy button clicks. |
 | `debug` | `boolean` | `false` | Enable verbose logging. |
+| `rateLimitMs` | `number` | `100` | Minimum gap between events of the same type. Distinct scroll depth thresholds are exempt so a fast scroll still records every milestone. |
 | `enabled` | `boolean` | `true` | Whether the instrumentation is active on creation. (Inherited from `InstrumentationConfig`.) |
 
 The instrumentation emits log records through the OTel API. Transport configuration (endpoint, headers, batching) is handled by the OTel SDK, not by Do11y. To configure where events go, use `startBrowserSdk`, `startLogsSdk`, or set up a `LoggerProvider` directly.

@@ -11,6 +11,7 @@
  */
 import type { Do11yConfig } from "../core/types.js";
 import { VERSION } from "../core/constants.js";
+import { DEFAULT_RATE_LIMIT_MS } from "../core/rate-limit.js";
 import { applyFrameworkSelectors } from "../core/presets.js";
 import { shouldDisableTracking } from "../core/privacy.js";
 import { trackPageView } from "../core/tracking/page-view.js";
@@ -71,7 +72,7 @@ const config: Do11yConfig = {
   respectDNT: true,
   maxRetries: 2,
   retryDelay: 1000,
-  rateLimitMs: 100,
+  rateLimitMs: DEFAULT_RATE_LIMIT_MS,
   framework: "mintlify",
   trackSectionVisibility: true,
   sectionVisibleThreshold: 3,

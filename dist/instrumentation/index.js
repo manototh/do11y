@@ -997,6 +997,40 @@ function setupExpandCollapseTracking(config, emit) {
 	});
 }
 //#endregion
+//#region src/core/rate-limit.ts
+/**
+* Do11y — Documentation Observability
+*
+* Shared event rate limiter used by both the standalone transport and the
+* OTel instrumentation build.
+*
+* Rate-limiting prevents event spam (duplicate `page_exit` on SPA
+* navigation, rapid same-type bursts). The rate-limit key is per event
+* name, except for scroll depth milestones: a fast scroll can cross several
+* thresholds in a single frame, so the key includes the threshold attribute
+* to let each milestone through independently.
+*/
+function createRateLimiter() {
+	const lastEventTime = {};
+	return {
+		allow(eventName, eventData, rateLimitMs, debug) {
+			const now = Date.now();
+			const rateKey = eventData["browser.do11y.scroll.threshold"] !== null && eventData["browser.do11y.scroll.threshold"] !== void 0 ? `${eventName}:${String(eventData[ATTR_DO11Y_SCROLL_THRESHOLD])}` : eventName;
+			if (rateLimitMs > 0 && lastEventTime[rateKey]) {
+				if (now - lastEventTime[rateKey] < rateLimitMs) {
+					if (debug) console.log("[Do11y] Rate limited:", eventName);
+					return false;
+				}
+			}
+			lastEventTime[rateKey] = now;
+			return true;
+		},
+		reset() {
+			for (const key of Object.keys(lastEventTime)) delete lastEventTime[key];
+		}
+	};
+}
+//#endregion
 //#region src/instrumentation/config.ts
 /**
 * Build a normalized Do11yConfig from the instrumentation's user config.
@@ -1007,6 +1041,7 @@ function buildConfig(userConfig) {
 	return {
 		framework: userConfig.framework ?? "mintlify",
 		debug: userConfig.debug ?? false,
+		rateLimitMs: userConfig.rateLimitMs ?? 100,
 		trackScrollDepth: userConfig.trackScrollDepth ?? true,
 		scrollThresholds: userConfig.scrollThresholds ?? [
 			25,
@@ -1092,8 +1127,10 @@ var DocsInstrumentation = class extends InstrumentationBase {
 	enable() {
 		this._do11yConfig = buildConfig(this.getConfig());
 		applyFrameworkSelectors(this._do11yConfig);
+		const rateLimiter = createRateLimiter();
 		const logger = logs.getLogger("@manototh/do11y");
 		const emit = (eventName, eventData) => {
+			if (!rateLimiter.allow(eventName, eventData, this._do11yConfig.rateLimitMs ?? 100, this._do11yConfig.debug ?? false)) return;
 			logger.emit({
 				eventName,
 				severityNumber: 9,
