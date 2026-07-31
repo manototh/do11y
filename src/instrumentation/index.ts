@@ -32,6 +32,7 @@ import {
   ATTR_DO11Y_DO11Y_VERSION,
 } from "../core/constants.js";
 import { applyFrameworkSelectors } from "../core/presets.js";
+import { shouldDisableTracking } from "../core/privacy.js";
 import { getBrowserContext } from "../core/context.js";
 import { getPageInfo } from "../core/context.js";
 import { getSession } from "../core/session.js";
@@ -104,6 +105,21 @@ export class DocsInstrumentation extends InstrumentationBase<DocsInstrumentation
     // Apply framework presets to resolve selectors
     applyFrameworkSelectors(this._do11yConfig as Do11yConfig);
 
+    // Honor the same privacy rules as the standalone build: respect the
+    // visitor's Do Not Track preference and the allowed-domains allowlist.
+    // When disabled, skip wiring entirely (shouldDisableTracking logs why
+    // when debug is on).
+    if (shouldDisableTracking(this._do11yConfig as Do11yConfig)) {
+      return;
+    }
+
+    if (this._do11yConfig.debug) {
+      console.log(
+        "[Do11y] Instrumentation enabled:",
+        this._do11yConfig.framework,
+      );
+    }
+
     // Create emit function backed by the OTel Logger, rate-limited to match
     // the standalone transport so rapid duplicate events don't spam the
     // collector while distinct scroll milestones still get through. The
@@ -120,6 +136,12 @@ export class DocsInstrumentation extends InstrumentationBase<DocsInstrumentation
         )
       ) {
         return;
+      }
+
+      // Mirror the standalone build's debug logging so emitted events are
+      // visible in the console when `debug` is enabled.
+      if (this._do11yConfig.debug) {
+        console.log("[Do11y] Event:", eventName, eventData);
       }
 
       // Resolve the logger on every emit instead of capturing it once in

@@ -74,9 +74,9 @@ import { DocsInstrumentation } from '@manototh/do11y/instrumentation';
 
 startLogsSdk({
   serviceName: 'my-docs',
-  logs: {
-    exportConfig: { url: 'https://otel-collector.example.com/v1/logs' },
-  },
+  // `exportConfig` is top-level on `startLogsSdk` (the nested
+  // `logs: { exportConfig }` shape only applies to `startBrowserSdk`).
+  exportConfig: { url: 'https://otel-collector.example.com/v1/logs' },
 });
 
 registerInstrumentations({
@@ -110,9 +110,11 @@ registerInstrumentations({
 | `trackFeedback` | `boolean` | `true` | Track "Was this helpful?" widget clicks. |
 | `trackSearch` | `boolean` | `true` | Track search dialog opens. |
 | `trackCopy` | `boolean` | `true` | Track code copy button clicks. |
-| `debug` | `boolean` | `false` | Enable verbose logging. |
+| `debug` | `boolean` | `false` | Enable verbose logging. When enabled, each emitted event is logged to the browser console as `[Do11y] Event: <name>`. |
 | `rateLimitMs` | `number` | `100` | Minimum gap between events of the same type. Distinct scroll depth thresholds are exempt so a fast scroll still records every milestone. |
 | `sessionAttributes` | `boolean` | `true` | Emit do11y's own `session.id`/`session_page_count` attributes on each record. Set to `false` when using `@opentelemetry/browser-sdk` session processors. |
+| `respectDNT` | `boolean` | `true` | Honor the browser's Do Not Track setting. |
+| `allowedDomains` | `string[]` | `null` | Restrict which domains may send data. Set to `null` to allow any. |
 | `enabled` | `boolean` | `true` | Whether the instrumentation is active on creation. (Inherited from `InstrumentationConfig`.) |
 
 The instrumentation emits log records through the OTel API. Transport configuration (endpoint, headers, batching) is handled by the OTel SDK, not by Do11y. To configure where events go, use `startBrowserSdk`, `startLogsSdk`, or set up a `LoggerProvider` directly.

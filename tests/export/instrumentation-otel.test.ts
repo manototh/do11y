@@ -453,4 +453,59 @@ describe('export / instrumentation-otel', () => {
       }
     });
   });
+
+  describe('debug logging & privacy', () => {
+    it('logs emitted events to the console when debug is true', () => {
+      const logSpy = vi.spyOn(console, 'log').mockImplementation(() => {});
+      instrumentation = new DocsInstrumentation(makeConfig({ debug: true }));
+      instrumentation.enable();
+      clearRecords();
+      logSpy.mockClear();
+
+      clickElement(document.querySelector('a[href="/guide"]')!);
+
+      const eventLogs = logSpy.mock.calls.filter((call) => call[0] === '[Do11y] Event:');
+      expect(eventLogs.length).toBeGreaterThanOrEqual(1);
+      expect(eventLogs[0][1]).toBe('browser.do11y.link_click');
+      logSpy.mockRestore();
+    });
+
+    it('does not log emitted events to the console when debug is false', () => {
+      const logSpy = vi.spyOn(console, 'log').mockImplementation(() => {});
+      instrumentation = new DocsInstrumentation(makeConfig({ debug: false }));
+      instrumentation.enable();
+      clearRecords();
+      logSpy.mockClear();
+
+      clickElement(document.querySelector('a[href="/guide"]')!);
+
+      const eventLogs = logSpy.mock.calls.filter((call) => call[0] === '[Do11y] Event:');
+      expect(eventLogs.length).toBe(0);
+      logSpy.mockRestore();
+    });
+
+    it('disables tracking when Do Not Track is enabled and respectDNT defaults to true', () => {
+      Object.defineProperty(navigator, 'doNotTrack', {
+        value: '1',
+        configurable: true,
+        writable: true,
+      });
+      instrumentation = new DocsInstrumentation(makeConfig());
+      instrumentation.enable();
+
+      expect(getRecords().length).toBe(0);
+    });
+
+    it('tracks when respectDNT is false even with Do Not Track enabled', () => {
+      Object.defineProperty(navigator, 'doNotTrack', {
+        value: '1',
+        configurable: true,
+        writable: true,
+      });
+      instrumentation = new DocsInstrumentation(makeConfig({ respectDNT: false }));
+      instrumentation.enable();
+
+      expect(getRecords().length).toBeGreaterThan(0);
+    });
+  });
 });

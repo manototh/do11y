@@ -118,12 +118,13 @@ import { registerInstrumentations } from '@opentelemetry/instrumentation';
 import { DocsInstrumentation } from '@manototh/do11y/instrumentation';
 
 // 1. Start the logs SDK — registers the global LoggerProvider.
+// Note: `exportConfig` sits at the top level of `startLogsSdk` (the nested
+// `logs: { exportConfig }` shape only applies to `startBrowserSdk`).
 startLogsSdk({
   serviceName: 'my-docs-site',
-  logs: {
-    exportConfig: {
-      url: 'https://otel-collector.example.com/v1/logs',
-    },
+  exportConfig: {
+    // Full URL — the SDK does not append a signal path.
+    url: 'https://otel-collector.example.com/v1/logs',
   },
 });
 

@@ -8,4 +8,6 @@ module.exports = {
   presets: [
     ['classic', { docs: { routeBasePath: '/' }, blog: false, theme: {} }],
   ],
+  // Loads src/do11y-otel.js (Do11y + OpenTelemetry Browser SDK) on every page.
+  plugins: [require.resolve('./do11y-otel-plugin')],
 };

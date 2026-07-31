@@ -202,6 +202,22 @@ function validateSelector(selector) {
 		return null;
 	}
 }
+function shouldDisableTracking(config) {
+	if (config.respectDNT && (navigator.doNotTrack === "1" || navigator.doNotTrack === "yes" || window.doNotTrack === "1")) {
+		if (config.debug) console.log("[Do11y] Disabled: Do Not Track is enabled");
+		return true;
+	}
+	if (config.allowedDomains && config.allowedDomains.length > 0) {
+		const currentDomain = window.location.hostname;
+		if (!config.allowedDomains.some((domain) => {
+			return currentDomain === domain || currentDomain.endsWith("." + domain);
+		})) {
+			if (config.debug) console.log("[Do11y] Disabled: Domain not allowed:", currentDomain);
+			return true;
+		}
+	}
+	return false;
+}
 //#endregion
 //#region src/core/dom-utils.ts
 function getElementClassName(el) {
@@ -1064,6 +1080,8 @@ function buildConfig(userConfig) {
 		trackFeedback: userConfig.trackFeedback ?? true,
 		trackSpaPathChanges: userConfig.trackSpaPathChanges ?? false,
 		sessionAttributes: userConfig.sessionAttributes ?? true,
+		respectDNT: userConfig.respectDNT ?? true,
+		allowedDomains: userConfig.allowedDomains ?? null,
 		searchSelector: userConfig.selectors?.searchSelector ?? null,
 		copyButtonSelector: userConfig.selectors?.copyButtonSelector ?? null,
 		codeBlockSelector: userConfig.selectors?.codeBlockSelector ?? null,
@@ -1132,9 +1150,12 @@ var DocsInstrumentation = class extends InstrumentationBase {
 	enable() {
 		this._do11yConfig = buildConfig(this.getConfig());
 		applyFrameworkSelectors(this._do11yConfig);
+		if (shouldDisableTracking(this._do11yConfig)) return;
+		if (this._do11yConfig.debug) console.log("[Do11y] Instrumentation enabled:", this._do11yConfig.framework);
 		const rateLimiter = createRateLimiter();
 		const emit = (eventName, eventData) => {
 			if (!rateLimiter.allow(eventName, eventData, this._do11yConfig.rateLimitMs ?? 100, this._do11yConfig.debug ?? false)) return;
+			if (this._do11yConfig.debug) console.log("[Do11y] Event:", eventName, eventData);
 			const attributes = { [ATTR_DO11Y_DO11Y_VERSION]: VERSION };
 			if (this._do11yConfig.sessionAttributes !== false) {
 				const session = getSession();

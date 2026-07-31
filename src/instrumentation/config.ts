@@ -49,6 +49,13 @@ export interface DocsInstrumentationConfig extends InstrumentationConfig {
    *  processors, which attach `session.id` themselves. Default: true. */
   sessionAttributes?: boolean;
 
+  /** Honor the visitor's Do Not Track preference. Default: true. */
+  respectDNT?: boolean;
+
+  /** Only track when the current host matches one of these domains (or a
+   *  subdomain). `null` allows all domains. Default: null. */
+  allowedDomains?: string[] | null;
+
   /** Debug logging */
   debug?: boolean;
 
@@ -80,6 +87,9 @@ export function buildConfig(userConfig: DocsInstrumentationConfig): Partial<Do11
     trackFeedback: userConfig.trackFeedback ?? true,
     trackSpaPathChanges: userConfig.trackSpaPathChanges ?? false,
     sessionAttributes: userConfig.sessionAttributes ?? true,
+    // Privacy — same defaults as the standalone build.
+    respectDNT: userConfig.respectDNT ?? true,
+    allowedDomains: userConfig.allowedDomains ?? null,
     // Selector overrides from user config
     searchSelector: userConfig.selectors?.searchSelector ?? null,
     copyButtonSelector: userConfig.selectors?.copyButtonSelector ?? null,
