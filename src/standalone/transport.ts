@@ -246,13 +246,13 @@ async function initOtelSdk(config: Do11yConfig): Promise<void> {
 
   const cdnBase = OTEL_CDN_BASE;
   const apiLogs = await import(
-    /* @vite-ignore */ `${cdnBase}@opentelemetry/api-logs@${OTEL_SDK_VERSION}`,
+    /* @vite-ignore */ `${cdnBase}@opentelemetry/api-logs@${OTEL_SDK_VERSION}`
   );
   const sdkLogs = await import(
-    /* @vite-ignore */ `${cdnBase}@opentelemetry/sdk-logs@${OTEL_SDK_VERSION}`,
+    /* @vite-ignore */ `${cdnBase}@opentelemetry/sdk-logs@${OTEL_SDK_VERSION}`
   );
   const otlpExporter = await import(
-    /* @vite-ignore */ `${cdnBase}@opentelemetry/exporter-logs-otlp-http@${OTEL_SDK_VERSION}`,
+    /* @vite-ignore */ `${cdnBase}@opentelemetry/exporter-logs-otlp-http@${OTEL_SDK_VERSION}`
   );
 
   const resourceAttrs: Record<string, string> = {
