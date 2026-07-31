@@ -14,13 +14,13 @@ head:
 
 ## v0.2.0
 
-**Release date:** 2026-07-29
+**Release date:** 2026-07-31
 
-- **Split into core + standalone + instrumentation.** The monolithic `do11y.ts` was refactored into a shared core library (`src/core/`), a standalone IIFE build (`src/standalone/`), and a new OTel instrumentation layer (`src/instrumentation/`). The standalone script-tag build behaves identically — zero breaking changes for existing users.
-- **New `./instrumentation` subpath export.** Projects using `@opentelemetry/browser-sdk` can now install `@manototh/do11y` and import `DocsInstrumentation` to get documentation-specific events flowing through their existing OTel pipeline. See the [get-started guide](/get-started#npm-opentelemetry-instrumentation) for setup.
-- **OTel instrumentation class.** `DocsInstrumentation extends InstrumentationBase` follows the standard OpenTelemetry instrumentation pattern and can be registered alongside `FetchInstrumentation`, `XMLHttpRequestInstrumentation`, etc.
-- **Removed internal dependencies on Supabase/HTTP transport from the instrumentation path.** The npm instrumentation emits log records directly through the OTel API — no custom queue, batching, or retry logic needed. The standalone build still includes all three destinations (Supabase, HTTP, OTLP).
-- **Updated npm package keywords** to include `opentelemetry`, `instrumentation`, and `observability`.
+- **Use Do11y with the OpenTelemetry Browser SDK (npm).** If you already bundle your site with a build tool (Vite, Webpack, etc.) and use `@opentelemetry/browser-sdk`, you can now install Do11y as an npm dependency and register `DocsInstrumentation` alongside your other instrumentations. All documentation events (page views, scroll depth, section visibility, tab switches, code copies, TOC clicks, search, expand/collapse, link clicks, feedback) flow through your existing OTel pipeline under the same `session.id` — no separate queue, batching, or destination config required. For setup, see [Get started](/get-started#npm-opentelemetry-instrumentation).
+- **New `@manototh/do11y/instrumentation` import.** Add `DocsInstrumentation` to your OTel SDK's `instrumentations` array to get docs-specific events alongside your browser auto-instrumentations, correlated with page load performance, API calls, and errors.
+- **Script tag users: nothing changes.** The standalone script still works exactly as before, with the same config options and Supabase, HTTP, and OTLP destinations.
+- **Breaking change to the data schema.** The `url.query` attribute was replaced by `browser.do11y.url.has_params`. The value semantics are unchanged (`'has_params'` or `null`), but the attribute is renamed and namespaced under `browser.do11y.*`. Update any dashboards, queries, or alerts that reference `url.query`.
+- **Under the hood.** The codebase was refactored into a shared core library, the standalone script build, and the new OTel instrumentation layer, with a new Vitest-based test suite.
 
 ## v0.1.2
 
