@@ -4,15 +4,16 @@
  * Tests queueEvent, flush, flushSync, retry logic, body transforms,
  * config validation, and OTel SDK initialization.
  */
-import { describe, it, expect, beforeEach, afterEach } from 'vitest';
+import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
 import { setupTestDOM, teardownTestDOM } from '../helpers/mock-dom';
 import { mockFetch, restoreFetch, getRequests, setDefaultResponse, setMockResponse, setMockError, clearRequests } from '../helpers/mock-fetch';
-import type { Do11yConfig } from '@do11y/core/types';
+import type { Do11yConfig, Do11yEvent } from '@do11y/core/types';
 import { ATTR_DO11Y_SCROLL_THRESHOLD } from '@do11y/core/constants';
 
 // The transport module uses module-level state (eventQueue, flushTimeout, etc.)
 // We import the functions directly and manage state via reset helpers.
 import {
+  eventQueue,
   queueEvent,
   flush,
   flushSync,
@@ -23,6 +24,9 @@ import {
   cleanup,
   resetTransportState,
   __testing_setOtelLogger,
+  __testing_getPendingOtlpCount,
+  __testing_setOtelInitHook,
+  __testing_failOtelInit,
 } from '@do11y/standalone/transport';
 
 function makeSupabaseConfig(overrides: Partial<Do11yConfig> = {}): Do11yConfig {
@@ -447,6 +451,117 @@ describe('transport', () => {
       queueEvent(config, 'browser.do11y.page_view', {});
 
       // OTLP events bypass the queue, so queue should be empty
+      expect(getQueueLength()).toBe(0);
+    });
+
+    it('buffers events while the SDK is loading instead of falling through to HTTP', () => {
+      // No logger injected → simulates the async CDN init window.
+      __testing_setOtelLogger(null);
+      __testing_setOtelInitHook(() => {
+        /* SDK still loading */
+      });
+      const config = makeSupabaseConfig({
+        destination: 'otlp',
+        otelSdkEndpoint: 'https://otel.example.com',
+        endpoint: 'https://ingestion.example.com', // must never be used in OTLP mode
+        maxBatchSize: 1,
+      });
+      queueEvent(config, 'browser.do11y.page_view', { custom_attr: 'hello' });
+
+      // Held in the pending OTLP buffer, NOT the HTTP queue, no fetch fired.
+      expect(__testing_getPendingOtlpCount()).toBe(1);
+      expect(getQueueLength()).toBe(0);
+      expect(getRequests()).toHaveLength(0);
+      expect(mockOtelRecords).toHaveLength(0);
+    });
+
+    it('replays buffered events through the logger once it becomes available', () => {
+      __testing_setOtelLogger(null);
+      __testing_setOtelInitHook(() => {
+        /* SDK still loading */
+      });
+      const config = makeSupabaseConfig({
+        destination: 'otlp',
+        otelSdkEndpoint: 'https://otel.example.com',
+        endpoint: 'https://ingestion.example.com',
+        maxBatchSize: 1,
+      });
+      queueEvent(config, 'browser.do11y.page_view', { custom_attr: 'hello' });
+      queueEvent(config, 'browser.do11y.scroll_depth', { depth: 50 });
+
+      expect(__testing_getPendingOtlpCount()).toBe(2);
+      expect(getQueueLength()).toBe(0);
+
+      // Simulate the CDN import resolving: a logger registers and the pending
+      // buffer drains into it (matching initOtelSdk's drain on success).
+      __testing_setOtelLogger({
+        emit: (record) => {
+          mockOtelRecords.push({ ...record, attributes: { ...record.attributes } });
+        },
+      });
+
+      expect(mockOtelRecords).toHaveLength(2);
+      expect(mockOtelRecords[0]!.eventName).toBe('browser.do11y.page_view');
+      expect(mockOtelRecords[1]!.eventName).toBe('browser.do11y.scroll_depth');
+      expect(mockOtelRecords[0]!.attributes).not.toHaveProperty('_time');
+      expect(mockOtelRecords[0]!.attributes).not.toHaveProperty('eventName');
+      expect(mockOtelRecords[0]!.attributes).toHaveProperty('custom_attr');
+      expect(__testing_getPendingOtlpCount()).toBe(0);
+      expect(getQueueLength()).toBe(0);
+      expect(getRequests()).toHaveLength(0);
+    });
+
+    it('drops buffered events if the SDK fails to initialize (no HTTP fallback)', () => {
+      __testing_setOtelLogger(null);
+      __testing_setOtelInitHook(() => {
+        __testing_failOtelInit();
+      });
+      const config = makeSupabaseConfig({
+        destination: 'otlp',
+        otelSdkEndpoint: 'https://otel.example.com',
+        endpoint: 'https://ingestion.example.com',
+        maxBatchSize: 1,
+      });
+      queueEvent(config, 'browser.do11y.page_view', {});
+
+      // Dropped with a warning — never routed to the HTTP endpoint.
+      expect(__testing_getPendingOtlpCount()).toBe(0);
+      expect(getQueueLength()).toBe(0);
+      expect(getRequests()).toHaveLength(0);
+      expect(mockOtelRecords).toHaveLength(0);
+
+      // Subsequent events are dropped too (no repeated CDN attempts).
+      queueEvent(config, 'browser.do11y.page_view', {});
+      expect(__testing_getPendingOtlpCount()).toBe(0);
+      expect(getRequests()).toHaveLength(0);
+    });
+
+    it('never POSTs a leaked queue to the HTTP endpoint in OTLP mode', () => {
+      const config = makeSupabaseConfig({
+        destination: 'otlp',
+        otelSdkEndpoint: 'https://otel.example.com',
+        endpoint: 'https://ingestion.example.com',
+      });
+      // Simulate a leaked event in the HTTP queue. queueEvent should never put
+      // one there in OTLP mode, but flush() must still refuse to send it.
+      eventQueue.push({
+        _time: new Date().toISOString(),
+        eventName: 'browser.do11y.page_view',
+        'session.id': 's1',
+        'browser.do11y.session_page_count': 1,
+        'url.path': '/',
+        'url.fragment': null,
+        'browser.do11y.page_title': null,
+        'browser.do11y.url.has_params': null,
+        'browser.do11y.viewport_category': 'desktop',
+        'browser.family': 'Chrome',
+        'device.type': 'desktop',
+        'browser.language': 'en',
+        'browser.do11y.timezone_offset': 0,
+      } as Do11yEvent);
+      flush(config);
+
+      expect(getRequests()).toHaveLength(0);
       expect(getQueueLength()).toBe(0);
     });
   });

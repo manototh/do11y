@@ -33,6 +33,16 @@ let _otelLogger: {
     body: string;
   }) => void;
 } | null = null;
+/** Events queued while the OTel SDK is still loading from the CDN. They are
+ *  replayed once the SDK initializes and must NEVER fall through to the
+ *  HTTP transport (which would POST them to `config.endpoint`). */
+let pendingOtlpEvents: Do11yEvent[] = [];
+/** Single-flight guard so concurrent events don't trigger duplicate CDN loads. */
+let _otelInitPromise: Promise<void> | null = null;
+/** Set once CDN init fails so we don't retry the load on every event. */
+let _otelInitFailed = false;
+/** @internal Test-only — replaces the async CDN loader with a synchronous hook. */
+let _otelInitHook: (() => void) | null = null;
 
 // ─── Public API ──────────────────────────────────────────────────────────────
 
@@ -49,18 +59,41 @@ export function getQueueLength(): number {
 /** @internal Test-only — inject a mock OTel logger for envelope tests. */
 export function __testing_setOtelLogger(logger: typeof _otelLogger): void {
   _otelLogger = logger;
+  // Test seam for the async CDN init path: when a logger becomes available,
+  // replay any events that were buffered while it was "loading".
+  drainPendingOtlp();
 }
 export function getOtelLogger(): typeof _otelLogger {
   return _otelLogger;
 }
 
+/** @internal Test-only — number of events buffered awaiting OTel SDK init. */
+export function __testing_getPendingOtlpCount(): number {
+  return pendingOtlpEvents.length;
+}
+
+/** @internal Test-only — replace the async CDN loader with a synchronous hook. */
+export function __testing_setOtelInitHook(hook: (() => void) | null): void {
+  _otelInitHook = hook;
+}
+
+/** @internal Test-only — simulate an OTel SDK init failure (drops buffered events). */
+export function __testing_failOtelInit(): void {
+  _otelInitFailed = true;
+  pendingOtlpEvents = [];
+}
+
 /** Reset all module-level state to initial values. Used by tests. */
 export function resetTransportState(): void {
   eventQueue = [];
+  pendingOtlpEvents = [];
   flushTimeout = null;
   rateLimiter.reset();
   isDisabled = false;
   _otelLogger = null;
+  _otelInitPromise = null;
+  _otelInitFailed = false;
+  _otelInitHook = null;
 }
 
 // ─── Queue & Flush ───────────────────────────────────────────────────────────
@@ -96,30 +129,28 @@ export function queueEvent(
     console.log("[Do11y] Event queued:", eventName, event);
   }
 
-  // In OTLP mode, emit directly through the OTel SDK.
-  // Lazy-init the SDK on first use if it hasn't been loaded yet.
+  // In OTLP mode, emit directly through the OTel SDK. The SDK is lazy-loaded
+  // from the CDN on first use; events emitted before it is ready are buffered
+  // and replayed once initialized. They must NEVER fall through to the HTTP
+  // transport (which would POST them to `config.endpoint`).
   if (config.destination === "otlp") {
-    if (!_otelLogger) {
-      initOtelSdk(config).catch((err) => {
-        console.warn("[Do11y] OTel SDK initialization failed:", err);
-      });
-    }
     if (_otelLogger) {
-      // The event name is carried by the top-level OTel `event_name` field and
-      // `_time` becomes the record timestamp (timeUnixNano). Strip both from
-      // the attribute map so they are not duplicated as attributes.
-      const otelAttributes: Record<string, unknown> = { ...event };
-      delete otelAttributes._time;
-      delete otelAttributes.eventName;
-      _otelLogger.emit({
-        eventName,
-        severityNumber: 9, // SEVERITY_NUMBER_INFO
-        timestamp: eventTime.getTime(),
-        attributes: otelAttributes,
-        body: "",
-      });
+      emitOtlpRecord(eventName, event, eventTime);
       return;
     }
+    if (_otelInitFailed) {
+      if (config.debug) {
+        console.warn("[Do11y] OTel SDK unavailable; dropping event:", eventName);
+      }
+      return;
+    }
+    pendingOtlpEvents.push(event as Do11yEvent);
+    if (pendingOtlpEvents.length > 500) {
+      pendingOtlpEvents = pendingOtlpEvents.slice(-500);
+      console.warn("[Do11y] OTLP pending buffer capped at 500 events — oldest events dropped");
+    }
+    ensureOtelSdk(config);
+    return;
   }
 
   // In HTTP/Supabase mode, queue for batching
@@ -241,6 +272,53 @@ const OTEL_CDN_BASE = "https://esm.sh/";
  *  Keep in sync with the `@opentelemetry/*` peer/dev dependencies in package.json. */
 const OTEL_SDK_VERSION = "0.221.0";
 
+/** Emit a single event through the OTel Logger. */
+function emitOtlpRecord(eventName: string, event: Record<string, unknown>, eventTime: Date): void {
+  if (!_otelLogger) return;
+  // The event name is carried by the top-level OTel `event_name` field and
+  // `_time` becomes the record timestamp (timeUnixNano). Strip both from
+  // the attribute map so they are not duplicated as attributes.
+  const otelAttributes: Record<string, unknown> = { ...event };
+  delete otelAttributes._time;
+  delete otelAttributes.eventName;
+  _otelLogger.emit({
+    eventName,
+    severityNumber: 9, // SEVERITY_NUMBER_INFO
+    timestamp: eventTime.getTime(),
+    attributes: otelAttributes,
+    body: "",
+  });
+}
+
+/** Replay events buffered while the OTel SDK was still loading. */
+function drainPendingOtlp(): void {
+  if (!_otelLogger || pendingOtlpEvents.length === 0) return;
+  const batch = pendingOtlpEvents;
+  pendingOtlpEvents = [];
+  for (const evt of batch) {
+    emitOtlpRecord(evt.eventName, evt, new Date(evt._time));
+  }
+}
+
+/** Kick off the async CDN SDK load exactly once. Buffered events are replayed
+ *  by initOtelSdk on success, or dropped with a warning on failure. */
+function ensureOtelSdk(config: Do11yConfig): void {
+  if (_otelLogger || _otelInitPromise || _otelInitFailed) return;
+  if (_otelInitHook) {
+    _otelInitHook();
+    return;
+  }
+  _otelInitPromise = initOtelSdk(config)
+    .catch((err) => {
+      _otelInitFailed = true;
+      pendingOtlpEvents = [];
+      console.warn("[Do11y] OTel SDK initialization failed; buffered events dropped:", err);
+    })
+    .finally(() => {
+      _otelInitPromise = null;
+    });
+}
+
 async function initOtelSdk(config: Do11yConfig): Promise<void> {
   if (_otelLogger) return; // already initialized
 
@@ -280,6 +358,9 @@ async function initOtelSdk(config: Do11yConfig): Promise<void> {
 
   apiLogs.logs.setGlobalLoggerProvider(loggerProvider);
   _otelLogger = loggerProvider.getLogger("do11y");
+
+  // Replay any events that arrived while the SDK was loading.
+  drainPendingOtlp();
 
   if (config.debug) {
     console.log("[Do11y] OTel SDK initialized with endpoint:", config.otelSdkEndpoint);
@@ -407,6 +488,23 @@ export function flush(config: Do11yConfig, retriesLeft?: number): void {
   if (flushTimeout) {
     clearTimeout(flushTimeout);
     flushTimeout = null;
+  }
+
+  // OTLP mode never uses the HTTP transport — the OTel SDK handles its own
+  // batching and flushing. If events somehow reached the queue (they shouldn't
+  // after the queueEvent fix), drop them rather than POSTing to `config.endpoint`.
+  if (config.destination === "otlp") {
+    if (eventQueue.length > 0) {
+      if (config.debug) {
+        console.warn(
+          "[Do11y] Dropping " +
+            eventQueue.length +
+            " queued events (OTLP mode has no HTTP transport)",
+        );
+      }
+      eventQueue = [];
+    }
+    return;
   }
 
   if (eventQueue.length === 0) return;

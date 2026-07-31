@@ -1056,6 +1056,14 @@ var Do11yBundle = (function(exports) {
 	const rateLimiter = createRateLimiter();
 	let isDisabled = false;
 	let _otelLogger = null;
+	/** Events queued while the OTel SDK is still loading from the CDN. They are
+	*  replayed once the SDK initializes and must NEVER fall through to the
+	*  HTTP transport (which would POST them to `config.endpoint`). */
+	let pendingOtlpEvents = [];
+	/** Single-flight guard so concurrent events don't trigger duplicate CDN loads. */
+	let _otelInitPromise = null;
+	/** Set once CDN init fails so we don't retry the load on every event. */
+	let _otelInitFailed = false;
 	function setIsDisabled(v) {
 		isDisabled = v;
 	}
@@ -1082,22 +1090,21 @@ var Do11yBundle = (function(exports) {
 		};
 		if (config.debug) console.log("[Do11y] Event queued:", eventName, event);
 		if (config.destination === "otlp") {
-			if (!_otelLogger) initOtelSdk(config).catch((err) => {
-				console.warn("[Do11y] OTel SDK initialization failed:", err);
-			});
 			if (_otelLogger) {
-				const otelAttributes = { ...event };
-				delete otelAttributes._time;
-				delete otelAttributes.eventName;
-				_otelLogger.emit({
-					eventName,
-					severityNumber: 9,
-					timestamp: eventTime.getTime(),
-					attributes: otelAttributes,
-					body: ""
-				});
+				emitOtlpRecord(eventName, event, eventTime);
 				return;
 			}
+			if (_otelInitFailed) {
+				if (config.debug) console.warn("[Do11y] OTel SDK unavailable; dropping event:", eventName);
+				return;
+			}
+			pendingOtlpEvents.push(event);
+			if (pendingOtlpEvents.length > 500) {
+				pendingOtlpEvents = pendingOtlpEvents.slice(-500);
+				console.warn("[Do11y] OTLP pending buffer capped at 500 events — oldest events dropped");
+			}
+			ensureOtelSdk(config);
+			return;
 		}
 		eventQueue.push(event);
 		if (eventQueue.length > 500) {
@@ -1185,6 +1192,39 @@ var Do11yBundle = (function(exports) {
 	/** Version of the OTel SDK packages loaded from the CDN.
 	*  Keep in sync with the `@opentelemetry/*` peer/dev dependencies in package.json. */
 	const OTEL_SDK_VERSION = "0.221.0";
+	/** Emit a single event through the OTel Logger. */
+	function emitOtlpRecord(eventName, event, eventTime) {
+		if (!_otelLogger) return;
+		const otelAttributes = { ...event };
+		delete otelAttributes._time;
+		delete otelAttributes.eventName;
+		_otelLogger.emit({
+			eventName,
+			severityNumber: 9,
+			timestamp: eventTime.getTime(),
+			attributes: otelAttributes,
+			body: ""
+		});
+	}
+	/** Replay events buffered while the OTel SDK was still loading. */
+	function drainPendingOtlp() {
+		if (!_otelLogger || pendingOtlpEvents.length === 0) return;
+		const batch = pendingOtlpEvents;
+		pendingOtlpEvents = [];
+		for (const evt of batch) emitOtlpRecord(evt.eventName, evt, new Date(evt._time));
+	}
+	/** Kick off the async CDN SDK load exactly once. Buffered events are replayed
+	*  by initOtelSdk on success, or dropped with a warning on failure. */
+	function ensureOtelSdk(config) {
+		if (_otelLogger || _otelInitPromise || _otelInitFailed) return;
+		_otelInitPromise = initOtelSdk(config).catch((err) => {
+			_otelInitFailed = true;
+			pendingOtlpEvents = [];
+			console.warn("[Do11y] OTel SDK initialization failed; buffered events dropped:", err);
+		}).finally(() => {
+			_otelInitPromise = null;
+		});
+	}
 	async function initOtelSdk(config) {
 		if (_otelLogger) return;
 		const cdnBase = OTEL_CDN_BASE;
@@ -1217,6 +1257,7 @@ var Do11yBundle = (function(exports) {
 		});
 		apiLogs.logs.setGlobalLoggerProvider(loggerProvider);
 		_otelLogger = loggerProvider.getLogger("do11y");
+		drainPendingOtlp();
 		if (config.debug) console.log("[Do11y] OTel SDK initialized with endpoint:", config.otelSdkEndpoint);
 	}
 	function buildRequest(events, config) {
@@ -1291,6 +1332,13 @@ var Do11yBundle = (function(exports) {
 		if (flushTimeout) {
 			clearTimeout(flushTimeout);
 			flushTimeout = null;
+		}
+		if (config.destination === "otlp") {
+			if (eventQueue.length > 0) {
+				if (config.debug) console.warn("[Do11y] Dropping " + eventQueue.length + " queued events (OTLP mode has no HTTP transport)");
+				eventQueue = [];
+			}
+			return;
 		}
 		if (eventQueue.length === 0) return;
 		if (!validateConfig(config)) return;
