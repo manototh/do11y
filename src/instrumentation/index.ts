@@ -23,7 +23,7 @@
  *   new DocsInstrumentation({ framework: 'mintlify' });
  */
 import { InstrumentationBase } from "@opentelemetry/instrumentation";
-import { logs } from "@opentelemetry/api-logs";
+import { logs, type LogAttributes } from "@opentelemetry/api-logs";
 import type { Do11yConfig, EmitFn } from "../core/types.js";
 import {
   VERSION,
@@ -66,6 +66,23 @@ import { buildConfig } from "./config.js";
 export type { DocsInstrumentationConfig } from "./config.js";
 
 /**
+ * True once a global LoggerProvider is registered. Before registration,
+ * logs.getLoggerProvider() returns api-logs' ProxyLoggerProvider, which
+ * exposes an internal `_setDelegate` method; real providers (e.g. sdk-logs
+ * LoggerProvider) do not. api-logs version negotiation shares the same
+ * proxy across copies, so this holds regardless of which copy registered.
+ */
+function providerIsRegistered(): boolean {
+  try {
+    const provider = logs.getLoggerProvider() as { _setDelegate?: unknown };
+    return typeof provider._setDelegate !== "function";
+  } catch {
+    // If detection ever fails, fall back to direct emit (no buffering).
+    return true;
+  }
+}
+
+/**
  * OpenTelemetry instrumentation for documentation sites.
  *
  * Emits log records for documentation-specific events (page views,
@@ -88,6 +105,7 @@ export class DocsInstrumentation extends InstrumentationBase<DocsInstrumentation
   private _lastPath!: string;
   private _boundHandlePathChange!: (() => void) | null;
   private _boundPopstateHandler!: (() => void) | null;
+  private _drainTimer!: ReturnType<typeof setInterval> | null;
 
   constructor(config: DocsInstrumentationConfig = {}) {
     super("@manototh/do11y", VERSION, config);
@@ -121,9 +139,17 @@ export class DocsInstrumentation extends InstrumentationBase<DocsInstrumentation
     }
 
     if (this._do11yConfig.debug) {
-      console.log(
-        "[Do11y] Instrumentation enabled:",
-        this._do11yConfig.framework,
+      console.log("[Do11y] Instrumentation enabled:", this._do11yConfig.framework);
+    }
+
+    // Surface the pre-init window: without a provider, api-logs would drop
+    // records. We buffer and replay them, but the host should really start
+    // the OTel SDK before constructing the instrumentation.
+    if (!providerIsRegistered()) {
+      console.warn(
+        "[Do11y] No LoggerProvider registered yet — events will be buffered " +
+          "and replayed once the OTel SDK is started. Call startLogsSdk()/" +
+          "startBrowserSdk() BEFORE creating DocsInstrumentation.",
       );
     }
 
@@ -133,6 +159,79 @@ export class DocsInstrumentation extends InstrumentationBase<DocsInstrumentation
     // limiter is created here (not as a class field) because the base class
     // constructor calls enable() before subclass field initializers run.
     const rateLimiter = createRateLimiter();
+
+    // ── Pending-event buffer ────────────────────────────────────────────────
+    // api-logs silently drops records emitted before a LoggerProvider is
+    // registered (its ProxyLogger resolves to NOOP_LOGGER until a delegate is
+    // set). Buffer such events and replay them once a provider appears,
+    // mirroring the standalone transport's OTLP buffer. Everything here is
+    // closure-local for the same reason the rate limiter is: the base class
+    // constructor calls enable() before subclass field initializers run.
+    const MAX_PENDING = 500;
+    const pending: Array<{
+      eventName: string;
+      attributes: LogAttributes;
+      timestamp: number;
+    }> = [];
+
+    // Build the full attribute set for a record (session, browser and page
+    // context). Typed as LogAttributes so buffered replays stay compatible
+    // with the OTel API.
+    const buildAttributes = (eventData: Record<string, unknown>): LogAttributes => {
+      const sessionAttributes: LogAttributes =
+        this._do11yConfig.sessionAttributes !== false
+          ? {
+              [ATTR_SESSION_ID]: getSession().id,
+              [ATTR_DO11Y_SESSION_PAGE_COUNT]: getSession().pageCount,
+            }
+          : {};
+      return {
+        [ATTR_DO11Y_DO11Y_VERSION]: VERSION,
+        ...sessionAttributes,
+        ...getBrowserContext(),
+        ...getPageInfo(),
+        ...eventData,
+      };
+    };
+
+    const drainPending = (): void => {
+      if (pending.length === 0) return;
+      const logger = logs.getLogger("@manototh/do11y");
+      for (const evt of pending) {
+        logger.emit({
+          eventName: evt.eventName,
+          severityNumber: 9, // SEVERITY_NUMBER_INFO
+          timestamp: evt.timestamp,
+          attributes: evt.attributes,
+          body: "",
+        });
+      }
+      if (this._do11yConfig.debug) {
+        console.log(
+          "[Do11y] Replayed",
+          pending.length,
+          "buffered events after LoggerProvider registration",
+        );
+      }
+      pending.length = 0;
+    };
+
+    // Poll until a provider is registered so a lone buffered event (e.g. the
+    // initial page_view) is replayed even if no further events arrive. The
+    // timer clears itself once drained and is torn down in disable().
+    const startDrainTimer = (): void => {
+      if (this._drainTimer !== null) return;
+      this._drainTimer = window.setInterval(() => {
+        if (providerIsRegistered()) {
+          if (this._drainTimer !== null) {
+            clearInterval(this._drainTimer);
+            this._drainTimer = null;
+          }
+          drainPending();
+        }
+      }, 100);
+    };
+
     const emit: EmitFn = (eventName, eventData) => {
       if (
         !rateLimiter.allow(
@@ -151,31 +250,34 @@ export class DocsInstrumentation extends InstrumentationBase<DocsInstrumentation
         console.log("[Do11y] Event:", eventName, eventData);
       }
 
-      // Resolve the logger on every emit instead of capturing it once in
-      // enable(). This keeps records flowing even when the instrumentation is
-      // constructed before the global LoggerProvider is registered (e.g. the
-      // host app calls startLogsSdk()/startBrowserSdk() after creating the
-      // instrumentation). api-logs version negotiation makes the registered
-      // provider visible to whatever copy of @opentelemetry/api-logs this
-      // module is bundled against.
-      const attributes: Record<string, unknown> = {
-        [ATTR_DO11Y_DO11Y_VERSION]: VERSION,
-      };
-      if (this._do11yConfig.sessionAttributes !== false) {
-        const session = getSession();
-        attributes[ATTR_SESSION_ID] = session.id;
-        attributes[ATTR_DO11Y_SESSION_PAGE_COUNT] = session.pageCount;
+      // Build the full attribute set up front so a buffered replay is
+      // faithful to the original emit (session, browser and page context).
+      const fullAttributes = buildAttributes(eventData);
+
+      if (!providerIsRegistered()) {
+        // No LoggerProvider yet — buffer instead of silently dropping.
+        if (pending.length >= MAX_PENDING) {
+          if (this._do11yConfig.debug) {
+            console.log("[Do11y] Pending buffer full; dropping event:", eventName);
+          }
+          return;
+        }
+        pending.push({
+          eventName,
+          attributes: fullAttributes,
+          timestamp: Date.now(),
+        });
+        startDrainTimer();
+        return;
       }
+
+      // Provider is registered: flush any buffered events first, then emit.
+      drainPending();
       logs.getLogger("@manototh/do11y").emit({
         eventName,
         severityNumber: 9, // SEVERITY_NUMBER_INFO
         timestamp: Date.now(),
-        attributes: {
-          ...attributes,
-          ...getBrowserContext(),
-          ...getPageInfo(),
-          ...eventData,
-        },
+        attributes: fullAttributes,
         body: "",
       });
     };
@@ -228,6 +330,12 @@ export class DocsInstrumentation extends InstrumentationBase<DocsInstrumentation
    */
   override disable(): void {
     disconnectSectionObserver();
+
+    // Stop the pending-event drain poll
+    if (this._drainTimer !== null) {
+      clearInterval(this._drainTimer);
+      this._drainTimer = null;
+    }
 
     // Tear down SPA tracking
     if (this._mutationObserver) {

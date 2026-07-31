@@ -16,7 +16,11 @@ import {
 } from '../helpers/mock-dom';
 import { resetTrackedScrollDepths } from '@do11y/core/tracking/scroll';
 
-// Mock @opentelemetry/api-logs so DocsInstrumentation uses our test logger
+// Mock @opentelemetry/api-logs so DocsInstrumentation uses our test logger.
+// `providerRegistered` controls whether getLoggerProvider() reports a real
+// provider or api-logs' ProxyLoggerProvider (which exposes `_setDelegate`) —
+// do11y uses that to buffer events until a provider is registered.
+let providerRegistered = true;
 const mockLogRecords: Array<{
   eventName: string;
   severityNumber: number;
@@ -25,8 +29,28 @@ const mockLogRecords: Array<{
   body: string;
 }> = [];
 
+const realLoggerProvider = {
+  getLogger: () => ({
+    emit: (record: any) => {
+      mockLogRecords.push({ ...record, attributes: { ...record.attributes } });
+    },
+  }),
+};
+const proxyLoggerProvider = {
+  // Matches api-logs' ProxyLoggerProvider shape (present before a real
+  // provider is registered).
+  _setDelegate: () => {},
+  getLogger: () => ({
+    emit: (record: any) => {
+      mockLogRecords.push({ ...record, attributes: { ...record.attributes } });
+    },
+  }),
+};
+
 vi.mock('@opentelemetry/api-logs', () => ({
   logs: {
+    getLoggerProvider: () =>
+      providerRegistered ? realLoggerProvider : proxyLoggerProvider,
     getLogger: () => ({
       emit: (record: any) => {
         mockLogRecords.push({ ...record, attributes: { ...record.attributes } });
@@ -537,6 +561,29 @@ describe('export / instrumentation-otel', () => {
       for (const record of records) {
         expect(record.attributes).not.toHaveProperty('session.id');
         expect(record.attributes).not.toHaveProperty('browser.do11y.session_page_count');
+      }
+    });
+  });
+
+  describe('buffering before a LoggerProvider is registered', () => {
+    it('buffers events and replays them once a provider is registered', () => {
+      providerRegistered = false;
+      try {
+        // Self-enables via the constructor; the init events (page_view,
+        // scroll_depth) are emitted with no provider registered → buffered.
+        instrumentation = new DocsInstrumentation(makeConfig());
+        instrumentation.enable();
+        expect(getRecords().length).toBe(0);
+
+        // The provider registers late; the next emit drains the buffer.
+        providerRegistered = true;
+        clickElement(document.querySelector('a[href="/guide"]')!);
+
+        const names = getRecords().map((r) => r.eventName);
+        expect(names).toContain('browser.do11y.page_view');
+        expect(names).toContain('browser.do11y.link_click');
+      } finally {
+        providerRegistered = true;
       }
     });
   });

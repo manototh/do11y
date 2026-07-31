@@ -63,7 +63,7 @@ async function boot() {
 
   // ── 1. Start the Browser SDK (provider-first) ────────────────────────────
   startBrowserSdk({
-    serviceName: 'do11y-docusaurus-demo',
+    serviceName: 'do11y-test',
     serviceVersion: '1.0.0',
     logLevel: 'DEBUG',
     resourceAttributes: {
@@ -83,6 +83,14 @@ async function boot() {
       },
     },
   });
+
+  // Logged right after the SDK is ready (before the instrumentation is
+  // registered below) so the console order matches reality — the boot-time
+  // do11y events emitted by DocsInstrumentation already have a provider.
+  console.info(
+    '[do11y-otel] OpenTelemetry Browser SDK initialized; exporting to',
+    OTLP_ENDPOINT,
+  );
 
   // ── 2. Register instrumentations (Do11y alongside the OTel ones) ─────────
   registerInstrumentations({
@@ -108,9 +116,4 @@ async function boot() {
       new UserActionInstrumentation(),
     ],
   });
-
-  console.info(
-    '[do11y-otel] Do11y + OpenTelemetry Browser SDK initialized; exporting to',
-    OTLP_ENDPOINT,
-  );
 }

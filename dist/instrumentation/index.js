@@ -1120,6 +1120,20 @@ function buildConfig(userConfig) {
 *   new DocsInstrumentation({ framework: 'mintlify' });
 */
 /**
+* True once a global LoggerProvider is registered. Before registration,
+* logs.getLoggerProvider() returns api-logs' ProxyLoggerProvider, which
+* exposes an internal `_setDelegate` method; real providers (e.g. sdk-logs
+* LoggerProvider) do not. api-logs version negotiation shares the same
+* proxy across copies, so this holds regardless of which copy registered.
+*/
+function providerIsRegistered() {
+	try {
+		return typeof logs.getLoggerProvider()._setDelegate !== "function";
+	} catch {
+		return true;
+	}
+}
+/**
 * OpenTelemetry instrumentation for documentation sites.
 *
 * Emits log records for documentation-specific events (page views,
@@ -1145,26 +1159,71 @@ var DocsInstrumentation = class extends InstrumentationBase {
 		applyFrameworkSelectors(this._do11yConfig);
 		if (shouldDisableTracking(this._do11yConfig)) return;
 		if (this._do11yConfig.debug) console.log("[Do11y] Instrumentation enabled:", this._do11yConfig.framework);
+		if (!providerIsRegistered()) console.warn("[Do11y] No LoggerProvider registered yet — events will be buffered and replayed once the OTel SDK is started. Call startLogsSdk()/startBrowserSdk() BEFORE creating DocsInstrumentation.");
 		const rateLimiter = createRateLimiter();
+		const MAX_PENDING = 500;
+		const pending = [];
+		const buildAttributes = (eventData) => {
+			const sessionAttributes = this._do11yConfig.sessionAttributes !== false ? {
+				[ATTR_SESSION_ID]: getSession().id,
+				[ATTR_DO11Y_SESSION_PAGE_COUNT]: getSession().pageCount
+			} : {};
+			return {
+				[ATTR_DO11Y_DO11Y_VERSION]: VERSION,
+				...sessionAttributes,
+				...getBrowserContext(),
+				...getPageInfo(),
+				...eventData
+			};
+		};
+		const drainPending = () => {
+			if (pending.length === 0) return;
+			const logger = logs.getLogger("@manototh/do11y");
+			for (const evt of pending) logger.emit({
+				eventName: evt.eventName,
+				severityNumber: 9,
+				timestamp: evt.timestamp,
+				attributes: evt.attributes,
+				body: ""
+			});
+			if (this._do11yConfig.debug) console.log("[Do11y] Replayed", pending.length, "buffered events after LoggerProvider registration");
+			pending.length = 0;
+		};
+		const startDrainTimer = () => {
+			if (this._drainTimer !== null) return;
+			this._drainTimer = window.setInterval(() => {
+				if (providerIsRegistered()) {
+					if (this._drainTimer !== null) {
+						clearInterval(this._drainTimer);
+						this._drainTimer = null;
+					}
+					drainPending();
+				}
+			}, 100);
+		};
 		const emit = (eventName, eventData) => {
 			if (!rateLimiter.allow(eventName, eventData, this._do11yConfig.rateLimitMs ?? 100, this._do11yConfig.debug ?? false)) return;
 			if (this._do11yConfig.debug) console.log("[Do11y] Event:", eventName, eventData);
-			const attributes = { [ATTR_DO11Y_DO11Y_VERSION]: VERSION };
-			if (this._do11yConfig.sessionAttributes !== false) {
-				const session = getSession();
-				attributes[ATTR_SESSION_ID] = session.id;
-				attributes[ATTR_DO11Y_SESSION_PAGE_COUNT] = session.pageCount;
+			const fullAttributes = buildAttributes(eventData);
+			if (!providerIsRegistered()) {
+				if (pending.length >= MAX_PENDING) {
+					if (this._do11yConfig.debug) console.log("[Do11y] Pending buffer full; dropping event:", eventName);
+					return;
+				}
+				pending.push({
+					eventName,
+					attributes: fullAttributes,
+					timestamp: Date.now()
+				});
+				startDrainTimer();
+				return;
 			}
+			drainPending();
 			logs.getLogger("@manototh/do11y").emit({
 				eventName,
 				severityNumber: 9,
 				timestamp: Date.now(),
-				attributes: {
-					...attributes,
-					...getBrowserContext(),
-					...getPageInfo(),
-					...eventData
-				},
+				attributes: fullAttributes,
 				body: ""
 			});
 		};
@@ -1208,6 +1267,10 @@ var DocsInstrumentation = class extends InstrumentationBase {
 	*/
 	disable() {
 		disconnectSectionObserver();
+		if (this._drainTimer !== null) {
+			clearInterval(this._drainTimer);
+			this._drainTimer = null;
+		}
 		if (this._mutationObserver) {
 			this._mutationObserver.disconnect();
 			this._mutationObserver = null;
