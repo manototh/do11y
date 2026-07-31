@@ -8,6 +8,7 @@ import { describe, it, expect, beforeEach, afterEach } from 'vitest';
 import { setupTestDOM, teardownTestDOM } from '../helpers/mock-dom';
 import { mockFetch, restoreFetch, getRequests, setDefaultResponse, setMockResponse, setMockError, clearRequests } from '../helpers/mock-fetch';
 import type { Do11yConfig } from '@do11y/core/types';
+import { ATTR_DO11Y_SCROLL_THRESHOLD } from '@do11y/core/constants';
 
 // The transport module uses module-level state (eventQueue, flushTimeout, etc.)
 // We import the functions directly and manage state via reset helpers.
@@ -127,6 +128,24 @@ describe('transport', () => {
       const uniqueEvent = 'browser.do11y.test_rate_limit';
       queueEvent(config, uniqueEvent, {});
       queueEvent(config, uniqueEvent, {});
+      expect(getQueueLength()).toBe(1);
+    });
+
+    it('queues each scroll_depth threshold despite rate limiting', () => {
+      const config = makeSupabaseConfig({ rateLimitMs: 1000 });
+      // A fast scroll crosses several thresholds in a single frame — each
+      // milestone must be queued independently instead of being dropped.
+      queueEvent(config, 'browser.do11y.scroll_depth', { [ATTR_DO11Y_SCROLL_THRESHOLD]: 25 });
+      queueEvent(config, 'browser.do11y.scroll_depth', { [ATTR_DO11Y_SCROLL_THRESHOLD]: 50 });
+      queueEvent(config, 'browser.do11y.scroll_depth', { [ATTR_DO11Y_SCROLL_THRESHOLD]: 75 });
+      queueEvent(config, 'browser.do11y.scroll_depth', { [ATTR_DO11Y_SCROLL_THRESHOLD]: 90 });
+      expect(getQueueLength()).toBe(4);
+    });
+
+    it('still rate-limits duplicate scroll_depth thresholds', () => {
+      const config = makeSupabaseConfig({ rateLimitMs: 1000 });
+      queueEvent(config, 'browser.do11y.scroll_depth', { [ATTR_DO11Y_SCROLL_THRESHOLD]: 25 });
+      queueEvent(config, 'browser.do11y.scroll_depth', { [ATTR_DO11Y_SCROLL_THRESHOLD]: 25 });
       expect(getQueueLength()).toBe(1);
     });
 

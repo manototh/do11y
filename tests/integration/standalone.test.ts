@@ -146,6 +146,20 @@ describe('integration / standalone', () => {
         expect(eventNames).toContain(expected);
       }
 
+      // 1b. A scroll to the bottom must record every scroll depth threshold.
+      //     Regression guard: a fast scroll crosses several thresholds in a
+      //     single frame; per-event-name rate limiting would drop all but the
+      //     first milestone.
+      const scrollDepths = events.filter(
+        (e: any) => e?.eventName === 'browser.do11y.scroll_depth',
+      );
+      const scrollThresholds = scrollDepths.map(
+        (e: any) => e?.['browser.do11y.scroll.threshold'],
+      );
+      for (const threshold of [25, 50, 75, 90]) {
+        expect(scrollThresholds).toContain(threshold);
+      }
+
       // 2. page_view should fire at least twice (start + guide page)
       const pageViews = events.filter(
         (e: any) => e?.eventName === 'browser.do11y.page_view',

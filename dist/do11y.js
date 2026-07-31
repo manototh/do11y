@@ -1034,13 +1034,14 @@ var Do11yBundle = (function(exports) {
 	function queueEvent(config, eventName, eventData) {
 		if (isDisabled) return;
 		const now = Date.now();
-		if (config.rateLimitMs > 0 && lastEventTime[eventName]) {
-			if (now - lastEventTime[eventName] < config.rateLimitMs) {
+		const rateKey = eventData["browser.do11y.scroll.threshold"] !== null && eventData["browser.do11y.scroll.threshold"] !== void 0 ? `${eventName}:${String(eventData[ATTR_DO11Y_SCROLL_THRESHOLD])}` : eventName;
+		if (config.rateLimitMs > 0 && lastEventTime[rateKey]) {
+			if (now - lastEventTime[rateKey] < config.rateLimitMs) {
 				if (config.debug) console.log("[Do11y] Rate limited:", eventName);
 				return;
 			}
 		}
-		lastEventTime[eventName] = now;
+		lastEventTime[rateKey] = now;
 		const session = getSession();
 		const event = {
 			_time: (/* @__PURE__ */ new Date()).toISOString(),

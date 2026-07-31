@@ -12,6 +12,7 @@ import {
   ATTR_SESSION_ID,
   ATTR_DO11Y_SESSION_PAGE_COUNT,
   ATTR_DO11Y_DO11Y_VERSION,
+  ATTR_DO11Y_SCROLL_THRESHOLD,
 } from "../core/constants.js";
 import { getSession } from "../core/session.js";
 import { getPageInfo } from "../core/context.js";
@@ -71,15 +72,26 @@ export function queueEvent(
   if (isDisabled) return;
 
   const now = Date.now();
-  if (config.rateLimitMs > 0 && lastEventTime[eventName]) {
-    if (now - lastEventTime[eventName] < config.rateLimitMs) {
+
+  // Rate-limit per event type, but let distinct scroll milestones through:
+  // a fast scroll can cross several thresholds in a single frame, which
+  // would otherwise drop all but the first milestone. Key on the threshold
+  // attribute when present so each milestone is rate-limited independently.
+  const rateKey =
+    eventData[ATTR_DO11Y_SCROLL_THRESHOLD] !== null &&
+    eventData[ATTR_DO11Y_SCROLL_THRESHOLD] !== undefined
+      ? `${eventName}:${String(eventData[ATTR_DO11Y_SCROLL_THRESHOLD])}`
+      : eventName;
+
+  if (config.rateLimitMs > 0 && lastEventTime[rateKey]) {
+    if (now - lastEventTime[rateKey] < config.rateLimitMs) {
       if (config.debug) {
         console.log("[Do11y] Rate limited:", eventName);
       }
       return;
     }
   }
-  lastEventTime[eventName] = now;
+  lastEventTime[rateKey] = now;
 
   const session = getSession();
 
