@@ -8,9 +8,6 @@ module.exports = {
   presets: [
     ['classic', { docs: { routeBasePath: '/' }, blog: false, theme: {} }],
   ],
-  headTags: [
-    { tagName: 'meta', attributes: { name: 'do11y-framework', content: 'docusaurus' } },
-  ],
   scripts: [
     { src: '/do11y-config.js', defer: true },
     { src: '/do11y.js', defer: true },
