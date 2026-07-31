@@ -10,6 +10,7 @@ markdown_extensions:
   - pymdownx.superfences
 extra_javascript:
   - do11y.js
+  - do11y-config.js
 extra:
   generator: false
   analytics:

@@ -5,6 +5,6 @@
     "start": "mintlify dev --port 4005"
   },
   "dependencies": {
-    "mintlify": "^4.2.521"
+    "mintlify": "latest"
   }
 }
