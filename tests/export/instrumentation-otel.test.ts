@@ -507,5 +507,37 @@ describe('export / instrumentation-otel', () => {
 
       expect(getRecords().length).toBeGreaterThan(0);
     });
+
+    it('keeps debug logging when self-enabled via the constructor', () => {
+      const logSpy = vi.spyOn(console, 'log').mockImplementation(() => {});
+      // No explicit .enable() — InstrumentationBase's constructor self-enables.
+      // Regression: the subclass field initializers used to wipe _do11yConfig
+      // right after the constructor's enable(), silently turning debug logging
+      // off for everything after the init events.
+      instrumentation = new DocsInstrumentation(makeConfig({ debug: true }));
+      clearRecords();
+      logSpy.mockClear();
+
+      clickElement(document.querySelector('a[href="/guide"]')!);
+
+      const eventLogs = logSpy.mock.calls.filter((call) => call[0] === '[Do11y] Event:');
+      expect(eventLogs.length).toBeGreaterThanOrEqual(1);
+      expect(eventLogs[0][1]).toBe('browser.do11y.link_click');
+      logSpy.mockRestore();
+    });
+
+    it('omits session attributes on the self-enable path when sessionAttributes is false', () => {
+      // No explicit .enable() — exercises the constructor self-enable path
+      // where the field-initializer bug used to wipe the config (which made
+      // sessionAttributes:false a no-op and duplicated session.id).
+      instrumentation = new DocsInstrumentation(makeConfig({ sessionAttributes: false }));
+
+      const records = getRecords();
+      expect(records.length).toBeGreaterThan(0);
+      for (const record of records) {
+        expect(record.attributes).not.toHaveProperty('session.id');
+        expect(record.attributes).not.toHaveProperty('browser.do11y.session_page_count');
+      }
+    });
   });
 });

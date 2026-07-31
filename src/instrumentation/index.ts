@@ -74,13 +74,20 @@ export type { DocsInstrumentationConfig } from "./config.js";
  * and other browser instrumentations.
  */
 export class DocsInstrumentation extends InstrumentationBase<DocsInstrumentationConfig> {
-  private _do11yConfig: Partial<Do11yConfig> = {};
-  private _emit: EmitFn = () => {};
-  private _mutationObserver: MutationObserver | null = null;
-  private _pathPollId: ReturnType<typeof setInterval> | null = null;
-  private _lastPath: string = "";
-  private _boundHandlePathChange: (() => void) | null = null;
-  private _boundPopstateHandler: (() => void) | null = null;
+  // NOTE: no field initializers here. The browser build of InstrumentationBase
+  // calls enable() from its constructor — BEFORE subclass field initializers
+  // run. An initializer like `= {}` or `= null` would therefore run AFTER
+  // enable() and wipe the config/state it set during construction (the
+  // self-enabling path used by the docs). That silently disabled debug logging
+  // and sessionAttributes, and left disable() unable to find the SPA observers.
+  // Definite-assignment (`!`) keeps enable()/disable() the sole owners.
+  private _do11yConfig!: Partial<Do11yConfig>;
+  private _emit!: EmitFn;
+  private _mutationObserver!: MutationObserver | null;
+  private _pathPollId!: ReturnType<typeof setInterval> | null;
+  private _lastPath!: string;
+  private _boundHandlePathChange!: (() => void) | null;
+  private _boundPopstateHandler!: (() => void) | null;
 
   constructor(config: DocsInstrumentationConfig = {}) {
     super("@manototh/do11y", VERSION, config);

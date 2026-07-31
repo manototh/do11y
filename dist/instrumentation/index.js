@@ -1130,13 +1130,6 @@ function buildConfig(userConfig) {
 var DocsInstrumentation = class extends InstrumentationBase {
 	constructor(config = {}) {
 		super("@manototh/do11y", VERSION, config);
-		this._do11yConfig = {};
-		this._emit = () => {};
-		this._mutationObserver = null;
-		this._pathPollId = null;
-		this._lastPath = "";
-		this._boundHandlePathChange = null;
-		this._boundPopstateHandler = null;
 	}
 	/**
 	* Init is called by the base class constructor.
