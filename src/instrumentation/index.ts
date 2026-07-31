@@ -27,7 +27,6 @@ import { logs } from "@opentelemetry/api-logs";
 import type { Do11yConfig, EmitFn } from "../core/types.js";
 import {
   VERSION,
-  ATTR_EVENT_NAME,
   ATTR_SESSION_ID,
   ATTR_DO11Y_SESSION_PAGE_COUNT,
   ATTR_DO11Y_DO11Y_VERSION,
@@ -131,7 +130,6 @@ export class DocsInstrumentation extends InstrumentationBase<DocsInstrumentation
       // provider visible to whatever copy of @opentelemetry/api-logs this
       // module is bundled against.
       const attributes: Record<string, unknown> = {
-        [ATTR_EVENT_NAME]: eventName,
         [ATTR_DO11Y_DO11Y_VERSION]: VERSION,
       };
       if (this._do11yConfig.sessionAttributes !== false) {
@@ -142,6 +140,7 @@ export class DocsInstrumentation extends InstrumentationBase<DocsInstrumentation
       logs.getLogger("@manototh/do11y").emit({
         eventName,
         severityNumber: 9, // SEVERITY_NUMBER_INFO
+        timestamp: Date.now(),
         attributes: {
           ...attributes,
           ...getBrowserContext(),

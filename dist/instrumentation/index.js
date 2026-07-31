@@ -22,13 +22,6 @@ const ATTR_DO11Y_URL_HAS_PARAMS = "browser.do11y.url.has_params";
 const ATTR_DEVICE_TYPE = "device.type";
 const ATTR_BROWSER_FAMILY = "browser.family";
 const ATTR_BROWSER_LANGUAGE = "browser.language";
-/**
-* Standard OTel event name attribute (semantic convention). Kept alongside
-* the top-level `eventName` LogRecord field so event names survive in
-* backends that only read attributes (the OTel-JS `eventName` field is an
-* extension not present in the OTLP proto).
-*/
-const ATTR_EVENT_NAME = "event.name";
 const ATTR_DO11Y_SESSION_PAGE_COUNT = "browser.do11y.session_page_count";
 const ATTR_DO11Y_PAGE_TITLE = "browser.do11y.page_title";
 const ATTR_DO11Y_VIEWPORT_CATEGORY = "browser.do11y.viewport_category";
@@ -1142,10 +1135,7 @@ var DocsInstrumentation = class extends InstrumentationBase {
 		const rateLimiter = createRateLimiter();
 		const emit = (eventName, eventData) => {
 			if (!rateLimiter.allow(eventName, eventData, this._do11yConfig.rateLimitMs ?? 100, this._do11yConfig.debug ?? false)) return;
-			const attributes = {
-				[ATTR_EVENT_NAME]: eventName,
-				[ATTR_DO11Y_DO11Y_VERSION]: VERSION
-			};
+			const attributes = { [ATTR_DO11Y_DO11Y_VERSION]: VERSION };
 			if (this._do11yConfig.sessionAttributes !== false) {
 				const session = getSession();
 				attributes[ATTR_SESSION_ID] = session.id;
@@ -1154,6 +1144,7 @@ var DocsInstrumentation = class extends InstrumentationBase {
 			logs.getLogger("@manototh/do11y").emit({
 				eventName,
 				severityNumber: 9,
+				timestamp: Date.now(),
 				attributes: {
 					...attributes,
 					...getBrowserContext(),

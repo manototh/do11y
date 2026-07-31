@@ -12,6 +12,14 @@ head:
 
 # Changelog
 
+## v0.2.1
+
+**Release date:** 2026-07-31
+
+- **OTLP event records follow the current OTel conventions.** The event name is carried only in the top-level `event_name` LogRecord field (per the OpenTelemetry logs data model), no longer duplicated as an `event.name` attribute. The `_time` value is now passed as the record timestamp (`timeUnixNano`) instead of being sent as a redundant attribute.
+- **Pinned OTel SDK versions for the script-tag OTLP destination.** The CDN packages (`@opentelemetry/api-logs`, `@opentelemetry/sdk-logs`, `@opentelemetry/exporter-logs-otlp-http`) are now pinned to `0.221.0`, matching the npm dependencies, so upgrades are deliberate rather than silent.
+- **Explicit timestamps in the npm instrumentation.** `DocsInstrumentation` now sets the record `timestamp` explicitly on emit.
+
 ## v0.2.0
 
 **Release date:** 2026-07-31

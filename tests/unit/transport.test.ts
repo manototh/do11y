@@ -353,6 +353,7 @@ describe('transport', () => {
     let mockOtelRecords: Array<{
       eventName: string;
       severityNumber: number;
+      timestamp?: number;
       attributes: Record<string, unknown>;
       body: string;
     }>;
@@ -381,9 +382,29 @@ describe('transport', () => {
       const record = mockOtelRecords[0]!;
       expect(record.eventName).toBe('browser.do11y.page_view');
       expect(record.severityNumber).toBe(9); // SEVERITY_NUMBER_INFO
+      expect(record.timestamp).toBeTypeOf('number');
+      expect(Math.abs(record.timestamp! - Date.now())).toBeLessThan(2000);
       expect(record.body).toBe('');
       expect(record.attributes).toBeDefined();
       expect(typeof record.attributes).toBe('object');
+    });
+
+    it('does not duplicate eventName or _time into OTLP attributes', () => {
+      const config = makeSupabaseConfig({
+        destination: 'otlp',
+        otelSdkEndpoint: 'https://otel.example.com',
+      });
+      queueEvent(config, 'browser.do11y.page_view', { custom_attr: 'hello' });
+
+      const record = mockOtelRecords[0]!;
+      expect(record.eventName).toBe('browser.do11y.page_view');
+      // The event name lives in the top-level field and `_time` in the record
+      // timestamp — neither should appear as an attribute.
+      expect(record.attributes).not.toHaveProperty('eventName');
+      expect(record.attributes).not.toHaveProperty('_time');
+      expect(record.attributes).toHaveProperty('custom_attr');
+      expect(record.attributes).toHaveProperty('url.path');
+      expect(record.attributes).toHaveProperty('session.id');
     });
 
     it('includes standard attributes in the OTel record', () => {

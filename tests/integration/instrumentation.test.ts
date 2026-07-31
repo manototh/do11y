@@ -919,8 +919,10 @@ describe('integration / instrumentation', () => {
         (e: any) => e?.eventName === 'browser.do11y.page_exit',
       );
       expect(pageExits.length).toBeGreaterThanOrEqual(1);
-      // New emit shape: event name also carried as the standard attribute.
-      expect(pageExits[0]).toHaveProperty('event.name', 'browser.do11y.page_exit');
+      // Event name is carried by the top-level eventName field (OTel
+      // event_name), not duplicated as an event.name attribute.
+      expect(pageExits[0].eventName).toBe('browser.do11y.page_exit');
+      expect(pageExits[0]).not.toHaveProperty('event.name');
       expect(pageExits[0]).toHaveProperty('session.id');
       expect(pageExits[0]).toHaveProperty('browser.do11y.session_page_count');
     } finally {

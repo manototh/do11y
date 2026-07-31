@@ -23,13 +23,6 @@ export const ATTR_DO11Y_URL_HAS_PARAMS = "browser.do11y.url.has_params";
 export const ATTR_DEVICE_TYPE = "device.type";
 export const ATTR_BROWSER_FAMILY = "browser.family";
 export const ATTR_BROWSER_LANGUAGE = "browser.language";
-/**
- * Standard OTel event name attribute (semantic convention). Kept alongside
- * the top-level `eventName` LogRecord field so event names survive in
- * backends that only read attributes (the OTel-JS `eventName` field is an
- * extension not present in the OTLP proto).
- */
-export const ATTR_EVENT_NAME = "event.name";
 
 // ─── Custom do11y attribute keys ─────────────────────────────────────────────
 

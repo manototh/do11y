@@ -1069,8 +1069,9 @@ var Do11yBundle = (function(exports) {
 		if (isDisabled) return;
 		if (!rateLimiter.allow(eventName, eventData, config.rateLimitMs, config.debug)) return;
 		const session = getSession();
+		const eventTime = /* @__PURE__ */ new Date();
 		const event = {
-			_time: (/* @__PURE__ */ new Date()).toISOString(),
+			_time: eventTime.toISOString(),
 			eventName,
 			[ATTR_DO11Y_DO11Y_VERSION]: VERSION,
 			[ATTR_SESSION_ID]: session.id,
@@ -1085,10 +1086,14 @@ var Do11yBundle = (function(exports) {
 				console.warn("[Do11y] OTel SDK initialization failed:", err);
 			});
 			if (_otelLogger) {
+				const otelAttributes = { ...event };
+				delete otelAttributes._time;
+				delete otelAttributes.eventName;
 				_otelLogger.emit({
 					eventName,
 					severityNumber: 9,
-					attributes: event,
+					timestamp: eventTime.getTime(),
+					attributes: otelAttributes,
 					body: ""
 				});
 				return;
@@ -1177,20 +1182,23 @@ var Do11yBundle = (function(exports) {
 	/** CDN base URL for dynamic OTel SDK imports. Pinned at build time.
 	*  Change this constant (not a config field) to switch CDN providers. */
 	const OTEL_CDN_BASE = "https://esm.sh/";
+	/** Version of the OTel SDK packages loaded from the CDN.
+	*  Keep in sync with the `@opentelemetry/*` peer/dev dependencies in package.json. */
+	const OTEL_SDK_VERSION = "0.221.0";
 	async function initOtelSdk(config) {
 		if (_otelLogger) return;
 		const cdnBase = OTEL_CDN_BASE;
 		const apiLogs = await import(
 			/* @vite-ignore */
-			`${cdnBase}@opentelemetry/api-logs`
+			`${cdnBase}@opentelemetry/api-logs@${OTEL_SDK_VERSION}`
 );
 		const sdkLogs = await import(
 			/* @vite-ignore */
-			`${cdnBase}@opentelemetry/sdk-logs`
+			`${cdnBase}@opentelemetry/sdk-logs@${OTEL_SDK_VERSION}`
 );
 		const otlpExporter = await import(
 			/* @vite-ignore */
-			`${cdnBase}@opentelemetry/exporter-logs-otlp-http`
+			`${cdnBase}@opentelemetry/exporter-logs-otlp-http@${OTEL_SDK_VERSION}`
 );
 		const resourceAttrs = {
 			"service.name": config.otelSdkServiceName || "do11y",

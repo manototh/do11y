@@ -28,6 +28,7 @@ let _otelLogger: {
   emit: (record: {
     eventName: string;
     severityNumber: number;
+    timestamp?: number;
     attributes: Record<string, unknown>;
     body: string;
   }) => void;
@@ -77,9 +78,11 @@ export function queueEvent(
 
   const session = getSession();
 
+  const eventTime = new Date();
+
   // Build event with OTel semantic convention attribute keys
   const event: Record<string, unknown> = {
-    _time: new Date().toISOString(),
+    _time: eventTime.toISOString(),
     eventName,
     [ATTR_DO11Y_DO11Y_VERSION]: VERSION,
     [ATTR_SESSION_ID]: session.id,
@@ -102,10 +105,17 @@ export function queueEvent(
       });
     }
     if (_otelLogger) {
+      // The event name is carried by the top-level OTel `event_name` field and
+      // `_time` becomes the record timestamp (timeUnixNano). Strip both from
+      // the attribute map so they are not duplicated as attributes.
+      const otelAttributes: Record<string, unknown> = { ...event };
+      delete otelAttributes._time;
+      delete otelAttributes.eventName;
       _otelLogger.emit({
         eventName,
         severityNumber: 9, // SEVERITY_NUMBER_INFO
-        attributes: event,
+        timestamp: eventTime.getTime(),
+        attributes: otelAttributes,
         body: "",
       });
       return;
@@ -227,14 +237,22 @@ export function validateConfig(config: Do11yConfig): boolean {
  *  Change this constant (not a config field) to switch CDN providers. */
 const OTEL_CDN_BASE = "https://esm.sh/";
 
+/** Version of the OTel SDK packages loaded from the CDN.
+ *  Keep in sync with the `@opentelemetry/*` peer/dev dependencies in package.json. */
+const OTEL_SDK_VERSION = "0.221.0";
+
 async function initOtelSdk(config: Do11yConfig): Promise<void> {
   if (_otelLogger) return; // already initialized
 
   const cdnBase = OTEL_CDN_BASE;
-  const apiLogs = await import(/* @vite-ignore */ `${cdnBase}@opentelemetry/api-logs`);
-  const sdkLogs = await import(/* @vite-ignore */ `${cdnBase}@opentelemetry/sdk-logs`);
+  const apiLogs = await import(
+    /* @vite-ignore */ `${cdnBase}@opentelemetry/api-logs@${OTEL_SDK_VERSION}`,
+  );
+  const sdkLogs = await import(
+    /* @vite-ignore */ `${cdnBase}@opentelemetry/sdk-logs@${OTEL_SDK_VERSION}`,
+  );
   const otlpExporter = await import(
-    /* @vite-ignore */ `${cdnBase}@opentelemetry/exporter-logs-otlp-http`
+    /* @vite-ignore */ `${cdnBase}@opentelemetry/exporter-logs-otlp-http@${OTEL_SDK_VERSION}`,
   );
 
   const resourceAttrs: Record<string, string> = {

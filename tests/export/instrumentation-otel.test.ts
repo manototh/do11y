@@ -20,6 +20,7 @@ import { resetTrackedScrollDepths } from '@do11y/core/tracking/scroll';
 const mockLogRecords: Array<{
   eventName: string;
   severityNumber: number;
+  timestamp?: number;
   attributes: Record<string, unknown>;
   body: string;
 }> = [];
@@ -386,6 +387,8 @@ describe('export / instrumentation-otel', () => {
         expect(typeof record.eventName).toBe('string');
         expect(record.eventName).toMatch(/^browser\.do11y\./);
         expect(record).toHaveProperty('severityNumber', 9);
+        expect(record).toHaveProperty('timestamp');
+        expect(typeof record.timestamp).toBe('number');
         expect(record).toHaveProperty('body');
         expect(typeof record.body).toBe('string');
         expect(record).toHaveProperty('attributes');
@@ -409,15 +412,15 @@ describe('export / instrumentation-otel', () => {
       expect(first.attributes).toHaveProperty('url.path');
     });
 
-    it('carries the event name as the standard event.name attribute', () => {
+    it('carries the event name in the top-level eventName field, not an event.name attribute', () => {
       instrumentation = new DocsInstrumentation(makeConfig());
       instrumentation.enable();
 
       const records = getRecords();
       expect(records.length).toBeGreaterThan(0);
       for (const record of records) {
-        expect(record.attributes).toHaveProperty('event.name');
-        expect(record.attributes['event.name']).toBe(record.eventName);
+        expect(record.eventName).toMatch(/^browser\.do11y\./);
+        expect(record.attributes).not.toHaveProperty('event.name');
       }
     });
 
@@ -445,7 +448,7 @@ describe('export / instrumentation-otel', () => {
         expect(record.attributes).not.toHaveProperty('session.id');
         expect(record.attributes).not.toHaveProperty('browser.do11y.session_page_count');
         // Non-session attributes are still present.
-        expect(record.attributes).toHaveProperty('event.name');
+        expect(record.attributes).not.toHaveProperty('event.name');
         expect(record.attributes).toHaveProperty('browser.do11y.version');
       }
     });
