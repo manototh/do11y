@@ -18,11 +18,12 @@ build/
 .docusaurus/
 **/.vitepress/cache
 **/.vitepress/dist
+.wrangler
+
+# Files for example sites
 /tests/sites/docsy/public
 /tests/sites/docsy/resources
 /tests/sites/starlight/.astro
-
-# Files for example sites
 /tests/sites/docsy/static/do11y.js
 /tests/sites/docusaurus/static/do11y.js
 /tests/sites/mkdocs-material/docs/do11y.js
@@ -30,3 +31,4 @@ build/
 /tests/sites/starlight/public/do11y.js
 /tests/sites/vitepress/public/do11y.js
 /tests/sites/mintlify/scripts/do11y.js
+/tests/sites/mintlify-otlp/scripts/do11y.js

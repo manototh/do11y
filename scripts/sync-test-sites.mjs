@@ -31,6 +31,7 @@ const targets = [
   'tests/sites/starlight/public',
   'tests/sites/vitepress/public',
   'tests/sites/mintlify/scripts',     // Mintlify auto-loads JS from scripts/
+  'tests/sites/mintlify-otlp/scripts',
 ];
 
 async function sync() {
