@@ -25,8 +25,7 @@ import {
   resetTransportState,
   __testing_setOtelLogger,
   __testing_getPendingOtlpCount,
-  __testing_setOtelInitHook,
-  __testing_failOtelInit,
+  __testing_setOtelModuleLoader,
 } from '@do11y/standalone/transport';
 
 function makeSupabaseConfig(overrides: Partial<Do11yConfig> = {}): Do11yConfig {
@@ -362,6 +361,24 @@ describe('transport', () => {
       body: string;
     }>;
 
+    // Fake OTel SDK modules returned by the injected loader. The LoggerProvider
+    // resolves to a logger that records into mockOtelRecords, so the REAL
+    // initOtelSdk → drainPendingOtlp path can be exercised.
+    const fakeOtelModules = () => ({
+      logs: { setGlobalLoggerProvider: () => {} },
+      LoggerProvider: class {
+        getLogger(): { emit: (record: (typeof mockOtelRecords)[number]) => void } {
+          return {
+            emit: (record) => {
+              mockOtelRecords.push({ ...record, attributes: { ...record.attributes } });
+            },
+          };
+        }
+      },
+      BatchLogRecordProcessor: class {},
+      OTLPLogExporter: class {},
+    });
+
     beforeEach(() => {
       mockOtelRecords = [];
       __testing_setOtelLogger({
@@ -454,12 +471,11 @@ describe('transport', () => {
       expect(getQueueLength()).toBe(0);
     });
 
-    it('buffers events while the SDK is loading instead of falling through to HTTP', () => {
-      // No logger injected → simulates the async CDN init window.
+    it('buffers events while the SDK is loading instead of falling through to HTTP', async () => {
+      // No logger injected; the injected loader resolves async like the real
+      // CDN import, so events land in the pending buffer first.
       __testing_setOtelLogger(null);
-      __testing_setOtelInitHook(() => {
-        /* SDK still loading */
-      });
+      __testing_setOtelModuleLoader(async () => fakeOtelModules());
       const config = makeSupabaseConfig({
         destination: 'otlp',
         otelSdkEndpoint: 'https://otel.example.com',
@@ -473,13 +489,14 @@ describe('transport', () => {
       expect(getQueueLength()).toBe(0);
       expect(getRequests()).toHaveLength(0);
       expect(mockOtelRecords).toHaveLength(0);
+
+      // Let the SDK finish loading so the test tears down cleanly.
+      await vi.waitFor(() => expect(mockOtelRecords).toHaveLength(1));
     });
 
-    it('replays buffered events through the logger once it becomes available', () => {
+    it('replays buffered events once the SDK finishes initializing', async () => {
       __testing_setOtelLogger(null);
-      __testing_setOtelInitHook(() => {
-        /* SDK still loading */
-      });
+      __testing_setOtelModuleLoader(async () => fakeOtelModules());
       const config = makeSupabaseConfig({
         destination: 'otlp',
         otelSdkEndpoint: 'https://otel.example.com',
@@ -491,16 +508,11 @@ describe('transport', () => {
 
       expect(__testing_getPendingOtlpCount()).toBe(2);
       expect(getQueueLength()).toBe(0);
+      expect(getRequests()).toHaveLength(0);
 
-      // Simulate the CDN import resolving: a logger registers and the pending
-      // buffer drains into it (matching initOtelSdk's drain on success).
-      __testing_setOtelLogger({
-        emit: (record) => {
-          mockOtelRecords.push({ ...record, attributes: { ...record.attributes } });
-        },
-      });
+      // The REAL initOtelSdk → drainPendingOtlp path replays the buffer.
+      await vi.waitFor(() => expect(mockOtelRecords).toHaveLength(2));
 
-      expect(mockOtelRecords).toHaveLength(2);
       expect(mockOtelRecords[0]!.eventName).toBe('browser.do11y.page_view');
       expect(mockOtelRecords[1]!.eventName).toBe('browser.do11y.scroll_depth');
       expect(mockOtelRecords[0]!.attributes).not.toHaveProperty('_time');
@@ -511,10 +523,12 @@ describe('transport', () => {
       expect(getRequests()).toHaveLength(0);
     });
 
-    it('drops buffered events if the SDK fails to initialize (no HTTP fallback)', () => {
+    it('drops buffered events if the SDK fails to initialize (no HTTP fallback)', async () => {
+      // The injected loader rejects like a failed CDN import — the REAL
+      // ensureOtelSdk catch must clear the buffer and mark init as failed.
       __testing_setOtelLogger(null);
-      __testing_setOtelInitHook(() => {
-        __testing_failOtelInit();
+      __testing_setOtelModuleLoader(async () => {
+        throw new Error('CDN unreachable');
       });
       const config = makeSupabaseConfig({
         destination: 'otlp',
@@ -524,8 +538,9 @@ describe('transport', () => {
       });
       queueEvent(config, 'browser.do11y.page_view', {});
 
-      // Dropped with a warning — never routed to the HTTP endpoint.
-      expect(__testing_getPendingOtlpCount()).toBe(0);
+      // Wait for the real catch to clear the buffer.
+      await vi.waitFor(() => expect(__testing_getPendingOtlpCount()).toBe(0));
+
       expect(getQueueLength()).toBe(0);
       expect(getRequests()).toHaveLength(0);
       expect(mockOtelRecords).toHaveLength(0);

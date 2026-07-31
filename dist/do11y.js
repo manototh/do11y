@@ -1228,18 +1228,15 @@ var Do11yBundle = (function(exports) {
 	async function initOtelSdk(config) {
 		if (_otelLogger) return;
 		const cdnBase = OTEL_CDN_BASE;
-		const apiLogs = await import(
-			/* @vite-ignore */
-			`${cdnBase}@opentelemetry/api-logs@${OTEL_SDK_VERSION}`
+		const importModule = async (spec) => {
+			return import(
+				/* @vite-ignore */
+				spec
 );
-		const sdkLogs = await import(
-			/* @vite-ignore */
-			`${cdnBase}@opentelemetry/sdk-logs@${OTEL_SDK_VERSION}`
-);
-		const otlpExporter = await import(
-			/* @vite-ignore */
-			`${cdnBase}@opentelemetry/exporter-logs-otlp-http@${OTEL_SDK_VERSION}`
-);
+		};
+		const apiLogs = await importModule(`${cdnBase}@opentelemetry/api-logs@${OTEL_SDK_VERSION}`);
+		const sdkLogs = await importModule(`${cdnBase}@opentelemetry/sdk-logs@${OTEL_SDK_VERSION}`);
+		const otlpExporter = await importModule(`${cdnBase}@opentelemetry/exporter-logs-otlp-http@${OTEL_SDK_VERSION}`);
 		const resourceAttrs = {
 			"service.name": config.otelSdkServiceName || "do11y",
 			"service.version": VERSION,

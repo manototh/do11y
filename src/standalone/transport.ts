@@ -24,7 +24,8 @@ export let eventQueue: Do11yEvent[] = [];
 let flushTimeout: ReturnType<typeof setTimeout> | null = null;
 const rateLimiter = createRateLimiter();
 let isDisabled = false;
-let _otelLogger: {
+/** Emit shape used by the OTel Logger. */
+interface OTelLogger {
   emit: (record: {
     eventName: string;
     severityNumber: number;
@@ -32,7 +33,12 @@ let _otelLogger: {
     attributes: Record<string, unknown>;
     body: string;
   }) => void;
-} | null = null;
+}
+
+/** @internal Test-only — replaces the CDN dynamic import for unit tests. */
+type OtelModuleLoader = (spec: string) => Promise<unknown>;
+
+let _otelLogger: OTelLogger | null = null;
 /** Events queued while the OTel SDK is still loading from the CDN. They are
  *  replayed once the SDK initializes and must NEVER fall through to the
  *  HTTP transport (which would POST them to `config.endpoint`). */
@@ -41,8 +47,8 @@ let pendingOtlpEvents: Do11yEvent[] = [];
 let _otelInitPromise: Promise<void> | null = null;
 /** Set once CDN init fails so we don't retry the load on every event. */
 let _otelInitFailed = false;
-/** @internal Test-only — replaces the async CDN loader with a synchronous hook. */
-let _otelInitHook: (() => void) | null = null;
+/** @internal Test-only — replaces the CDN dynamic import for unit tests. */
+let _otelModuleLoader: OtelModuleLoader | null = null;
 
 // ─── Public API ──────────────────────────────────────────────────────────────
 
@@ -57,13 +63,10 @@ export function getQueueLength(): number {
 }
 
 /** @internal Test-only — inject a mock OTel logger for envelope tests. */
-export function __testing_setOtelLogger(logger: typeof _otelLogger): void {
+export function __testing_setOtelLogger(logger: OTelLogger | null): void {
   _otelLogger = logger;
-  // Test seam for the async CDN init path: when a logger becomes available,
-  // replay any events that were buffered while it was "loading".
-  drainPendingOtlp();
 }
-export function getOtelLogger(): typeof _otelLogger {
+export function getOtelLogger(): OTelLogger | null {
   return _otelLogger;
 }
 
@@ -72,15 +75,10 @@ export function __testing_getPendingOtlpCount(): number {
   return pendingOtlpEvents.length;
 }
 
-/** @internal Test-only — replace the async CDN loader with a synchronous hook. */
-export function __testing_setOtelInitHook(hook: (() => void) | null): void {
-  _otelInitHook = hook;
-}
-
-/** @internal Test-only — simulate an OTel SDK init failure (drops buffered events). */
-export function __testing_failOtelInit(): void {
-  _otelInitFailed = true;
-  pendingOtlpEvents = [];
+/** @internal Test-only — replace the CDN module loader so unit tests drive the
+ *  real initOtelSdk path (resolve → replay buffered events, reject → drop). */
+export function __testing_setOtelModuleLoader(loader: OtelModuleLoader | null): void {
+  _otelModuleLoader = loader;
 }
 
 /** Reset all module-level state to initial values. Used by tests. */
@@ -93,7 +91,7 @@ export function resetTransportState(): void {
   _otelLogger = null;
   _otelInitPromise = null;
   _otelInitFailed = false;
-  _otelInitHook = null;
+  _otelModuleLoader = null;
 }
 
 // ─── Queue & Flush ───────────────────────────────────────────────────────────
@@ -304,10 +302,6 @@ function drainPendingOtlp(): void {
  *  by initOtelSdk on success, or dropped with a warning on failure. */
 function ensureOtelSdk(config: Do11yConfig): void {
   if (_otelLogger || _otelInitPromise || _otelInitFailed) return;
-  if (_otelInitHook) {
-    _otelInitHook();
-    return;
-  }
   _otelInitPromise = initOtelSdk(config)
     .catch((err) => {
       _otelInitFailed = true;
@@ -323,15 +317,24 @@ async function initOtelSdk(config: Do11yConfig): Promise<void> {
   if (_otelLogger) return; // already initialized
 
   const cdnBase = OTEL_CDN_BASE;
-  const apiLogs = await import(
-    /* @vite-ignore */ `${cdnBase}@opentelemetry/api-logs@${OTEL_SDK_VERSION}`
-  );
-  const sdkLogs = await import(
-    /* @vite-ignore */ `${cdnBase}@opentelemetry/sdk-logs@${OTEL_SDK_VERSION}`
-  );
-  const otlpExporter = await import(
-    /* @vite-ignore */ `${cdnBase}@opentelemetry/exporter-logs-otlp-http@${OTEL_SDK_VERSION}`
-  );
+  // Load the OTel SDK modules from the CDN. Tests inject a fake loader to
+  // exercise the real init (resolve) and error (reject) paths.
+  const importModule = async (spec: string): Promise<unknown> => {
+    if (_otelModuleLoader) return _otelModuleLoader(spec);
+    return import(/* @vite-ignore */ spec);
+  };
+  const apiLogs = (await importModule(`${cdnBase}@opentelemetry/api-logs@${OTEL_SDK_VERSION}`)) as {
+    logs: { setGlobalLoggerProvider: (provider: unknown) => void };
+  };
+  const sdkLogs = (await importModule(`${cdnBase}@opentelemetry/sdk-logs@${OTEL_SDK_VERSION}`)) as {
+    LoggerProvider: new (config: unknown) => { getLogger: (name: string) => OTelLogger };
+    BatchLogRecordProcessor: new (config: unknown) => unknown;
+  };
+  const otlpExporter = (await importModule(
+    `${cdnBase}@opentelemetry/exporter-logs-otlp-http@${OTEL_SDK_VERSION}`,
+  )) as {
+    OTLPLogExporter: new (config: unknown) => unknown;
+  };
 
   const resourceAttrs: Record<string, string> = {
     "service.name": config.otelSdkServiceName || "do11y",
