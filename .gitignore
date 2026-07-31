@@ -22,5 +22,11 @@ build/
 /tests/sites/docsy/resources
 /tests/sites/starlight/.astro
 
-## Config for test sites
-/tests/sites/do11y-config.js
+# Files for example sites
+/tests/sites/docsy/static/do11y.js
+/tests/sites/docusaurus/static/do11y.js
+/tests/sites/mkdocs-material/docs/do11y.js
+/tests/sites/nextra/public/do11y.js
+/tests/sites/starlight/public/do11y.js
+/tests/sites/vitepress/public/do11y.js
+/tests/sites/mintlify/scripts/do11y.js

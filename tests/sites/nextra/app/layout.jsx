@@ -30,7 +30,6 @@ export default async function RootLayout({ children }) {
       suppressHydrationWarning
     >
       <Head>
-        <meta name="do11y-framework" content="nextra" />
       </Head>
       <body>
         <Layout

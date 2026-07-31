@@ -15,6 +15,7 @@
   ],
   "scripts": {
     "build": "rolldown -c rolldown.config.ts",
+    "postbuild": "node scripts/sync-test-sites.mjs",
     "build:standalone": "rolldown -c rolldown.config.ts --configEntry src/standalone/index.ts",
     "build:instrumentation": "rolldown -c rolldown.config.ts --configEntry src/instrumentation/index.ts",
     "lint": "oxlint src",

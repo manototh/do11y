@@ -55,7 +55,8 @@ To use options beyond the basic credentials, add an inline script in `overrides/
   <meta name="do11y-framework" content="mkdocs-material">
   <script>
     window.Do11yConfig = { scrollThresholds: [25, 50, 75, 100] };
-  </script>{% endblock %}
+  </script>
+{% endblock %}
 ```
 
 Replace `SUPABASE_PROJECT_URL` and `SUPABASE_PUBLISHABLE_KEY` with your [Supabase credentials](/get-started).
