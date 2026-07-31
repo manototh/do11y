@@ -10,6 +10,7 @@ import { logs } from "@opentelemetry/api-logs";
 * Custom do11y attrs use the `browser.do11y.*` namespace.
 */
 const VERSION = "0.2.0";
+const ATTR_SESSION_ID = "session.id";
 const ATTR_URL_PATH = "url.path";
 const ATTR_URL_FRAGMENT = "url.fragment";
 /**
@@ -21,11 +22,20 @@ const ATTR_DO11Y_URL_HAS_PARAMS = "browser.do11y.url.has_params";
 const ATTR_DEVICE_TYPE = "device.type";
 const ATTR_BROWSER_FAMILY = "browser.family";
 const ATTR_BROWSER_LANGUAGE = "browser.language";
+/**
+* Standard OTel event name attribute (semantic convention). Kept alongside
+* the top-level `eventName` LogRecord field so event names survive in
+* backends that only read attributes (the OTel-JS `eventName` field is an
+* extension not present in the OTLP proto).
+*/
+const ATTR_EVENT_NAME = "event.name";
+const ATTR_DO11Y_SESSION_PAGE_COUNT = "browser.do11y.session_page_count";
 const ATTR_DO11Y_PAGE_TITLE = "browser.do11y.page_title";
 const ATTR_DO11Y_VIEWPORT_CATEGORY = "browser.do11y.viewport_category";
 const ATTR_DO11Y_TIMEZONE_OFFSET = "browser.do11y.timezone_offset";
 const ATTR_DO11Y_REFERRER_CATEGORY = "browser.do11y.referrer_category";
 const ATTR_DO11Y_AI_PLATFORM = "browser.do11y.ai_platform";
+const ATTR_DO11Y_DO11Y_VERSION = "browser.do11y.version";
 const ATTR_DO11Y_IS_FIRST_PAGE = "browser.do11y.is_first_page";
 const ATTR_DO11Y_PREVIOUS_PATH = "browser.do11y.previous_path";
 const ATTR_DO11Y_REFERRER_DOMAIN = "browser.do11y.referrer_domain";
@@ -1060,6 +1070,7 @@ function buildConfig(userConfig) {
 		trackExpandCollapse: userConfig.trackExpandCollapse ?? true,
 		trackFeedback: userConfig.trackFeedback ?? true,
 		trackSpaPathChanges: userConfig.trackSpaPathChanges ?? false,
+		sessionAttributes: userConfig.sessionAttributes ?? true,
 		searchSelector: userConfig.selectors?.searchSelector ?? null,
 		copyButtonSelector: userConfig.selectors?.copyButtonSelector ?? null,
 		codeBlockSelector: userConfig.selectors?.codeBlockSelector ?? null,
@@ -1085,16 +1096,17 @@ function buildConfig(userConfig) {
 * pipeline as their auto-instrumentations.
 *
 * Example:
-*   import { startBrowserSdk } from '@opentelemetry/browser-sdk';
+*   import { startLogsSdk } from '@opentelemetry/browser-sdk/logs';
 *   import { DocsInstrumentation } from '@manototh/do11y/instrumentation';
 *
-*   startBrowserSdk({
+*   startLogsSdk({
 *     serviceName: 'my-docs',
-*     exportConfig: { url: 'https://otel.example.com/v1/logs' },
-*     instrumentations: [
-*       new DocsInstrumentation({ framework: 'mintlify' }),
-*     ],
+*     logs: { exportConfig: { url: 'https://otel.example.com/v1/logs' } },
 *   });
+*
+*   // DocsInstrumentation self-enables on construction; the LoggerProvider
+*   // must be registered first (see startLogsSdk above).
+*   new DocsInstrumentation({ framework: 'mintlify' });
 */
 /**
 * OpenTelemetry instrumentation for documentation sites.
@@ -1128,14 +1140,22 @@ var DocsInstrumentation = class extends InstrumentationBase {
 		this._do11yConfig = buildConfig(this.getConfig());
 		applyFrameworkSelectors(this._do11yConfig);
 		const rateLimiter = createRateLimiter();
-		const logger = logs.getLogger("@manototh/do11y");
 		const emit = (eventName, eventData) => {
 			if (!rateLimiter.allow(eventName, eventData, this._do11yConfig.rateLimitMs ?? 100, this._do11yConfig.debug ?? false)) return;
-			logger.emit({
+			const attributes = {
+				[ATTR_EVENT_NAME]: eventName,
+				[ATTR_DO11Y_DO11Y_VERSION]: VERSION
+			};
+			if (this._do11yConfig.sessionAttributes !== false) {
+				const session = getSession();
+				attributes[ATTR_SESSION_ID] = session.id;
+				attributes[ATTR_DO11Y_SESSION_PAGE_COUNT] = session.pageCount;
+			}
+			logs.getLogger("@manototh/do11y").emit({
 				eventName,
 				severityNumber: 9,
 				attributes: {
-					"browser.do11y.version": VERSION,
+					...attributes,
 					...getBrowserContext(),
 					...getPageInfo(),
 					...eventData

@@ -93,6 +93,9 @@ const config: Do11yConfig = {
   contentSelector: null,
   useOtelBrowserInstrumentations: false,
   trackSpaPathChanges: false,
+  // Instrumentation-only; the standalone build always attaches its own
+  // session attributes. Kept here to mirror the full Do11yConfig shape.
+  sessionAttributes: true,
 };
 
 // ─── Guard: prevent double-init ──────────────────────────────────────────────

@@ -72,6 +72,11 @@ export interface Do11yConfig {
   trackExpandCollapse: boolean;
   trackFeedback: boolean;
   trackSpaPathChanges: boolean;
+  /** Include do11y's own `session.id`/`session_page_count` attributes on each
+   *  record. Set to false when using @opentelemetry/browser-sdk session
+   *  processors, which attach `session.id` themselves. Instrumentation build
+   *  only. Default: true. */
+  sessionAttributes: boolean;
   tabContainerSelector: string | null;
   tocSelector: string | null;
   feedbackSelector: string | null;

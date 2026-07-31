@@ -77,7 +77,7 @@ Do11y dynamically loads the [OpenTelemetry Browser SDK](https://github.com/open-
 
 #### npm (bundled)
 
-When using the npm package, the `@opentelemetry/browser-sdk` handles the OTel pipeline entirely. Do11y only provides the `DocsInstrumentation` class that emits log records through the OTel API. No CDN loading is needed.
+When using the npm package, the `@opentelemetry/browser-sdk` handles the OTel pipeline entirely. Do11y only provides the `DocsInstrumentation` class that emits log records through the OTel API. No CDN loading is needed. Start the SDK before creating the instrumentation — `DocsInstrumentation` self-enables, and the global `LoggerProvider` must already be registered. See [Get started → npm / OpenTelemetry instrumentation](/get-started#npm--opentelemetry-instrumentation).
 
 | Option | Default | Description |
 |---|---|---|

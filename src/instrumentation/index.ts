@@ -10,24 +10,32 @@
  * pipeline as their auto-instrumentations.
  *
  * Example:
- *   import { startBrowserSdk } from '@opentelemetry/browser-sdk';
+ *   import { startLogsSdk } from '@opentelemetry/browser-sdk/logs';
  *   import { DocsInstrumentation } from '@manototh/do11y/instrumentation';
  *
- *   startBrowserSdk({
+ *   startLogsSdk({
  *     serviceName: 'my-docs',
- *     exportConfig: { url: 'https://otel.example.com/v1/logs' },
- *     instrumentations: [
- *       new DocsInstrumentation({ framework: 'mintlify' }),
- *     ],
+ *     logs: { exportConfig: { url: 'https://otel.example.com/v1/logs' } },
  *   });
+ *
+ *   // DocsInstrumentation self-enables on construction; the LoggerProvider
+ *   // must be registered first (see startLogsSdk above).
+ *   new DocsInstrumentation({ framework: 'mintlify' });
  */
 import { InstrumentationBase } from "@opentelemetry/instrumentation";
 import { logs } from "@opentelemetry/api-logs";
 import type { Do11yConfig, EmitFn } from "../core/types.js";
-import { VERSION } from "../core/constants.js";
+import {
+  VERSION,
+  ATTR_EVENT_NAME,
+  ATTR_SESSION_ID,
+  ATTR_DO11Y_SESSION_PAGE_COUNT,
+  ATTR_DO11Y_DO11Y_VERSION,
+} from "../core/constants.js";
 import { applyFrameworkSelectors } from "../core/presets.js";
 import { getBrowserContext } from "../core/context.js";
 import { getPageInfo } from "../core/context.js";
+import { getSession } from "../core/session.js";
 import { trackPageView } from "../core/tracking/page-view.js";
 import { setupLinkTracking } from "../core/tracking/links.js";
 import {
@@ -103,7 +111,6 @@ export class DocsInstrumentation extends InstrumentationBase<DocsInstrumentation
     // limiter is created here (not as a class field) because the base class
     // constructor calls enable() before subclass field initializers run.
     const rateLimiter = createRateLimiter();
-    const logger = logs.getLogger("@manototh/do11y");
     const emit: EmitFn = (eventName, eventData) => {
       if (
         !rateLimiter.allow(
@@ -115,11 +122,28 @@ export class DocsInstrumentation extends InstrumentationBase<DocsInstrumentation
       ) {
         return;
       }
-      logger.emit({
+
+      // Resolve the logger on every emit instead of capturing it once in
+      // enable(). This keeps records flowing even when the instrumentation is
+      // constructed before the global LoggerProvider is registered (e.g. the
+      // host app calls startLogsSdk()/startBrowserSdk() after creating the
+      // instrumentation). api-logs version negotiation makes the registered
+      // provider visible to whatever copy of @opentelemetry/api-logs this
+      // module is bundled against.
+      const attributes: Record<string, unknown> = {
+        [ATTR_EVENT_NAME]: eventName,
+        [ATTR_DO11Y_DO11Y_VERSION]: VERSION,
+      };
+      if (this._do11yConfig.sessionAttributes !== false) {
+        const session = getSession();
+        attributes[ATTR_SESSION_ID] = session.id;
+        attributes[ATTR_DO11Y_SESSION_PAGE_COUNT] = session.pageCount;
+      }
+      logs.getLogger("@manototh/do11y").emit({
         eventName,
         severityNumber: 9, // SEVERITY_NUMBER_INFO
         attributes: {
-          "browser.do11y.version": VERSION,
+          ...attributes,
           ...getBrowserContext(),
           ...getPageInfo(),
           ...eventData,

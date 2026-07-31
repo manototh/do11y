@@ -44,6 +44,11 @@ export interface DocsInstrumentationConfig extends InstrumentationConfig {
   /** SPA path-change detection (MutationObserver + popstate + poll). Default: false. */
   trackSpaPathChanges?: boolean;
 
+  /** Emit do11y's own `session.id`/`session_page_count` attributes on each
+   *  record. Set to false when using @opentelemetry/browser-sdk session
+   *  processors, which attach `session.id` themselves. Default: true. */
+  sessionAttributes?: boolean;
+
   /** Debug logging */
   debug?: boolean;
 
@@ -74,6 +79,7 @@ export function buildConfig(userConfig: DocsInstrumentationConfig): Partial<Do11
     trackExpandCollapse: userConfig.trackExpandCollapse ?? true,
     trackFeedback: userConfig.trackFeedback ?? true,
     trackSpaPathChanges: userConfig.trackSpaPathChanges ?? false,
+    sessionAttributes: userConfig.sessionAttributes ?? true,
     // Selector overrides from user config
     searchSelector: userConfig.selectors?.searchSelector ?? null,
     copyButtonSelector: userConfig.selectors?.copyButtonSelector ?? null,

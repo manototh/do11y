@@ -110,27 +110,36 @@ If you already bundle your site with a build tool (Vite, Webpack, etc.) and use 
 npm install @manototh/do11y
 ```
 
-Then register the `DocsInstrumentation` alongside your other instrumentations:
+Then register the `DocsInstrumentation` alongside your other instrumentations. With `@opentelemetry/browser-sdk`, start the logs SDK **first** (this registers the global `LoggerProvider`), then register the instrumentation:
 
 ```ts
-import { startBrowserSdk } from '@opentelemetry/browser-sdk';
+import { startLogsSdk } from '@opentelemetry/browser-sdk/logs';
+import { registerInstrumentations } from '@opentelemetry/instrumentation';
 import { DocsInstrumentation } from '@manototh/do11y/instrumentation';
 
-startBrowserSdk({
+// 1. Start the logs SDK — registers the global LoggerProvider.
+startLogsSdk({
   serviceName: 'my-docs-site',
-  exportConfig: {
-    url: 'https://otel-collector.example.com/v1/logs',
+  logs: {
+    exportConfig: {
+      url: 'https://otel-collector.example.com/v1/logs',
+    },
   },
+});
+
+// 2. Register the instrumentation (after the provider is set up).
+registerInstrumentations({
   instrumentations: [
     new DocsInstrumentation({
       framework: 'mintlify',
       trackScrollDepth: true,
     }),
-    // other instrumentations like FetchInstrumentation, etc.
   ],
 });
 ```
 
-This sends documentation-specific events (scroll depth, tab switches, code copies, feedback, etc.) through the same OTel pipeline as your browser auto-instrumentations. All events share the same `session.id`, making it easy to correlate docs behaviour with page load performance, API calls, and errors.
+> **Note:** `@opentelemetry/browser-sdk` (v0.1.x) does not expose an `instrumentations` option on `startBrowserSdk`/`startLogsSdk`. Use `registerInstrumentations` from `@opentelemetry/instrumentation`, or construct `DocsInstrumentation` directly (its constructor self-enables). In both cases the SDK must be started before the instrumentation is created, and your `@opentelemetry/api-logs`/`@opentelemetry/instrumentation` versions should match the browser-sdk experimental line (0.220.x) or the 0.221.x line — Do11y supports both.
 
-The instrumentation class requires `@opentelemetry/instrumentation` (v0.57+) as a peer dependency. If you use `startBrowserSdk` or `startLogsSdk` from `@opentelemetry/browser-sdk`, these are already included.
+This sends documentation-specific events (scroll depth, tab switches, code copies, feedback, etc.) through the same OTel pipeline as your browser auto-instrumentations. Each record carries the standard `event.name` attribute plus `session.id`, making it easy to correlate docs behaviour with page load performance, API calls, and errors. If you use `@opentelemetry/browser-sdk` session processors instead, set `sessionAttributes: false` on `DocsInstrumentation` so the `session.id` attribute is not emitted twice.
+
+The instrumentation class requires the `@opentelemetry/instrumentation` peer dependency (0.220.x or 0.221.x). If you use `startBrowserSdk` or `startLogsSdk` from `@opentelemetry/browser-sdk`, these are already included.

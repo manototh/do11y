@@ -1370,7 +1370,8 @@ var Do11yBundle = (function(exports) {
 		footerSelector: null,
 		contentSelector: null,
 		useOtelBrowserInstrumentations: false,
-		trackSpaPathChanges: false
+		trackSpaPathChanges: false,
+		sessionAttributes: true
 	};
 	const _alreadyLoaded = !!window.__do11yInitialized;
 	window.__do11yInitialized = true;

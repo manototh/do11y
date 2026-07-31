@@ -232,6 +232,72 @@ window.__do11ySpaNavigated = true;
   fs.writeFileSync(path.join(fixtureDir, 'spa-test.otel.html'), html);
 }
 
+/**
+ * Generate the ordering regression fixture.
+ *
+ * Reproduces the documented-but-broken pattern: the instrumentation is
+ * constructed (and self-enables, emitting the initial page_view) BEFORE the
+ * global LoggerProvider is registered. The emit path must lazily resolve the
+ * logger per event so records emitted AFTER the provider is registered still
+ * flow through it (api-logs version negotiation). Without the lazy-logger
+ * fix, every record is silently dropped by the NOOP logger.
+ */
+function generateOrderingTestFixture(rootUrl: string, fixtureDir: string): void {
+  const framework = 'mintlify';
+  const startBody = fs.readFileSync(
+    path.join(fixtureDir, `${framework}-start.html`),
+    'utf-8',
+  );
+
+  const importmap = {
+    imports: {
+      '@opentelemetry/api': `${rootUrl}/node_modules/@opentelemetry/api/build/esm/index.js`,
+      '@opentelemetry/api-logs': `${rootUrl}/node_modules/@opentelemetry/api-logs/build/esm/index.js`,
+      '@opentelemetry/instrumentation': `${rootUrl}/node_modules/@opentelemetry/instrumentation/build/esm/platform/browser/index.js`,
+    },
+  };
+
+  const html = `<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Do11y Ordering Test</title>
+<script type="importmap">${JSON.stringify(importmap, null, 2)}</script>
+</head>
+<body>
+${startBody}
+<script type="module">
+const STORAGE_KEY = 'do11y_test_records';
+const { DocsInstrumentation } = await import('${rootUrl}/dist/instrumentation/index.js');
+const inst = new DocsInstrumentation({ framework: '${framework}', debug: false });
+inst.enable();
+window.__do11yTestInstrumentation = inst;
+// The initial page_view emitted during enable() is intentionally dropped:
+// no LoggerProvider is registered yet.
+
+// Register the LoggerProvider AFTER the instrumentation was constructed —
+// this is the regression scenario that used to silently lose all events.
+const { logs } = await import('@opentelemetry/api-logs');
+logs.setGlobalLoggerProvider({
+  getLogger: () => ({
+    emit: (record) => {
+      try {
+        const stored = JSON.parse(sessionStorage.getItem(STORAGE_KEY) || '[]');
+        stored.push(record);
+        if (stored.length > 200) stored.splice(0, stored.length - 200);
+        sessionStorage.setItem(STORAGE_KEY, JSON.stringify(stored));
+      } catch { /* best-effort */ }
+    },
+  }),
+});
+window.__do11yOrderingReady = true;
+</script>
+</body>
+</html>`;
+
+  fs.writeFileSync(path.join(fixtureDir, 'ordering-test.otel.html'), html);
+}
+
 // ─── Interaction sequence ───────────────────────────────────────────────────
 
 /**
@@ -535,6 +601,10 @@ describe('integration / instrumentation', () => {
 
     // 6. Generate SPA test fixture (framework-agnostic, uses mintlify)
     generateSpaTestFixture(server.url, FIXTURES_DIR);
+
+    // 7. Generate ordering regression fixture (provider registered after
+    //    instrumentation construction)
+    generateOrderingTestFixture(server.url, FIXTURES_DIR);
   });
 
   afterAll(async () => {
@@ -552,6 +622,12 @@ describe('integration / instrumentation', () => {
     // Clean up SPA fixture
     try {
       fs.unlinkSync(path.join(FIXTURES_DIR, 'spa-test.otel.html'));
+    } catch {
+      // File may not exist if beforeAll failed
+    }
+    // Clean up ordering fixture
+    try {
+      fs.unlinkSync(path.join(FIXTURES_DIR, 'ordering-test.otel.html'));
     } catch {
       // File may not exist if beforeAll failed
     }
@@ -806,6 +882,47 @@ describe('integration / instrumentation', () => {
       expect(pageExits[0]).toHaveProperty(
         'browser.do11y.page_exit.total_time_seconds',
       );
+    } finally {
+      await page.close();
+    }
+  }, 30000);
+
+  // ─── Phase 3c: provider-after-instrumentation ordering regression ────────
+  it('flows events when the LoggerProvider is registered after construction', async () => {
+    const page = await browser.newPage();
+    await page.setViewport({ width: 1440, height: 900 });
+
+    try {
+      const url = `${server.url}/tests/integration/fixtures/ordering-test.otel.html`;
+      await page.goto(url, { waitUntil: 'networkidle2', timeout: 15000 });
+      await page.waitForFunction(
+        () => !!(window as any).__do11yOrderingReady,
+        { timeout: 15000 },
+      );
+      await sleep(500);
+
+      // The initial page_view was emitted before the provider was registered
+      // and must have been dropped; nothing should be stored yet.
+      const before = await readAndClearRecords(page);
+      expect(before.length).toBe(0);
+
+      // Events emitted after registration must flow through the provider.
+      await page.evaluate(() => {
+        window.dispatchEvent(new Event('beforeunload'));
+      });
+      await sleep(500);
+
+      const rawRecords = await readAndClearRecords(page);
+      const events = extractEvents(rawRecords as any[]);
+
+      const pageExits = events.filter(
+        (e: any) => e?.eventName === 'browser.do11y.page_exit',
+      );
+      expect(pageExits.length).toBeGreaterThanOrEqual(1);
+      // New emit shape: event name also carried as the standard attribute.
+      expect(pageExits[0]).toHaveProperty('event.name', 'browser.do11y.page_exit');
+      expect(pageExits[0]).toHaveProperty('session.id');
+      expect(pageExits[0]).toHaveProperty('browser.do11y.session_page_count');
     } finally {
       await page.close();
     }

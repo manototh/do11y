@@ -408,5 +408,46 @@ describe('export / instrumentation-otel', () => {
       expect(first.attributes).toHaveProperty('browser.language');
       expect(first.attributes).toHaveProperty('url.path');
     });
+
+    it('carries the event name as the standard event.name attribute', () => {
+      instrumentation = new DocsInstrumentation(makeConfig());
+      instrumentation.enable();
+
+      const records = getRecords();
+      expect(records.length).toBeGreaterThan(0);
+      for (const record of records) {
+        expect(record.attributes).toHaveProperty('event.name');
+        expect(record.attributes['event.name']).toBe(record.eventName);
+      }
+    });
+
+    it('includes session.id and session_page_count attributes by default', () => {
+      instrumentation = new DocsInstrumentation(makeConfig());
+      instrumentation.enable();
+
+      const records = getRecords();
+      expect(records.length).toBeGreaterThan(0);
+      for (const record of records) {
+        expect(record.attributes).toHaveProperty('session.id');
+        expect(typeof record.attributes['session.id']).toBe('string');
+        expect(record.attributes['session.id']).toBeTruthy();
+        expect(record.attributes).toHaveProperty('browser.do11y.session_page_count');
+      }
+    });
+
+    it('omits session attributes when sessionAttributes is false', () => {
+      instrumentation = new DocsInstrumentation(makeConfig({ sessionAttributes: false }));
+      instrumentation.enable();
+
+      const records = getRecords();
+      expect(records.length).toBeGreaterThan(0);
+      for (const record of records) {
+        expect(record.attributes).not.toHaveProperty('session.id');
+        expect(record.attributes).not.toHaveProperty('browser.do11y.session_page_count');
+        // Non-session attributes are still present.
+        expect(record.attributes).toHaveProperty('event.name');
+        expect(record.attributes).toHaveProperty('browser.do11y.version');
+      }
+    });
   });
 });

@@ -63,23 +63,32 @@ Do11y.version        // Script version
 
 ### npm / OTel instrumentation (`DocsInstrumentation`)
 
-When installed as an npm dependency, the `DocsInstrumentation` class extends `InstrumentationBase` from `@opentelemetry/instrumentation`:
+When installed as an npm dependency, the `DocsInstrumentation` class extends `InstrumentationBase` from `@opentelemetry/instrumentation`. Start the logs SDK first (it registers the global `LoggerProvider`), then register the instrumentation:
 
 ```ts
+import { startLogsSdk } from '@opentelemetry/browser-sdk/logs';
+import { registerInstrumentations } from '@opentelemetry/instrumentation';
 import { DocsInstrumentation } from '@manototh/do11y/instrumentation';
 
-const instrumentation = new DocsInstrumentation({
-  framework: 'docusaurus',
-  trackScrollDepth: true,
-  trackSectionVisibility: true,
+startLogsSdk({
+  serviceName: 'my-docs',
+  logs: {
+    exportConfig: { url: 'https://otel-collector.example.com/v1/logs' },
+  },
 });
 
-// Register with OTel SDK
-startBrowserSdk({
-  instrumentations: [instrumentation],
-  // ...
+registerInstrumentations({
+  instrumentations: [
+    new DocsInstrumentation({
+      framework: 'docusaurus',
+      trackScrollDepth: true,
+      trackSectionVisibility: true,
+    }),
+  ],
 });
 ```
+
+> **Note:** `@opentelemetry/browser-sdk` (v0.1.x) does not expose an `instrumentations` option — use `registerInstrumentations`, or construct `DocsInstrumentation` directly (it self-enables), always after the SDK has been started.
 
 **Constructor options** (`DocsInstrumentationConfig`):
 
@@ -101,6 +110,7 @@ startBrowserSdk({
 | `trackCopy` | `boolean` | `true` | Track code copy button clicks. |
 | `debug` | `boolean` | `false` | Enable verbose logging. |
 | `rateLimitMs` | `number` | `100` | Minimum gap between events of the same type. Distinct scroll depth thresholds are exempt so a fast scroll still records every milestone. |
+| `sessionAttributes` | `boolean` | `true` | Emit do11y's own `session.id`/`session_page_count` attributes on each record. Set to `false` when using `@opentelemetry/browser-sdk` session processors. |
 | `enabled` | `boolean` | `true` | Whether the instrumentation is active on creation. (Inherited from `InstrumentationConfig`.) |
 
 The instrumentation emits log records through the OTel API. Transport configuration (endpoint, headers, batching) is handled by the OTel SDK, not by Do11y. To configure where events go, use `startBrowserSdk`, `startLogsSdk`, or set up a `LoggerProvider` directly.
