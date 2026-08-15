@@ -18,11 +18,6 @@ Do11y is built for humans and machines alike. It emits observability data that i
 
 Do11y is agent-native. It detects AI platform referrers so you can understand how agents and humans engage with your content differently.
 
-Do11y offers two installation paths:
-
-- **Script tag** — A single dependency-free JavaScript file built from TypeScript with [rolldown](https://rolldown.rs). Load it from a CDN or self-host it. Zero build tooling required.
-- **npm / OTel instrumentation** — Install as a dependency for users who bundle their site. The `DocsInstrumentation` class plugs into `@opentelemetry/browser-sdk` and sends docs-specific events through your existing OTel pipeline.
-
 ## Why documentation observability
 
 General web analytics tools were designed for marketing sites and e-commerce funnels. Their model is based on the visitor arriving, viewing pages, clicking links, converting or leaving. Applied to documentation, that model tends to answer the wrong questions.
@@ -79,5 +74,6 @@ Do11y supports the latest versions of the following documentation frameworks out
 | [MkDocs Material](https://squidfunk.github.io/mkdocs-material/) | [Install on MkDocs Material](/install/mkdocs-material) |
 | [VitePress](https://vitepress.dev) | [Install on VitePress](/install/vitepress) |
 | [Starlight (Astro)](https://starlight.astro.build/) | [Install on Starlight](/install/starlight) |
+| [Docsy](https://www.docsy.dev) | [Install on Docsy](/install/docsy) |
 
 For other frameworks, use [manual setup](/install/manual).
