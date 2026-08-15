@@ -101,11 +101,13 @@ export class DocsInstrumentation extends InstrumentationBase<DocsInstrumentation
   private _do11yConfig!: Partial<Do11yConfig>;
   private _emit!: EmitFn;
   private _mutationObserver!: MutationObserver | null;
-  private _pathPollId!: ReturnType<typeof setInterval> | null;
+  // window.setInterval (DOM) returns a number handle; bare `setInterval`
+  // resolves to Node's version (Timeout) when @types/node is in scope.
+  private _pathPollId!: number | null;
   private _lastPath!: string;
   private _boundHandlePathChange!: (() => void) | null;
   private _boundPopstateHandler!: (() => void) | null;
-  private _drainTimer!: ReturnType<typeof setInterval> | null;
+  private _drainTimer!: number | null;
 
   constructor(config: DocsInstrumentationConfig = {}) {
     super("@manototh/do11y", VERSION, config);
@@ -224,7 +226,7 @@ export class DocsInstrumentation extends InstrumentationBase<DocsInstrumentation
       this._drainTimer = window.setInterval(() => {
         if (providerIsRegistered()) {
           if (this._drainTimer !== null) {
-            clearInterval(this._drainTimer);
+            window.clearInterval(this._drainTimer);
             this._drainTimer = null;
           }
           drainPending();
@@ -333,7 +335,7 @@ export class DocsInstrumentation extends InstrumentationBase<DocsInstrumentation
 
     // Stop the pending-event drain poll
     if (this._drainTimer !== null) {
-      clearInterval(this._drainTimer);
+      window.clearInterval(this._drainTimer);
       this._drainTimer = null;
     }
 
@@ -343,7 +345,7 @@ export class DocsInstrumentation extends InstrumentationBase<DocsInstrumentation
       this._mutationObserver = null;
     }
     if (this._pathPollId !== null) {
-      clearInterval(this._pathPollId);
+      window.clearInterval(this._pathPollId);
       this._pathPollId = null;
     }
     if (this._boundPopstateHandler) {

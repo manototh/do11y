@@ -60,6 +60,9 @@ function makeSupabaseConfig(overrides: Partial<Do11yConfig> = {}): Do11yConfig {
     trackTocClicks: true,
     trackExpandCollapse: true,
     trackFeedback: true,
+    trackSearch: true,
+    trackCopy: true,
+    sessionAttributes: true,
     tabContainerSelector: null,
     tocSelector: null,
     feedbackSelector: null,
@@ -72,7 +75,7 @@ function makeSupabaseConfig(overrides: Partial<Do11yConfig> = {}): Do11yConfig {
     useOtelBrowserInstrumentations: false,
     trackSpaPathChanges: false,
     ...overrides,
-  };
+  } as Do11yConfig;
 }
 
 function makeHttpConfig(overrides: Partial<Do11yConfig> = {}): Do11yConfig {

@@ -109,14 +109,14 @@ export function createStaticServer(directory: string): Promise<StaticServer> {
               res.end('Not found');
               return;
             }
-            const ext = path.extname(servedPath2);
+            const ext = path.extname(servedPath2!);
             const contentType = MIME_TYPES[ext] ?? 'application/javascript';
             res.writeHead(200, { 'Content-Type': contentType });
             res.end(data2);
           });
           return;
         }
-        const ext = path.extname(servedPath);
+        const ext = path.extname(servedPath!);
         const contentType = MIME_TYPES[ext] ?? 'application/octet-stream';
         res.writeHead(200, { 'Content-Type': contentType });
         res.end(data);

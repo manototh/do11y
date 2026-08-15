@@ -7,7 +7,6 @@
     "esModuleInterop": true,
     "types": ["vitest/globals"],
     "strict": true,
-    "noUncheckedIndexedAccess": true,
     "skipLibCheck": true,
     "paths": {
       "@do11y/core": ["../src/core"],

@@ -41,6 +41,9 @@ function makeConfig(overrides: Partial<Do11yConfig> = {}): Do11yConfig {
     trackTocClicks: true,
     trackExpandCollapse: true,
     trackFeedback: true,
+    trackSearch: true,
+    trackCopy: true,
+    sessionAttributes: true,
     tabContainerSelector: null,
     tocSelector: null,
     feedbackSelector: null,
@@ -53,7 +56,7 @@ function makeConfig(overrides: Partial<Do11yConfig> = {}): Do11yConfig {
     useOtelBrowserInstrumentations: false,
     trackSpaPathChanges: false,
     ...overrides,
-  };
+  } as Do11yConfig;
 }
 
 describe('privacy', () => {
@@ -96,11 +99,11 @@ describe('privacy', () => {
 
   describe('shouldDisableTracking', () => {
     it('returns false when DNT is not set and no allowedDomains', () => {
-      const config = {
+      const config = makeConfig({
         respectDNT: true,
         allowedDomains: null,
         debug: false,
-      };
+      });
       // Ensure DNT is not set
       Object.defineProperty(navigator, 'doNotTrack', {
         value: undefined,
@@ -114,7 +117,7 @@ describe('privacy', () => {
         value: '1',
         configurable: true,
       });
-      const config = { respectDNT: true, allowedDomains: null, debug: false };
+      const config = makeConfig({ respectDNT: true, allowedDomains: null, debug: false });
       expect(shouldDisableTracking(config)).toBe(true);
     });
 
@@ -123,7 +126,7 @@ describe('privacy', () => {
         value: '1',
         configurable: true,
       });
-      const config = { respectDNT: false, allowedDomains: null, debug: false };
+      const config = makeConfig({ respectDNT: false, allowedDomains: null, debug: false });
       expect(shouldDisableTracking(config)).toBe(false);
     });
 
@@ -132,11 +135,11 @@ describe('privacy', () => {
         value: undefined,
         configurable: true,
       });
-      const config = {
+      const config = makeConfig({
         respectDNT: true,
         allowedDomains: ['docs.example.com'],
         debug: false,
-      };
+      });
       expect(shouldDisableTracking(config)).toBe(true);
     });
 
@@ -145,11 +148,11 @@ describe('privacy', () => {
         value: undefined,
         configurable: true,
       });
-      const config = {
+      const config = makeConfig({
         respectDNT: true,
         allowedDomains: ['localhost'],
         debug: false,
-      };
+      });
       expect(shouldDisableTracking(config)).toBe(false);
     });
 
@@ -158,21 +161,21 @@ describe('privacy', () => {
         value: undefined,
         configurable: true,
       });
-      const config = {
+      const config = makeConfig({
         respectDNT: true,
         allowedDomains: ['example.com'],
         debug: false,
-      };
+      });
       // Current hostname is 'localhost' from JSDOM setup, so this should not match
       expect(shouldDisableTracking(config)).toBe(true);
     });
 
     it('allows empty allowedDomains list without blocking', () => {
-      const config = {
+      const config = makeConfig({
         respectDNT: true,
         allowedDomains: [],
         debug: false,
-      };
+      });
       expect(shouldDisableTracking(config)).toBe(false);
     });
   });

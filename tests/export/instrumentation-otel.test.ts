@@ -60,6 +60,7 @@ vi.mock('@opentelemetry/api-logs', () => ({
 }));
 
 import { DocsInstrumentation } from '@do11y/instrumentation/index';
+import type { DocsInstrumentationConfig } from '@do11y/instrumentation/config';
 
 function clearRecords(): void {
   mockLogRecords.length = 0;
@@ -72,7 +73,7 @@ function getRecords() {
 /**
  * Build a DocsInstrumentation config with common tracking selectors.
  */
-function makeConfig(overrides: Record<string, unknown> = {}) {
+function makeConfig(overrides: Record<string, unknown> = {}): DocsInstrumentationConfig {
   return {
     framework: 'custom',
     debug: false,
@@ -92,7 +93,7 @@ function makeConfig(overrides: Record<string, unknown> = {}) {
     trackTocClicks: true,
     trackExpandCollapse: true,
     ...overrides,
-  };
+  } as unknown as DocsInstrumentationConfig;
 }
 
 describe('export / instrumentation-otel', () => {

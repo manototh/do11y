@@ -13,7 +13,8 @@ import { describe, it, expect } from 'vitest';
 import puppeteer from 'puppeteer';
 import { FRAMEWORK_PRESETS } from '@do11y/core/presets';
 import { SELECTOR_KEYS } from '@do11y/core/constants';
-import type { FrameworkSelectors, Browser } from 'puppeteer';
+import type { Browser } from 'puppeteer';
+import type { FrameworkSelectors } from '@do11y/core/types';
 
 // Live URLs for each framework — pages known to have code blocks, TOC, etc.
 const LIVE_URLS: Record<string, string> = {

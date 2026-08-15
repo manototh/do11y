@@ -42,7 +42,7 @@ describe.runIf(enabled)('export / supabase', () => {
   });
 
   it('loads and initialises with Supabase config without crashing', async () => {
-    const page = await browser.newPage();
+    const page = await browser!.newPage();
     await page.setViewport({ width: 1440, height: 900 });
     await page.goto('about:blank');
     await page.evaluate(

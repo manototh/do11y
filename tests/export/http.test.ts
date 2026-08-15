@@ -36,7 +36,7 @@ describe('export / http', () => {
   });
 
   it('loads and exposes the Do11y public API', async () => {
-    const page = await browser.newPage();
+    const page = await browser!.newPage();
     await page.setViewport({ width: 1440, height: 900 });
     await page.goto('about:blank');
     await page.evaluate(() => {
@@ -79,7 +79,7 @@ describe('export / http', () => {
   });
 
   it('does not crash when the endpoint is unreachable', async () => {
-    const page = await browser.newPage();
+    const page = await browser!.newPage();
     await page.setViewport({ width: 1440, height: 900 });
     await page.goto('about:blank');
     await page.evaluate(() => {

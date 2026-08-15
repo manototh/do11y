@@ -643,7 +643,7 @@ describe('integration / instrumentation', () => {
 
       // Capture console errors for debugging
       const pageErrors: string[] = [];
-      page.on('pageerror', (err) => pageErrors.push(err.message));
+      page.on('pageerror', (err) => pageErrors.push(err instanceof Error ? err.message : String(err)));
       page.on('console', (msg) => {
         if (msg.type() === 'error') pageErrors.push(msg.text());
       });

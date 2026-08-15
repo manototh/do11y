@@ -38,7 +38,7 @@ describe('export / otlp', () => {
   });
 
   it('initializes OTel SDK and sends logs via HTTP', async () => {
-    const page = await browser.newPage();
+    const page = await browser!.newPage();
     await page.setViewport({ width: 1440, height: 900 });
 
     // Navigate to the test server so the page origin matches (avoids CORS
@@ -69,7 +69,7 @@ describe('export / otlp', () => {
   }, 15000);
 
   it('continues to work when OTel endpoint is unreachable (graceful degradation)', async () => {
-    const page = await browser.newPage();
+    const page = await browser!.newPage();
     await page.setViewport({ width: 1440, height: 900 });
 
     // Navigate to the test server first for same-origin compatibility

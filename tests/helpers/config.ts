@@ -88,7 +88,8 @@ export function makeConfig(overrides: Partial<Do11yConfig> = {}): Do11yConfig {
     // OTel browser instrumentation
     useOtelBrowserInstrumentations: false,
     trackSpaPathChanges: false,
+    sessionAttributes: true,
 
     ...overrides,
-  };
+  } as Do11yConfig;
 }
