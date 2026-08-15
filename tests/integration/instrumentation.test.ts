@@ -719,9 +719,10 @@ describe('integration / instrumentation', () => {
 
         // 3. Check payload shape on page_view events.
         //    The instrumentation emit includes browser context (from
-        //    getBrowserContext()), page info (from getPageInfo()), and
-        //    version. It does NOT include session.id — that is only
-        //    added by the standalone transport layer.
+        //    getBrowserContext()), page info (from getPageInfo()), version,
+        //    and — by default — its own session.id / session_page_count
+        //    attributes. Set sessionAttributes: false to defer session
+        //    attribution to @opentelemetry/browser-sdk session processors.
         for (const pv of pageViews.slice(0, 2)) {
           expect(pv).toHaveProperty('url.path');
           expect(pv).toHaveProperty('browser.family');
@@ -730,6 +731,8 @@ describe('integration / instrumentation', () => {
           expect(pv).toHaveProperty('browser.do11y.viewport_category');
           expect(pv).toHaveProperty('browser.do11y.page_title');
           expect(pv).toHaveProperty('browser.do11y.version');
+          expect(pv).toHaveProperty('session.id');
+          expect(pv).toHaveProperty('browser.do11y.session_page_count');
         }
 
         // 4. page_exit event should have timing metrics
