@@ -89,7 +89,7 @@ Do11y sends events as a JSON array of OTel-conformant event objects. The endpoin
 
 ## Add Do11y to your documentation site
 
-### Script tag (traditional)
+### Script tag
 
 Follow the install guide for your documentation framework:
 
@@ -102,7 +102,7 @@ Follow the install guide for your documentation framework:
 - [Docsy (Hugo)](/install/docsy)
 - [Other frameworks](/install/manual)
 
-### npm / OpenTelemetry instrumentation
+### OpenTelemetry instrumentation
 
 If you already bundle your site with a build tool (Vite, Webpack, etc.) and use the OpenTelemetry Browser SDK, install Do11y as an npm dependency:
 

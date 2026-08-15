@@ -12,7 +12,7 @@ head:
 
 # Configuration
 
-There are two ways to configure Do11y, depending on how you installed it.
+The way you configure Do11y depends on how you installed it.
 
 ### Script tag
 
@@ -32,7 +32,7 @@ new DocsInstrumentation({
 });
 ```
 
-The instrumentation class accepts a subset of the full configuration — primarily framework selection, tracking toggles, and optional custom selectors. Transport-level options (endpoint, headers, API keys) are configured through the OTel SDK, not through Do11y.
+The instrumentation class accepts a subset of the full configuration such as framework selection, tracking toggles, and optional custom selectors. Configure transport-level options (endpoint, headers, API keys) through the OTel SDK, not through Do11y.
 
 ## Destination
 
@@ -71,15 +71,21 @@ To send events to a HTTPS endpoint, set `destination` to `'http'`, and provide t
 
 To send events to an OpenTelemetry-compatible backend, set `destination` to `'otlp'` (script-tag path) or use the `DocsInstrumentation` class (npm path).
 
+::: tip NOTE
+
+If you use the OTLP destination, your Do11y implementation relies on external dependencies.
+
+:::
+
 #### Script tag (CDN)
 
 Do11y dynamically loads the [OpenTelemetry Browser SDK](https://github.com/open-telemetry/opentelemetry-browser) via a CDN, and creates a standard `LoggerProvider` → `BatchLogRecordProcessor` → `OTLPLogExporter` pipeline, sending events as properly-structured OTel LogRecords.
 
-The CDN packages are pinned to version `0.221.0` (kept in sync with the `@opentelemetry/*` npm dependencies) so upgrades are deliberate rather than silent. Each event is emitted as an OTel LogRecord: the event name goes in the top-level `event_name` field, the event's `_time` becomes the record timestamp, and all other fields become attributes.
+Do11y emits each event as an OTel LogRecord: the event name goes in the top-level `event_name` field, the event's `_time` becomes the record timestamp, and all other fields become attributes.
 
 #### npm (bundled)
 
-When using the npm package, the `@opentelemetry/browser-sdk` handles the OTel pipeline entirely. Do11y only provides the `DocsInstrumentation` class that emits log records through the OTel API. No CDN loading is needed. Start the SDK before creating the instrumentation — `DocsInstrumentation` self-enables, and the global `LoggerProvider` must already be registered. See [Get started → npm / OpenTelemetry instrumentation](/get-started#npm--opentelemetry-instrumentation).
+The `@opentelemetry/browser-sdk` handles the OTel pipeline entirely. Do11y only provides the `DocsInstrumentation` class that emits log records through the OTel API. No CDN loading is necessary.
 
 | Option | Default | Description |
 |---|---|---|

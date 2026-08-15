@@ -12,23 +12,14 @@ head:
 
 # Changelog
 
-## v0.2.1
-
-**Release date:** 2026-07-31
-
-- **OTLP event records follow the current OTel conventions.** The event name is carried only in the top-level `event_name` LogRecord field (per the OpenTelemetry logs data model), no longer duplicated as an `event.name` attribute. The `_time` value is now passed as the record timestamp (`timeUnixNano`) instead of being sent as a redundant attribute.
-- **Pinned OTel SDK versions for the script-tag OTLP destination.** The CDN packages (`@opentelemetry/api-logs`, `@opentelemetry/sdk-logs`, `@opentelemetry/exporter-logs-otlp-http`) are now pinned to `0.221.0`, matching the npm dependencies, so upgrades are deliberate rather than silent.
-- **Explicit timestamps in the npm instrumentation.** `DocsInstrumentation` now sets the record `timestamp` explicitly on emit.
-
 ## v0.2.0
 
-**Release date:** 2026-07-31
+**Release date:** 2026-08-15
 
-- **Use Do11y with the OpenTelemetry Browser SDK (npm).** If you already bundle your site with a build tool (Vite, Webpack, etc.) and use `@opentelemetry/browser-sdk`, you can now install Do11y as an npm dependency and register `DocsInstrumentation` alongside your other instrumentations. All documentation events (page views, scroll depth, section visibility, tab switches, code copies, TOC clicks, search, expand/collapse, link clicks, feedback) flow through your existing OTel pipeline under the same `session.id` — no separate queue, batching, or destination config required. For setup, see [Get started](/get-started#npm-opentelemetry-instrumentation).
-- **New `@manototh/do11y/instrumentation` import.** Add `DocsInstrumentation` to your OTel SDK's `instrumentations` array to get docs-specific events alongside your browser auto-instrumentations, correlated with page load performance, API calls, and errors.
-- **Script tag users: nothing changes.** The standalone script still works exactly as before, with the same config options and Supabase, HTTP, and OTLP destinations.
-- **Breaking change to the data schema.** The `url.query` attribute was replaced by `browser.do11y.url.has_params`. The value semantics are unchanged (`'has_params'` or `null`), but the attribute is renamed and namespaced under `browser.do11y.*`. Update any dashboards, queries, or alerts that reference `url.query`.
-- **Under the hood.** The codebase was refactored into a shared core library, the standalone script build, and the new OTel instrumentation layer, with a new Vitest-based test suite.
+- **Use Do11y with the OpenTelemetry Browser SDK:** If you already bundle your site with a build tool (Vite, Webpack, etc.) and use `@opentelemetry/browser-sdk`, you can now install Do11y as an npm dependency and register `DocsInstrumentation` alongside your other instrumentations. All documentation events flow through your existing OTel pipeline under the same `session.id`. No separate queue, batching, or destination config required. For setup, see [Get started](/get-started#opentelemetry-instrumentation). The standalone script still works exactly as before, with the same config options and Supabase, HTTP, and OTLP destinations.
+- **Under the hood:** The codebase was refactored into a shared core library, the standalone script build, and the new OTel instrumentation layer, with a new Vitest-based test suite.
+- **Breaking change to the data schema:** The `url.query` attribute was replaced by `browser.do11y.url.has_params`. The value semantics are unchanged (`'has_params'` or `null`), but the attribute is renamed and namespaced under `browser.do11y.*`. Update any dashboards, queries, or alerts that reference `url.query`.
+- **Pinned OTel SDK versions for the script-tag OTLP destination:** The CDN packages (`@opentelemetry/api-logs`, `@opentelemetry/sdk-logs`, `@opentelemetry/exporter-logs-otlp-http`) are now pinned to `0.221.0`, matching the npm dependencies, so upgrades are deliberate rather than silent.
 
 ## v0.1.2
 

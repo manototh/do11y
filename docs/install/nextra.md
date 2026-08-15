@@ -46,7 +46,7 @@ To use options beyond the basic credentials, add an inline script before the mai
 
 ### App Router
 
-Use Next.js's `<Script>` component with inline children instead of `dangerouslySetInnerHTML`. Inline scripts require an `id` prop:
+Use Next.js's `<Script>` component with inline children. Inline scripts require an `id` prop:
 
 ```jsx
 import Script from 'next/script'
@@ -69,7 +69,7 @@ The `beforeInteractive` strategy guarantees the config is set before `do11y.js` 
 
 ### Pages Router
 
-`next/script` does not support inline children in the Pages Router. Put the config in a static file instead:
+The Pages Router doesn't support inline children. Put the config in a static file instead:
 
 Create `public/do11y-config.js`:
 
