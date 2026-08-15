@@ -1194,7 +1194,7 @@ var DocsInstrumentation = class extends InstrumentationBase {
 			this._drainTimer = window.setInterval(() => {
 				if (providerIsRegistered()) {
 					if (this._drainTimer !== null) {
-						clearInterval(this._drainTimer);
+						window.clearInterval(this._drainTimer);
 						this._drainTimer = null;
 					}
 					drainPending();
@@ -1268,7 +1268,7 @@ var DocsInstrumentation = class extends InstrumentationBase {
 	disable() {
 		disconnectSectionObserver();
 		if (this._drainTimer !== null) {
-			clearInterval(this._drainTimer);
+			window.clearInterval(this._drainTimer);
 			this._drainTimer = null;
 		}
 		if (this._mutationObserver) {
@@ -1276,7 +1276,7 @@ var DocsInstrumentation = class extends InstrumentationBase {
 			this._mutationObserver = null;
 		}
 		if (this._pathPollId !== null) {
-			clearInterval(this._pathPollId);
+			window.clearInterval(this._pathPollId);
 			this._pathPollId = null;
 		}
 		if (this._boundPopstateHandler) {
