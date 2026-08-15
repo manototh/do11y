@@ -73,19 +73,21 @@ function getRecords() {
 /**
  * Build a DocsInstrumentation config with common tracking selectors.
  */
-function makeConfig(overrides: Record<string, unknown> = {}): DocsInstrumentationConfig {
+function makeConfig(overrides: Partial<DocsInstrumentationConfig> = {}): DocsInstrumentationConfig {
   return {
     framework: 'custom',
     debug: false,
-    searchSelector: '#search-bar-entry, .search-input',
-    copyButtonSelector: '.copy-btn, button[aria-label*="copy"]',
-    codeBlockSelector: 'pre',
-    tocSelector: '.table-of-contents',
-    contentSelector: 'main',
-    navigationSelector: 'nav',
-    footerSelector: 'footer',
-    feedbackSelector: '.feedback',
-    tabContainerSelector: '[role="tablist"]',
+    selectors: {
+      searchSelector: '#search-bar-entry, .search-input',
+      copyButtonSelector: '.copy-btn, button[aria-label*="copy"]',
+      codeBlockSelector: 'pre',
+      tocSelector: '.table-of-contents',
+      contentSelector: 'main',
+      navigationSelector: 'nav',
+      footerSelector: 'footer',
+      feedbackSelector: '.feedback',
+      tabContainerSelector: '[role="tablist"]',
+    },
     sectionVisibleThreshold: 0,
     trackSectionVisibility: true,
     trackTabSwitches: true,
@@ -93,7 +95,7 @@ function makeConfig(overrides: Record<string, unknown> = {}): DocsInstrumentatio
     trackTocClicks: true,
     trackExpandCollapse: true,
     ...overrides,
-  } as unknown as DocsInstrumentationConfig;
+  };
 }
 
 describe('export / instrumentation-otel', () => {
@@ -157,9 +159,11 @@ describe('export / instrumentation-otel', () => {
 
   it('emits code_copied event when copy button is clicked', () => {
     instrumentation = new DocsInstrumentation(makeConfig({
-      copyButtonSelector: '.copy-btn, button[aria-label*="copy"]',
-      codeBlockSelector: 'pre',
-      contentSelector: 'main',
+      selectors: {
+        copyButtonSelector: '.copy-btn, button[aria-label*="copy"]',
+        codeBlockSelector: 'pre',
+        contentSelector: 'main',
+      },
     }));
     instrumentation.enable();
     clearRecords();
@@ -175,7 +179,9 @@ describe('export / instrumentation-otel', () => {
 
   it('emits search_opened event when a search element is clicked', () => {
     instrumentation = new DocsInstrumentation(makeConfig({
-      searchSelector: '#search-bar-entry, .search-input',
+      selectors: {
+        searchSelector: '#search-bar-entry, .search-input',
+      },
     }));
     instrumentation.enable();
     clearRecords();
@@ -203,7 +209,9 @@ describe('export / instrumentation-otel', () => {
 
   it('emits feedback event when a feedback button is clicked', () => {
     instrumentation = new DocsInstrumentation(makeConfig({
-      feedbackSelector: '.feedback',
+      selectors: {
+        feedbackSelector: '.feedback',
+      },
     }));
     instrumentation.enable();
     clearRecords();
@@ -219,7 +227,9 @@ describe('export / instrumentation-otel', () => {
 
   it('emits tab_switch event when a non-active tab is clicked', () => {
     instrumentation = new DocsInstrumentation(makeConfig({
-      tabContainerSelector: '[role="tablist"]',
+      selectors: {
+        tabContainerSelector: '[role="tablist"]',
+      },
     }));
     instrumentation.enable();
     clearRecords();
@@ -235,7 +245,9 @@ describe('export / instrumentation-otel', () => {
 
   it('emits expand_collapse event when details is toggled', () => {
     instrumentation = new DocsInstrumentation(makeConfig({
-      contentSelector: 'main',
+      selectors: {
+        contentSelector: 'main',
+      },
     }));
     instrumentation.enable();
     clearRecords();
@@ -253,8 +265,10 @@ describe('export / instrumentation-otel', () => {
 
   it('emits toc_click event when a TOC link is clicked', () => {
     instrumentation = new DocsInstrumentation(makeConfig({
-      tocSelector: '.table-of-contents',
-      contentSelector: 'main',
+      selectors: {
+        tocSelector: '.table-of-contents',
+        contentSelector: 'main',
+      },
     }));
     instrumentation.enable();
     clearRecords();
