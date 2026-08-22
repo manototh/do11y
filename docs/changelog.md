@@ -14,7 +14,7 @@ head:
 
 ## v0.2.0
 
-**Release date:** 2026-08-15
+**Release date:** 2026-08-22
 
 - **Use Do11y with the OpenTelemetry Browser SDK:** If you already bundle your site with a build tool (Vite, Webpack, etc.) and use `@opentelemetry/browser-sdk`, you can now install Do11y as an npm dependency and register `DocsInstrumentation` alongside your other instrumentations. All documentation events flow through your existing OTel pipeline under the same `session.id`. No separate queue, batching, or destination config required. For setup, see [Get started](/destinations). The standalone script still works exactly as before, with the same config options and Supabase, HTTP, and OTLP destinations.
 - **Under the hood:** The codebase was refactored into a shared core library, the standalone script build, and the new OTel instrumentation layer, with a new Vitest-based test suite.

@@ -43,7 +43,7 @@ window.Do11yConfig = {
   // ⚠️ CORS: Cloud OTLP endpoints (Grafana, Datadoc, etc.) do not
   // return CORS headers, so browsers block direct cross-origin POSTs.
   // To use from a browser, run an OTel Collector or CORS proxy in front.
-  // See https://docservable.com/configuration#otlp for details.
+  // See https://docservable.com/configuration for details.
 
   // Documentation framework. Supported values:
   // 'mintlify', 'docusaurus', 'nextra', 'starlight', 'mkdocs-material',

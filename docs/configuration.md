@@ -14,11 +14,11 @@ head:
 
 The way you configure Do11y depends on how you installed it.
 
-### Script tag
+### Standalone path
 
 Set options via `window.Do11yConfig` using an inline script or a separate config file, or via meta tags. When both are present, meta tags take precedence over `window.Do11yConfig`, which takes precedence over the defaults.
 
-### npm / OTel instrumentation
+### OpenTelemetry instrumentation path
 
 Pass configuration as a constructor argument to `DocsInstrumentation`:
 
@@ -32,17 +32,17 @@ new DocsInstrumentation({
 });
 ```
 
-The instrumentation class accepts a subset of the full configuration such as framework selection, tracking toggles, and optional custom selectors. Configure transport-level options (endpoint, headers, API keys) through the OTel SDK, not through Do11y.
+The instrumentation class accepts a subset of the full configuration such as framework selection, tracking toggles, and optional custom selectors. Configure transport-level options (endpoint, headers, API keys) through the OTel SDK, not through Do11y. See [Destinations and setup paths](/destinations) for which destinations work with this path.
 
 ## Destination
 
-Do11y supports three destinations for event data: Supabase (default), generic HTTP, and OTLP via the OpenTelemetry Browser SDK.
+If you use the **Standalone** path, configure where to send events with the `destination` option. For the **OpenTelemetry instrumentation** path, configure where to send data using the OTel SDK pipeline.
 
 | Option | Default | Description |
 |---|---|---|
 | `destination` | `'supabase'` | Where to send events. `'supabase'`, `'http'`, or `'otlp'`. |
 
-### Supabase (default)
+### Supabase
 
 The `supabase` destination is a preset over the `http` destination. It automatically configures the endpoint, headers, and body transform for Supabase's REST API.
 
@@ -57,9 +57,21 @@ Under the hood, this sets:
 - `headers` with Supabase REST headers
 - `bodyTransform` to `(events) => events.map(e => ({ payload: e }))`
 
-### HTTP
+### Generic HTTP
 
-To send events to a HTTPS endpoint, set `destination` to `'http'`, and provide the `endpoint` and optional `headers` and `bodyTransform`. Do11y sends the events as a JSON array with `Content-Type: application/json`.
+To send events to a HTTPS endpoint, set `destination` to `'http'` and provide the `endpoint`. Optionally, set `headers` and `bodyTransform`. Do11y sends the events as a JSON array with `Content-Type: application/json`.
+
+```js
+window.Do11yConfig = {
+  destination: 'http',
+  endpoint: 'BACKEND_URL',
+  headers: {
+    'Authorization': 'Bearer API_TOKEN',
+  },
+};
+```
+
+Replace `BACKEND_URL` and `API_TOKEN` with your own values. The endpoint must use HTTPS.
 
 | Option | Default | Description |
 |---|---|---|
@@ -67,25 +79,23 @@ To send events to a HTTPS endpoint, set `destination` to `'http'`, and provide t
 | `headers` | `{}` | Custom headers to include (for example, authorization). |
 | `bodyTransform` | `undefined` | Optional function to transform the event array before sending. Receives the events array and returns what you want to serialize as JSON. Example: `(events) => ({ events })`. |
 
-### OTLP (OpenTelemetry Protocol)
+### OpenTelemetry Protocol
 
-To send events to an OpenTelemetry-compatible backend, set `destination` to `'otlp'` (script-tag path) or use the `DocsInstrumentation` class (npm path).
+To send events to an OpenTelemetry-compatible backend, set `destination` to `'otlp'`.
 
-::: tip NOTE
+```js
+window.Do11yConfig = {
+  destination: 'otlp',
+  otelSdkEndpoint: 'OTLP_ENDPOINT',
+  otelSdkHeaders: {
+    'Authorization': 'Bearer API_TOKEN',
+  },
+};
+```
 
-If you use the OTLP destination, your Do11y implementation relies on external dependencies.
+Replace `OTLP_ENDPOINT` and `API_TOKEN` with your own values.
 
-:::
-
-#### Script tag (CDN)
-
-Do11y dynamically loads the [OpenTelemetry Browser SDK](https://github.com/open-telemetry/opentelemetry-browser) via a CDN, and creates a standard `LoggerProvider` → `BatchLogRecordProcessor` → `OTLPLogExporter` pipeline, sending events as properly-structured OTel LogRecords.
-
-Do11y emits each event as an OTel LogRecord: the event name goes in the top-level `event_name` field, the event's `_time` becomes the record timestamp, and all other fields become attributes.
-
-#### npm (bundled)
-
-The `@opentelemetry/browser-sdk` handles the OTel pipeline entirely. Do11y only provides the `DocsInstrumentation` class that emits log records through the OTel API. No CDN loading is necessary.
+If you use the OTLP destination, your Do11y implementation relies on external dependencies. Do11y dynamically loads the [OpenTelemetry Browser SDK](https://github.com/open-telemetry/opentelemetry-browser) via a CDN and sends events as OTel LogRecords. The event name goes in the top-level `event_name` field, the event's `_time` becomes the record timestamp, and all other fields become attributes.
 
 | Option | Default | Description |
 |---|---|---|
