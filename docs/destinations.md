@@ -20,6 +20,9 @@ Setup paths determine how Do11y runs on your site. Destinations determine where 
 | **Build tooling** | None | Requires a bundler (Vite, Webpack, etc.) and the OpenTelemetry Browser SDK |
 | **Transport** | Do11y's own transport | OpenTelemetry Browser SDK pipeline |
 | **Supported destinations** | Supabase, HTTP, OTLP | OTLP |
+| **Supported frameworks** | All | Docusaurus, Nextra, VitePress, Starlight |
+
+Hosted platforms (Mintlify) and static sites (MkDocs Material, Docsy) can only use the standalone path. Sites that bundle JavaScript (Docusaurus, Nextra, VitePress, Starlight) can use either path. The constraint is the site's build tooling, not Do11y's framework support.
 
 ## Standalone path
 
@@ -144,7 +147,7 @@ startLogsSdk({
 // 2. Register Do11y alongside your other instrumentations.
 registerInstrumentations({
   instrumentations: [
-    new DocsInstrumentation({ framework: 'mintlify' }),
+    new DocsInstrumentation({ framework: 'docusaurus' }),
   ],
 });
 ```

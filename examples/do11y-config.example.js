@@ -47,7 +47,7 @@ window.Do11yConfig = {
 
   // Documentation framework. Supported values:
   // 'mintlify', 'docusaurus', 'nextra', 'starlight', 'mkdocs-material',
-  // 'vitepress', 'custom'
+  // 'vitepress', 'docsy', 'custom'
   framework: 'mintlify',
 
   // Optional: restrict which domains may send data.
