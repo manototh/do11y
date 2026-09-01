@@ -12,23 +12,63 @@ head:
 
 # Configuration
 
-The way you configure Do11y depends on whether you installed it using:
+This page documents all configuration options for Do11y except for destination options. See [Destinations and setup paths](/destinations) for more information on destinations.
+
+## Set options
+
+The way you set options for Do11y depends on which setup path you use:
 
 - [Standalone path](#standalone-path)
 - [OpenTelemetry instrumentation path](#opentelemetry-instrumentation-path)
-
-See [Destinations and setup paths](/destinations) for more information.
 
 ### Standalone path
 
 Set options using one of the following methods:
 
-- Meta tags (limited set of options)
-- `window.Do11yConfig` object using an inline script or a separate config file
+| | Meta tags | Configuration object |
+|---|---|---|
+| Scope | Limited set of options | All options |
+| Value types | Strings only | Native JavaScript types |
+| Precedence | Read last, takes precedence over configuration object | Read first, overridden by a matching meta tag |
 
-Meta tags take precedence over `window.Do11yConfig` when both are present.
+#### Meta tags
 
-### OpenTelemetry instrumentation path
+Create meta tags using the form `<meta name="do11y-..." content="..." />`.
+
+The following options are supported:
+
+| Meta tag `name` | Config option |
+|---|---|
+| `do11y-destination` | `destination` |
+| `do11y-url` | `supabaseUrl` |
+| `do11y-key` | `supabaseKey` |
+| `do11y-table` | `supabaseTable` |
+| `do11y-endpoint` | `endpoint` |
+| `do11y-otlp-endpoint` | `otelSdkEndpoint` |
+| `do11y-otlp-headers` | `otelSdkHeaders` |
+| `do11y-debug` | `debug` |
+| `do11y-domains` | `allowedDomains` |
+| `do11y-framework` | `framework` |
+| `do11y-use-otel-instrumentations` | `useOtelBrowserInstrumentations` |
+
+#### Configuration object
+
+Create a `window.Do11yConfig` object from an inline script or a separate config file. For example:
+
+```js
+window.Do11yConfig = {
+  destination: 'http',
+  endpoint: 'BACKEND_URL',
+  headers: {
+    'Authorization': 'Bearer API_TOKEN',
+  },
+  framework: 'vitepress',
+  scrollThresholds: [25, 50, 75, 95],
+  respectDNT: false,
+};
+```
+
+## OpenTelemetry instrumentation path
 
 Pass configuration as a constructor argument to `DocsInstrumentation`:
 
@@ -42,7 +82,7 @@ new DocsInstrumentation({
 });
 ```
 
-The instrumentation class accepts a subset of the full configuration such as framework selection, tracking toggles, and optional custom selectors. Configure transport-level options (endpoint, headers, API keys) through the OTel SDK, not through Do11y. See [Destinations and setup paths](/destinations) for more information.
+The instrumentation class accepts a subset of the full configuration such as framework selection, tracking toggles, and optional custom selectors.
 
 ## Behavior
 
