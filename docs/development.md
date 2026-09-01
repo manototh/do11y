@@ -101,16 +101,12 @@ Each event type is tested with representative DOM interactions:
 
 ## Create release
 
-1. Run all tests.
-
 1. Bump the version in `package.json` and `src/core/constants.ts`.
 
-1. Build and verify:
+1. Build, verify, and run tests:
 
     ```bash
-    npm run build
-    npm run check
-    npm run lint
+    npm run all
     ```
 
 1. Commit and push to `main`.
