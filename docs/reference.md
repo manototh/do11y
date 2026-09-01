@@ -49,8 +49,6 @@ Detection is referrer-based: it checks whether `document.referrer` hostname matc
 
 ## JavaScript API
 
-### Script tag (`window.Do11y`)
-
 Do11y exposes `window.Do11y` for debugging and integration:
 
 ```javascript
@@ -60,64 +58,6 @@ Do11y.flush()        // Force-send queued events
 Do11y.getQueueSize() // Number of queued events
 Do11y.version        // Script version
 ```
-
-`cleanup()` and `debug()` are intentionally not exposed on the global object. Exposing `cleanup()` would allow any third-party script on the page to silently stop tracking. Exposing `debug()` would allow any script to enable verbose console output that reveals the configured ingest endpoint and queued event data.
-
-### npm / OTel instrumentation (`DocsInstrumentation`)
-
-When installed as an npm dependency, the `DocsInstrumentation` class extends `InstrumentationBase` from `@opentelemetry/instrumentation`. Start the logs SDK first (it registers the global `LoggerProvider`), then register the instrumentation:
-
-```ts
-import { startLogsSdk } from '@opentelemetry/browser-sdk/logs';
-import { registerInstrumentations } from '@opentelemetry/instrumentation';
-import { DocsInstrumentation } from '@manototh/do11y/instrumentation';
-
-startLogsSdk({
-  serviceName: 'my-docs',
-  // `exportConfig` is top-level on `startLogsSdk` (the nested
-  // `logs: { exportConfig }` shape only applies to `startBrowserSdk`).
-  exportConfig: { url: 'https://otel-collector.example.com/v1/logs' },
-});
-
-registerInstrumentations({
-  instrumentations: [
-    new DocsInstrumentation({
-      framework: 'docusaurus',
-      trackScrollDepth: true,
-      trackSectionVisibility: true,
-    }),
-  ],
-});
-```
-
-> **Note:** `@opentelemetry/browser-sdk` (v0.1.x) does not expose an `instrumentations` option — use `registerInstrumentations`, or construct `DocsInstrumentation` directly (it self-enables), always after the SDK has been started.
-
-**Constructor options** (`DocsInstrumentationConfig`):
-
-| Option | Type | Default | Description |
-|---|---|---|---|
-| `framework` | `string` | `'mintlify'` | Documentation framework preset. |
-| `selectors` | `object` | — | Custom selector overrides (used when `framework: 'custom'`). |
-| `trackScrollDepth` | `boolean` | `true` | Track scroll depth thresholds. |
-| `scrollThresholds` | `number[]` | `[25, 50, 75, 90]` | Scroll percentages to record. |
-| `trackOutboundLinks` | `boolean` | `true` | Track clicks on external links. |
-| `trackInternalLinks` | `boolean` | `true` | Track clicks on internal links. |
-| `trackSectionVisibility` | `boolean` | `true` | Track which headings users actually read. |
-| `sectionVisibleThreshold` | `number` | `3` | Minimum seconds a section must be visible before recording. |
-| `trackTabSwitches` | `boolean` | `true` | Track code language/framework tab switches. |
-| `trackTocClicks` | `boolean` | `true` | Track on-page TOC clicks. |
-| `trackExpandCollapse` | `boolean` | `true` | Track expand/collapse interactions. |
-| `trackFeedback` | `boolean` | `true` | Track "Was this helpful?" widget clicks. |
-| `trackSearch` | `boolean` | `true` | Track search dialog opens. |
-| `trackCopy` | `boolean` | `true` | Track code copy button clicks. |
-| `debug` | `boolean` | `false` | Enable verbose logging. When enabled, each emitted event is logged to the browser console as `[Do11y] Event: <name>`. |
-| `rateLimitMs` | `number` | `100` | Minimum gap between events of the same type. Distinct scroll depth thresholds are exempt so a fast scroll still records every milestone. |
-| `sessionAttributes` | `boolean` | `true` | Emit do11y's own `session.id`/`session_page_count` attributes on each record. Set to `false` when using `@opentelemetry/browser-sdk` session processors. |
-| `respectDNT` | `boolean` | `true` | Honor the browser's Do Not Track setting. |
-| `allowedDomains` | `string[]` | `null` | Restrict which domains may send data. Set to `null` to allow any. |
-| `enabled` | `boolean` | `true` | Whether the instrumentation is active on creation. (Inherited from `InstrumentationConfig`.) |
-
-The instrumentation emits log records through the OTel API. Transport configuration (endpoint, headers, batching) is handled by the OTel SDK, not by Do11y. To configure where events go, use `startBrowserSdk`, `startLogsSdk`, or set up a `LoggerProvider` directly.
 
 ## Known limitations
 
