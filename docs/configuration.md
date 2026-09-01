@@ -12,102 +12,85 @@ head:
 
 # Configuration
 
-Set all options via `window.Do11yConfig` using an inline script or a separate config file, or via meta tags. When both are present, meta tags take precedence over `window.Do11yConfig`, which takes precedence over the defaults.
+This page documents all configuration options for Do11y except for destination options. See [Destinations and setup paths](/destinations) for more information on destinations.
 
-## Destination
+## Set options
 
-Do11y supports three destinations for event data: Supabase (default), generic HTTP, and OTLP via the OpenTelemetry Browser SDK.
+The way you set options for Do11y depends on which setup path you use:
 
-| Option | Default | Description |
+- [Standalone path](#standalone-path)
+- [OpenTelemetry instrumentation path](#opentelemetry-instrumentation-path)
+
+### Standalone path
+
+Set options using one of the following methods:
+
+| | Meta tags | Configuration object |
 |---|---|---|
-| `destination` | `'supabase'` | Where to send events. `'supabase'`, `'http'`, or `'otlp'`. |
+| Scope | Limited set of options | All options |
+| Value types | Strings only | Native JavaScript types |
+| Precedence | Read last, takes precedence over configuration object | Read first, overridden by a matching meta tag |
 
-### Supabase (default)
+#### Meta tags
 
-The `supabase` destination is a preset over the `http` destination. It automatically configures the endpoint, headers, and body transform for Supabase's REST API.
+Create meta tags using the form `<meta name="do11y-..." content="..." />`.
 
-| Option | Default | Description |
-|---|---|---|
-| `supabaseUrl` | `''` | Your Supabase project URL. For example: `https://abc123.supabase.co` |
-| `supabaseKey` | `''` | Publishable key. For example: `sb_publishable_1234567890` |
-| `supabaseTable` | `'do11y_events'` | Name of the table to insert events into. |
+The following options are supported:
 
-Under the hood, this sets:
-- `endpoint` to `<supabaseUrl>/rest/v1/<supabaseTable>`
-- `headers` with Supabase REST headers
-- `bodyTransform` to `(events) => events.map(e => ({ payload: e }))`
+| Meta tag `name` | Config option |
+|---|---|
+| `do11y-destination` | `destination` |
+| `do11y-url` | `supabaseUrl` |
+| `do11y-key` | `supabaseKey` |
+| `do11y-table` | `supabaseTable` |
+| `do11y-endpoint` | `endpoint` |
+| `do11y-otlp-endpoint` | `otelSdkEndpoint` |
+| `do11y-otlp-headers` | `otelSdkHeaders` |
+| `do11y-debug` | `debug` |
+| `do11y-domains` | `allowedDomains` |
+| `do11y-framework` | `framework` |
 
-### HTTP
+#### Configuration object
 
-To send events to a HTTPS endpoint, set `destination` to `'http'`, and provide the `endpoint` and optional `headers` and `bodyTransform`. Do11y sends the events as a JSON array with `Content-Type: application/json`.
+Create a `window.Do11yConfig` object from an inline script or a separate config file. For example:
 
-| Option | Default | Description |
-|---|---|---|
-| `endpoint` | `''` | Full URL to POST events to. Must be HTTPS. |
-| `headers` | `{}` | Custom headers to include (for example, authorization). |
-| `bodyTransform` | `undefined` | Optional function to transform the event array before sending. Receives the events array and returns what you want to serialize as JSON. Example: `(events) => ({ events })`. |
-
-### OTLP (OpenTelemetry Protocol)
-
-To send events to an OpenTelemetry-compatible backend, set `destination` to `'otlp'`. 
-
-::: tip NOTE
-
-If you use the OTLP destination, your Do11y implementation relies on external dependencies. Do11y dynamically loads the [OpenTelemetry Browser SDK](https://github.com/open-telemetry/opentelemetry-browser) via a CDN, and creates a standard `LoggerProvider` → `BatchLogRecordProcessor` → `OTLPLogExporter` pipeline, and sends events as properly-structured OTel LogRecords.
-
-:::
-
-| Option | Default | Description |
-|---|---|---|
-| `otelSdkEndpoint` | `''` | Your OTLP collector URL. For example: `https://otlp.grafana.com/otlp`. The `/v1/logs` path is appended automatically. |
-| `otelSdkHeaders` | `{}` | Custom headers for the OTLP request (for example, authorization). |
-| `otelSdkServiceName` | `'do11y'` | Value of the `service.name` resource attribute. |
-| `otelSdkResourceAttributes` | `{}` | Extra resource attributes to attach to every exported LogRecord. |
-| `otelSdkCdnUrl` | `'https://esm.sh/'` | CDN base URL for dynamically importing OTel SDK packages. Override for self-hosted or mirrored packages. |
-| `useOtelBrowserInstrumentations` (coming soon) | `false` | When `true`, also registers standard OTel Browser instrumentations (navigation, user action, web vitals, errors). |
-
-#### CORS and the OTel Collector
-
-OTLP endpoints are designed for backend-to-backend communication and most cloud services (Grafana, Datadog, etc.) don't return CORS headers, which means browsers block cross-origin requests directly to them.
-
-The standard OTel solution is to run a local [OpenTelemetry Collector](https://opentelemetry.io/docs/collector/) that accepts CORS requests from your docs domain and forwards them to your backend. You can configure the collector with a [CORS HTTP receiver](https://github.com/open-telemetry/opentelemetry-collector-contrib/tree/main/receiver/corsreceiver):
-
-```yaml
-receivers:
-  otlp:
-    protocols:
-      http:
-        cors:
-          allowed_origins:
-            - https://docs.example.com
-            - https://your-docs-domain.com
-            - http://localhost:*
-          allowed_headers:
-            - Content-Type
-            - Authorization
-
-exporters:
-  otlphttp:
-    endpoint: https://otlp.grafana.com/otlp
-
-service:
-  pipelines:
-    logs:
-      receivers: [otlp]
-      exporters: [otlphttp]
+```js
+window.Do11yConfig = {
+  destination: 'http',
+  endpoint: 'BACKEND_URL',
+  headers: {
+    'Authorization': 'Bearer API_TOKEN',
+  },
+  framework: 'vitepress',
+  scrollThresholds: [25, 50, 75, 95],
+  respectDNT: false,
+};
 ```
 
-Set `otelSdkEndpoint` to your collector (for example, `https://collector.example.com:4318`). The collector handles authentication and forwarding to your cloud backend.
+## OpenTelemetry instrumentation path
 
-If you cannot run a collector, use a lightweight CORS proxy (such as [cors-anywhere](https://github.com/Rob--W/cors-anywhere) or a Cloudflare Worker) that adds the required headers.
+Pass the configuration as a constructor argument to `DocsInstrumentation`:
+
+```ts
+import { DocsInstrumentation } from '@manototh/do11y/instrumentation';
+
+new DocsInstrumentation({
+  framework: 'vitepress',
+  trackScrollDepth: true,
+  trackSectionVisibility: true,
+});
+```
+
+The following options from the full configuration are **not** supported by `DocsInstrumentation`:
+
+| `flushInterval`, `maxBatchSize` | Standalone batch queue. Batching is handled by the OTel SDK batch processor. |
+| `maxRetries`, `retryDelay` | Standalone transport retry. Retries are handled by the OTel exporter/collector. |
 
 ## Behavior
 
 | Option | Default | Description |
 |---|---|---|
 | `debug` | `false` | Log events to the browser console. |
-| `flushInterval` | `5000` | Milliseconds between batch flushes. |
-| `maxBatchSize` | `10` | Events queued before forcing a flush. |
 | `trackOutboundLinks` | `true` | Track clicks on external links. |
 | `trackInternalLinks` | `true` | Track clicks on internal links. |
 | `trackScrollDepth` | `true` | Track scroll depth thresholds. |
@@ -120,9 +103,16 @@ If you cannot run a collector, use a lightweight CORS proxy (such as [cors-anywh
 | `trackFeedback` | `true` | Track "Was this helpful?" feedback widget clicks. |
 | `allowedDomains` | `null` | Restrict which domains may send data. Set to `null` to allow any. |
 | `respectDNT` | `true` | Honor the browser's Do Not Track setting. |
+| `rateLimitMs` | `100` | Minimum gap between events of the same type (applies to both the script-tag build and `DocsInstrumentation`). Distinct scroll depth thresholds are exempt, so a fast scroll still records every milestone. |
+
+The following options are only supported in the Standalone setup path. They are ignored when using the OpenTelemetry instrumentation path because batching and retries are handled by the OpenTelemetry SDK.
+
+| Option | Default | Description |
+|---|---|---|
+| `flushInterval` | `5000` | Milliseconds between batch flushes. |
+| `maxBatchSize` | `10` | Events queued before forcing a flush. |
 | `maxRetries` | `2` | Retry count for failed requests. |
 | `retryDelay` | `1000` | Base delay between retries in milliseconds (doubles each attempt). |
-| `rateLimitMs` | `100` | Minimum gap between events of the same type. |
 
 ## Framework
 
@@ -140,12 +130,6 @@ Set `framework` to auto-configure CSS selectors for your documentation platform:
 
 When you set `framework` to a supported value, Do11y automatically configures the correct CSS selectors for search bars, copy buttons, code blocks, navigation, footers, and content areas.
 
-You can also set the framework via a meta tag:
-
-```html
-<meta name="do11y-framework" content="docusaurus">
-```
-
 ## Custom selectors
 
 Set `framework: 'custom'` and provide any combination of the selectors below. Any selector left `null` falls back to the Mintlify default.
@@ -153,27 +137,11 @@ Set `framework: 'custom'` and provide any combination of the selectors below. An
 | Selector | What it targets |
 |---|---|
 | `searchSelector` | Search trigger elements (input, button). |
-| `copyButtonSelector` | "Copy code" buttons inside code blocks. |
+| `copyButtonSelector` | Copy code buttons inside code blocks. |
 | `codeBlockSelector` | Code block containers (`<pre>`, wrappers). |
 | `navigationSelector` | Navigation and sidebar regions. |
 | `footerSelector` | Page footer. |
 | `contentSelector` | Main content area. |
 | `tabContainerSelector` | Tab groups for code language/framework switching. |
 | `tocSelector` | On-page table of contents container. |
-| `feedbackSelector` | "Was this helpful?" feedback widget container. |
-
-Example:
-
-```js
-window.Do11yConfig = {
-  supabaseUrl: 'SUPABASE_PROJECT_URL',
-  supabaseKey: 'SUPABASE_PUBLISHABLE_KEY',
-  framework: 'custom',
-  searchSelector: '#search-input',
-  copyButtonSelector: '.copy-btn',
-  codeBlockSelector: 'pre code',
-  contentSelector: 'article.content',
-  tocSelector: 'nav.toc',
-  feedbackSelector: null,
-};
-```
+| `feedbackSelector` | Feedback widget container. |

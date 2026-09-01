@@ -1,0 +1,3 @@
+name = "do11y-otel-proxy"
+main = "_infra/otel-proxy-worker.js"
+compatibility_date = "2025-07-01"

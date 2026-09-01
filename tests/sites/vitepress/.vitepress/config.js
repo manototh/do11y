@@ -1,10 +1,8 @@
 export default {
   title: 'Do11y Test - VitePress',
   head: [
-    ['meta', { name: 'do11y-framework', content: 'vitepress' }],
-    ['meta', { name: 'do11y-debug', content: 'true' }],
-    ['meta', { name: 'do11y-domains', content: 'localhost' }],
-    ['script', { src: '/do11y.js' }],
+    ['script', { src: './do11y-config.js' }],
+    ['script', { src: './do11y.js' }],
   ],
   themeConfig: {
     sidebar: [

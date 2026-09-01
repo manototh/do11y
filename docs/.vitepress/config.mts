@@ -63,6 +63,7 @@ export default defineConfig({
         collapsed: false,
         items: [
           { text: 'Get started', link: '/get-started' },
+          { text: 'Destinations and setup paths', link: '/destinations' },
           { text: 'Mintlify', link: '/install/mintlify' },
           { text: 'Docusaurus', link: '/install/docusaurus' },
           { text: 'Nextra', link: '/install/nextra' },
@@ -88,7 +89,6 @@ export default defineConfig({
         items: [
           { text: 'Configuration', link: '/configuration' },
           { text: 'Custom selectors', link: '/configuration#custom-selectors' },
-          { text: 'CORS setup', link: '/cors' },
         ],
       },
       {

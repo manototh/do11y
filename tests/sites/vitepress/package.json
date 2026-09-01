@@ -5,6 +5,6 @@
     "start": "vitepress dev --port 4003"
   },
   "dependencies": {
-    "vitepress": "^1.6.0"
+    "vitepress": "latest"
   }
 }

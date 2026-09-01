@@ -9,6 +9,7 @@ markdown_extensions:
       pygments_lang_class: true
   - pymdownx.superfences
 extra_javascript:
+  - do11y-config.js
   - do11y.js
 extra:
   generator: false

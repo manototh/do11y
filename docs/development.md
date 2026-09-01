@@ -12,175 +12,101 @@ head:
 
 # Development
 
+## Project structure
+
+```
+src/
+  core/               ← Shared logic: types, constants, framework presets,
+  │                      DOM utilities, session management, context,
+  │                      and 11 tracking modules (scroll, links, tabs, etc.)
+  standalone/         ← Script-tag distribution. Adds event queue,
+  │                      batching, HTTP/Supabase/OTLP transport.
+  instrumentation/    ← npm OTel instrumentation. DocsInstrumentation
+                         extends InstrumentationBase from @opentelemetry/
+                         instrumentation.
+```
+
+The `src/standalone/` entry produces `dist/do11y.js` and `dist/do11y.min.js` (IIFE for script tags).
+The `src/instrumentation/` entry produces `dist/instrumentation/index.js` (ESM for bundlers).
+
+## Build
+
+```bash
+npm run build              # Build all outputs
+npm run build:standalone   # Build only the standalone IIFE
+npm run build:instrumentation  # Build only the ESM instrumentation
+```
+
 ## Tests
 
-The `tests` folder contains multiple layers of testing. Each catches a different class of failure:
+The test suite is organized in layers, each catching a different class of failure:
 
-| What broke | Which test catches it |
-|---|---|
-| Framework updated a CSS class name (selector drift) | `test-live-sites.ts` |
-| Do11y broken on a specific framework's local dev server | `test-integrations.ts` |
-| Events not reaching Supabase from a real production site | `test-e2e-live.ts` |
+| What broke | Which test catches it | Speed | Credentials |
+|---|---|---|---|
+| Tracking module logic bug | Unit tests (core + tracking) | < 1s | None |
+| Transport queuing / flush / retry | Transport unit tests | < 1s | None |
+| Framework CSS class rename (drift) | Selector snapshot fixtures | < 1s | None |
+| Real-world CSS drift on production | Selector snapshot live-sites (~30s) | ~30s | None (`TEST_LIVE=1`) |
+| Standalone file doesn't load/export | Export tests (HTTP/OTLP) | ~5s | None |
+| Instrumentation emits all 11 event types | Export tests (instrumentation-otel) | < 1s | None |
+| Supabase export broken | Export smoke test | ~3s | `SUPABASE_*` |
+| Built bundle emits all event types in real browser | Integration tests (fixture-based) | ~30s | None |
+| SQL query correctness | `test-queries.ts` | ~10s | `SUPABASE_*` |
 
-### Selector tests against live sites
+### Quick start
 
-**`tests/test-live-sites.ts`** runs headless Chromium via Puppeteer against real documentation sites to validate that selectors match elements in production. It requires no credentials. Its only job is to catch selector drift when a framework ships a DOM update that renames class names.
+Copy `tests/.env.example` to `tests/.env` and add your test Supabase credentials. Create `SUPABASE_ACCESS_TOKEN` at [Account tokens](https://supabase.com/dashboard/account/tokens), or run `supabase login` to store a token locally.
 
-```bash
-cd tests
-npm i
-npx puppeteer browsers install chrome
-npm run test-live-sites
-```
-
-### E2E live-site tests
-
-**`tests/test-e2e-live.ts`** is the only test that proves events reach Supabase from a real site. It injects `do11y.js` into live public documentation sites via Puppeteer's `evaluateOnNewDocument`, drives a realistic user journey, sends events to Supabase, and then queries the database to validate that the expected event types arrived.
+All tests use **Vitest**. Run them from the `tests/` directory:
 
 ```bash
 cd tests
 npm i
 npx puppeteer browsers install chrome
+npm test
 ```
 
-Copy `tests/.env.example` to `tests/.env` and add your credentials:
+### Test suites
 
-```
-SUPABASE_URL=https://your-project.supabase.co
-SUPABASE_KEY=sb_publishable_your_key
-SUPABASE_SECRET_KEY=sb_secret_your_secret_key
-SUPABASE_TABLE=do11y_integration_test
-```
-
-Run the full suite:
-
-```bash
-npm run test-e2e-live
-```
-
-Run a subset of frameworks:
-
-```bash
-FRAMEWORKS=mintlify,vitepress npm run test-e2e-live
-```
-
-Skip the build step on repeat runs (uses an existing `dist/do11y.js`):
-
-```bash
-SKIP_BUILD=1 npm run test-e2e-live
-```
-
-### Query validation
-
-**`tests/test-queries.ts`** validates that all SQL queries in the queries docs are syntactically correct by executing them against the Supabase database.
-
-```bash
-cd tests
-npm run test-queries
-```
-
-Copy `tests/.env.example` to `tests/.env` and add the same Supabase credentials as the integration tests, plus a personal access token for the Management API:
-
-```
-SUPABASE_URL=https://your-project.supabase.co
-SUPABASE_SECRET_KEY=sb_secret_your_secret_key
-SUPABASE_TABLE=do11y_integration_test
-SUPABASE_ACCESS_TOKEN=sbp_...
-```
-
-PostgREST doesn't support raw SQL. This test runs queries through the [Supabase Management API](https://supabase.com/docs/reference/api/v1-run-a-query) instead of a direct Postgres connection string.
-
-Create `SUPABASE_ACCESS_TOKEN` at [Account tokens](https://supabase.com/dashboard/account/tokens), or run `supabase login` to store a token locally.
-
-### Integration tests
-
-**`tests/test-integrations.ts`** installs each supported framework, injects `do11y.js`, starts a local dev server, drives user interactions via Puppeteer, and then queries the Supabase database to verify that events arrived correctly.
-
-#### Prerequisites
-
-| Software | Required for | Notes |
+| Command | What runs | Credentials |
 |---|---|---|
-| **Node.js** ≥18 | Test runner, build step, all npm-based frameworks | Uses `tsx` for TypeScript execution. |
-| **npm** | Installing Node.js dependencies | Ships with Node.js. |
-| **Python 3** + **pip** | MkDocs Material framework | Install with `pip install mkdocs-material`. |
-| **Go** ≥1.12 | Docsy site (Hugo modules) | Docsy uses `github.com/google/docsy/theme` as a Hugo module via `go.mod`. Hugo delegates module resolution to Go. |
-| **Chromium** | Puppeteer browser automation | Install with `npx puppeteer browsers install chrome`. |
+| `npm test` | All unit + selector + export + integration suites | None |
+| `npm run test:unit` | Core + tracking + transport unit tests | None |
+| `npm run test:selectors` | Framework selector fixture tests | None |
+| `npm run test:export` | HTTP, OTLP, instrumentation-otel export tests | None |
+| `npm run test:integration` | All framework fixtures, Puppeteer, mock HTTP transport | None |
+| `npm run test:supabase` | Supabase smoke test | `SUPABASE_URL`, `SUPABASE_KEY` |
+| `npm run test:live-selectors` | Live-site CSS drift check | None (but network) |
+| `npm run test:all` | All suites, verbose output | Varies |
 
-#### Set up tests
+### Instrumentation coverage
 
-```bash
-cd tests
-npm i
-npx puppeteer browsers install chrome
-```
+Each event type is tested with representative DOM interactions:
 
-Copy `tests/.env.example` to `tests/.env` and add your credentials:
+| Event type | Unit test | Instr. export test | Standalone E2E |
+|---|---|---|---|
+| `page_view` | ✅ | ✅ | ✅ |
+| `link_click` | ✅ | ✅ | ✅ |
+| `scroll_depth` | ✅ | ✅ | ✅ |
+| `search_opened` | ✅ | ✅ | ✅ |
+| `code_copied` | ✅ | ✅ | ✅ |
+| `expand_collapse` | ✅ | ✅ | ✅ |
+| `toc_click` | ✅ | ✅ | ✅ |
+| `feedback` | ✅ | ✅ | ✅ |
+| `page_exit` | ✅ | ✅ | ✅ |
+| `section_visible` | ✅ | ✅ | — |
+| `tab_switch` | ✅ | ✅ | — |
 
-```
-SUPABASE_URL=https://your-project.supabase.co
-SUPABASE_KEY=sb_publishable_your_key
-SUPABASE_SECRET_KEY=sb_secret_your_secret_key
-SUPABASE_TABLE=do11y_integration_test
-```
-
-Create a dedicated test table in the Supabase SQL Editor:
-
-```sql
-create table do11y_integration_test (
-  id bigint generated always as identity primary key,
-  created_at timestamptz not null default now(),
-  payload jsonb not null
-);
-
-alter table do11y_integration_test enable row level security;
-
-grant insert on do11y_integration_test to anon;
-grant select on do11y_integration_test to service_role;
-
-create policy "Allow anonymous inserts"
-  on do11y_integration_test for insert
-  to anon
-  with check (true);
-```
-
-#### Run tests
-
-Run the full suite:
-
-```bash
-npm run test-integrations
-```
-
-Run a subset of frameworks:
-
-```bash
-FRAMEWORKS=mintlify,vitepress npm run test-integrations
-```
-
-Skip dependency installation on repeat runs (uses already-installed `node_modules` in each site folder):
-
-```bash
-SKIP_INSTALL=1 npm run test-integrations
-```
-
-Skip the build step on repeat runs (uses existing `dist/do11y.js`):
-
-```bash
-SKIP_BUILD=1 npm run test-integrations
-```
+`section_visible` and `tab_switch` are not tested in the Puppeteer-based standalone E2E because they require `IntersectionObserver` and specific DOM structures that are hard to trigger reliably across all framework fixtures. Unit tests and the instrumentation export test cover them.
 
 ## Create release
 
-1. Run all tests.
+1. Bump the version in `package.json` and `src/core/constants.ts`.
 
-1. Bump the version in `package.json` and `src/do11y.ts`.
-
-1. Build and verify:
+1. Build, verify, and run tests:
 
     ```bash
-    npm run build
-    npm run check
-    npm run lint
+    npm run all
     ```
 
 1. Commit and push to `main`.

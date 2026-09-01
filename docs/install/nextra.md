@@ -42,18 +42,49 @@ Replace `SUPABASE_PROJECT_URL` and `SUPABASE_PUBLISHABLE_KEY` with your [Supabas
 
 ## Advanced configuration
 
-To use options beyond the basic credentials, add an inline script before the main script tag. The inline script must run before Do11y loads:
+To use options beyond the basic credentials, add an inline script before the main script tag. The inline script must run before Do11y loads.
+
+### App Router
+
+Use Next.js's `<Script>` component with inline children. Inline scripts require an `id` prop:
+
+```jsx
+import Script from 'next/script'
+
+<Head>
+  <meta name="do11y-url" content="SUPABASE_PROJECT_URL" />
+  <meta name="do11y-key" content="SUPABASE_PUBLISHABLE_KEY" />
+  <meta name="do11y-framework" content="nextra" />
+</Head>
+<Script id="do11y-config" strategy="beforeInteractive">
+  {`window.Do11yConfig = { scrollThresholds: [25, 50, 75, 100] };`}
+</Script>
+<Script
+  src="https://cdn.jsdelivr.net/npm/@manototh/do11y@latest/dist/do11y.min.js"
+  strategy="afterInteractive"
+/>
+```
+
+The `beforeInteractive` strategy guarantees the config is set before `do11y.js` runs.
+
+### Pages Router
+
+The Pages Router doesn't support inline children. Put the config in a static file instead:
+
+Create `public/do11y-config.js`:
+
+```js
+window.Do11yConfig = { scrollThresholds: [25, 50, 75, 100] };
+```
+
+Then load it before Do11y:
 
 ```jsx
 <Head>
   <meta name="do11y-url" content="SUPABASE_PROJECT_URL" />
   <meta name="do11y-key" content="SUPABASE_PUBLISHABLE_KEY" />
   <meta name="do11y-framework" content="nextra" />
-  <script
-    dangerouslySetInnerHTML={{
-      __html: `window.Do11yConfig = { scrollThresholds: [25, 50, 75, 100] };`,
-    }}
-  />
+  <script src="/do11y-config.js" />
   <script src="https://cdn.jsdelivr.net/npm/@manototh/do11y@latest/dist/do11y.min.js" defer />
 </Head>
 ```

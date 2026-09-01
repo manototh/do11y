@@ -1,12 +1,13 @@
 {
   "name": "@manototh/do11y",
-  "version": "0.1.2",
+  "version": "0.2.0",
   "description": "Documentation observability",
   "type": "module",
   "main": "./dist/do11y.min.js",
   "exports": {
     ".": "./dist/do11y.min.js",
-    "./min": "./dist/do11y.min.js"
+    "./min": "./dist/do11y.min.js",
+    "./instrumentation": "./dist/instrumentation/index.js"
   },
   "files": [
     "dist",
@@ -14,18 +15,40 @@
   ],
   "scripts": {
     "build": "rolldown -c rolldown.config.ts",
+    "postbuild": "node scripts/sync-test-sites.mjs",
+    "build:standalone": "rolldown -c rolldown.config.ts --configEntry src/standalone/index.ts",
+    "build:instrumentation": "rolldown -c rolldown.config.ts --configEntry src/instrumentation/index.ts",
     "lint": "oxlint src",
     "format": "oxfmt src",
-    "check": "tsc --noEmit"
+    "check": "tsc --noEmit",
+    "ci": "npm run build && npm run lint && npm run format && npm run check",
+    "all": "npm run ci && npm -C tests run test:all"
   },
   "keywords": [
-    "supabase",
-    "analytics",
+    "opentelemetry",
+    "instrumentation",
+    "observability",
     "documentation",
-    "observability"
+    "analytics",
+    "docs",
+    "supabase"
   ],
   "license": "MIT",
+  "peerDependencies": {
+    "@opentelemetry/api-logs": "^0.221.0",
+    "@opentelemetry/instrumentation": "^0.221.0"
+  },
+  "peerDependenciesMeta": {
+    "@opentelemetry/api-logs": {
+      "optional": true
+    },
+    "@opentelemetry/instrumentation": {
+      "optional": true
+    }
+  },
   "devDependencies": {
+    "@opentelemetry/api-logs": "^0.221.0",
+    "@opentelemetry/instrumentation": "^0.221.0",
     "oxfmt": "latest",
     "oxlint": "latest",
     "rolldown": "latest",

@@ -1,6 +1,7 @@
 import { Footer, Layout, Navbar } from 'nextra-theme-docs'
 import { Banner, Head } from 'nextra/components'
 import { getPageMap } from 'nextra/page-map'
+import Script from 'next/script'
 import 'nextra-theme-docs/style.css'
  
 export const metadata = {
@@ -29,8 +30,6 @@ export default async function RootLayout({ children }) {
       suppressHydrationWarning
     >
       <Head>
-        <meta name="do11y-framework" content="nextra" />
-        <script src="/do11y.js" defer />
       </Head>
       <body>
         <Layout
@@ -43,6 +42,8 @@ export default async function RootLayout({ children }) {
         >
           {children}
         </Layout>
+        <Script src="/do11y-config.js" strategy="afterInteractive" />
+        <Script src="/do11y.js" strategy="afterInteractive" />
       </body>
     </html>
   )

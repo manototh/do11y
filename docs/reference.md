@@ -18,6 +18,8 @@ Every event includes: `session.id`, `browser.do11y.session_page_count`, `url.pat
 
 All events and attributes follow [OpenTelemetry semantic convention](https://opentelemetry.io/docs/specs/semconv/) naming. Do11y-specific attributes use the `browser.do11y.*` namespace.
 
+For OTLP destinations, `eventName` is emitted as the top-level OTel `event_name` LogRecord field (per the OpenTelemetry logs data model) and `_time` becomes the record timestamp. The native `{ _time, eventName, ... }` payload shape below applies to the HTTP and Supabase destinations.
+
 | Event name (`eventName`) | Description | Key attributes |
 |---|---|---|
 | `browser.do11y.page_view` | Fires on every page load or SPA navigation. | `browser.do11y.referrer_domain`, `browser.do11y.referrer_category`, `browser.do11y.ai_platform`, `browser.do11y.is_first_page`, `browser.do11y.previous_path` |
@@ -56,8 +58,6 @@ Do11y.flush()        // Force-send queued events
 Do11y.getQueueSize() // Number of queued events
 Do11y.version        // Script version
 ```
-
-`cleanup()` and `debug()` are intentionally not exposed on the global object. Exposing `cleanup()` would allow any third-party script on the page to silently stop tracking. Exposing `debug()` would allow any script to enable verbose console output that reveals the configured ingest endpoint and queued event data.
 
 ## Known limitations
 

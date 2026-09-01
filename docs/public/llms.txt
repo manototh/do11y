@@ -12,6 +12,7 @@ Privacy: no cookies, no PII, no device fingerprinting, no cross-site tracking. U
 
 - [Introduction](https://docservable.com/introduction): What Do11y tracks, the privacy model, and supported frameworks.
 - [Get started](https://docservable.com/get-started): Create a Supabase project and configure Do11y.
+- [Destinations and setup paths](https://docservable.com/destinations): How to choose between the script tag and OpenTelemetry instrumentation paths, and which destination (Supabase, HTTP, OTLP) works with each combination.
 - [Manual setup](https://docservable.com/install/manual): CDN and self-hosting instructions for any framework.
 - [Configuration](https://docservable.com/configuration): All configuration options including destination, behavioral options, framework values, and custom selectors.
 - [Audit](https://docservable.com/audit): AI-powered recommendations about what to fix in your documentation.
@@ -22,7 +23,4 @@ Privacy: no cookies, no PII, no device fingerprinting, no cross-site tracking. U
 ## Optional
 
 - [GitHub](https://github.com/manototh/do11y): Source code, releases, and issue tracker.
-- [npm](https://www.npmjs.com/package/do11y): Package published as do11y.
-- [Supabase](https://supabase.com): The platform that stores Do11y event data (PostgreSQL).
-- [OTLP destination](https://docservable.com/configuration#otlp): Send events to any OpenTelemetry-compatible backend via OTLP/HTTP JSON. Supports Grafana, Loki, and other OTel receivers. Requires an OTel Collector or CORS proxy for browser use.
-- [CORS setup](https://docservable.com/cors): How to set up an OpenTelemetry Collector or Cloudflare Worker to use the OTLP destination from a browser.
+- [npm](https://www.npmjs.com/package/@manototh/do11y): Package published as do11y.

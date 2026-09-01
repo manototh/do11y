@@ -1,20 +1,30 @@
 {
   "name": "do11y-tests",
   "private": true,
-  "type": "commonjs",
+  "type": "module",
   "scripts": {
-    "test-integrations": "tsx test-integrations.ts",
-    "test-e2e-live": "tsx test-e2e-live.ts",
-    "test-live-sites": "tsx test-live-sites.ts",
-    "test-queries": "tsx test-queries.ts"
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "test:unit": "vitest run unit",
+    "test:selectors": "vitest run selector-snapshots",
+    "test:export": "vitest run export",
+    "test:integration": "vitest run integration",
+    "test:supabase": "vitest run export/supabase.test.ts",
+    "test:spa": "vitest run export/spa.test.ts",
+    "test:live-selectors": "TEST_LIVE=1 vitest run selector-snapshots/live-sites.test.ts",
+    "test:all": "TEST_LIVE=1 vitest run --reporter verbose",
+    "test:queries": "tsx test-queries.ts"
   },
   "dependencies": {
     "dotenv": "^16.4.5",
     "puppeteer": "^24.0.0"
   },
   "devDependencies": {
+    "@types/jsdom": "^30.0.0",
     "@types/node": "latest",
+    "jsdom": "^26.0.0",
     "tsx": "latest",
-    "typescript": "latest"
+    "typescript": "latest",
+    "vitest": "^3.1.0"
   }
 }

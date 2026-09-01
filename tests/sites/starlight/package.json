@@ -5,7 +5,7 @@
     "start": "astro dev --port 4006"
   },
   "dependencies": {
-    "@astrojs/starlight": "^0.34.0",
-    "astro": "^5.7.0"
+    "@astrojs/starlight": "latest",
+    "astro": "latest"
   }
 }
