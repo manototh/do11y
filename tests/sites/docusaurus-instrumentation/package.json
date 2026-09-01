@@ -10,7 +10,7 @@
     "@manototh/do11y": "file:../../..",
     "@opentelemetry/api": "^1.9.1",
     "@opentelemetry/api-logs": "0.221.0",
-    "@opentelemetry/browser-instrumentation": "0.8.0",
+    "@opentelemetry/browser-instrumentation": "0.7.0",
     "@opentelemetry/browser-sdk": "0.3.0",
     "@opentelemetry/instrumentation": "0.221.0",
     "prism-react-renderer": "^2.3.0",
