@@ -91,7 +91,6 @@ const config: Do11yConfig = {
   navigationSelector: null,
   footerSelector: null,
   contentSelector: null,
-  useOtelBrowserInstrumentations: false,
   trackSpaPathChanges: false,
   // Instrumentation-only; the standalone build always attaches its own
   // session attributes. Kept here to mirror the full Do11yConfig shape.
@@ -199,16 +198,6 @@ function init(): void {
           config.framework,
       );
     }
-  }
-
-  const metaUseOtelInstrumentations = document.querySelector(
-    'meta[name="do11y-use-otel-instrumentations"]',
-  );
-  if (
-    metaUseOtelInstrumentations &&
-    metaUseOtelInstrumentations.getAttribute("content") === "true"
-  ) {
-    config.useOtelBrowserInstrumentations = true;
   }
 
   applyFrameworkSelectors(config);

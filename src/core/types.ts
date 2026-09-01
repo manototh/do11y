@@ -86,7 +86,6 @@ export interface Do11yConfig {
   navigationSelector: string | null;
   footerSelector: string | null;
   contentSelector: string | null;
-  useOtelBrowserInstrumentations: boolean;
 }
 
 export interface Do11yEvent {

@@ -1422,7 +1422,6 @@ var Do11yBundle = (function(exports) {
 		navigationSelector: null,
 		footerSelector: null,
 		contentSelector: null,
-		useOtelBrowserInstrumentations: false,
 		trackSpaPathChanges: false,
 		sessionAttributes: true
 	};
@@ -1483,8 +1482,6 @@ var Do11yBundle = (function(exports) {
 			].includes(rawFramework)) config.framework = rawFramework;
 			else if (rawFramework && config.debug) console.warn("[Do11y] Unknown framework in meta tag: \"" + rawFramework + "\". Using default: " + config.framework);
 		}
-		const metaUseOtelInstrumentations = document.querySelector("meta[name=\"do11y-use-otel-instrumentations\"]");
-		if (metaUseOtelInstrumentations && metaUseOtelInstrumentations.getAttribute("content") === "true") config.useOtelBrowserInstrumentations = true;
 		applyFrameworkSelectors(config);
 		if (config.debug) console.log("[Do11y] Initializing with config:", {
 			destination: config.destination,

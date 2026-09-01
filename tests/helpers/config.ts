@@ -85,8 +85,6 @@ export function makeConfig(overrides: Partial<Do11yConfig> = {}): Do11yConfig {
     footerSelector: null,
     contentSelector: null,
 
-    // OTel browser instrumentation
-    useOtelBrowserInstrumentations: false,
     trackSpaPathChanges: false,
     sessionAttributes: true,
 

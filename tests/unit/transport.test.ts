@@ -72,7 +72,6 @@ function makeSupabaseConfig(overrides: Partial<Do11yConfig> = {}): Do11yConfig {
     navigationSelector: null,
     footerSelector: null,
     contentSelector: null,
-    useOtelBrowserInstrumentations: false,
     trackSpaPathChanges: false,
     ...overrides,
   } as Do11yConfig;
