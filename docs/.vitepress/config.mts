@@ -89,7 +89,6 @@ export default defineConfig({
         items: [
           { text: 'Configuration', link: '/configuration' },
           { text: 'Custom selectors', link: '/configuration#custom-selectors' },
-          { text: 'CORS setup', link: '/cors' },
         ],
       },
       {

@@ -12,11 +12,21 @@ head:
 
 # Configuration
 
-The way you configure Do11y depends on how you installed it.
+The way you configure Do11y depends on whether you installed it using:
+
+- [Standalone path](#standalone-path)
+- [OpenTelemetry instrumentation path](#opentelemetry-instrumentation-path)
+
+See [Destinations and setup paths](/destinations) for more information.
 
 ### Standalone path
 
-Set options via `window.Do11yConfig` using an inline script or a separate config file, or via meta tags. When both are present, meta tags take precedence over `window.Do11yConfig`, which takes precedence over the defaults.
+Set options using one of the following methods:
+
+- Meta tags (limited set of options)
+- `window.Do11yConfig` object using an inline script or a separate config file
+
+Meta tags take precedence over `window.Do11yConfig` when both are present.
 
 ### OpenTelemetry instrumentation path
 
@@ -32,112 +42,7 @@ new DocsInstrumentation({
 });
 ```
 
-The instrumentation class accepts a subset of the full configuration such as framework selection, tracking toggles, and optional custom selectors. Configure transport-level options (endpoint, headers, API keys) through the OTel SDK, not through Do11y. See [Destinations and setup paths](/destinations) for which destinations work with this path.
-
-## Destination
-
-If you use the **Standalone** path, configure where to send events with the `destination` option. For the **OpenTelemetry instrumentation** path, configure where to send data using the OTel SDK pipeline.
-
-| Option | Default | Description |
-|---|---|---|
-| `destination` | `'supabase'` | Where to send events. `'supabase'`, `'http'`, or `'otlp'`. |
-
-### Supabase
-
-The `supabase` destination is a preset over the `http` destination. It automatically configures the endpoint, headers, and body transform for Supabase's REST API.
-
-| Option | Default | Description |
-|---|---|---|
-| `supabaseUrl` | `''` | Your Supabase project URL. For example: `https://abc123.supabase.co` |
-| `supabaseKey` | `''` | Publishable key. For example: `sb_publishable_1234567890` |
-| `supabaseTable` | `'do11y_events'` | Name of the table to insert events into. |
-
-Under the hood, this sets:
-- `endpoint` to `<supabaseUrl>/rest/v1/<supabaseTable>`
-- `headers` with Supabase REST headers
-- `bodyTransform` to `(events) => events.map(e => ({ payload: e }))`
-
-### Generic HTTP
-
-To send events to a HTTPS endpoint, set `destination` to `'http'` and provide the `endpoint`. Optionally, set `headers` and `bodyTransform`. Do11y sends the events as a JSON array with `Content-Type: application/json`.
-
-```js
-window.Do11yConfig = {
-  destination: 'http',
-  endpoint: 'BACKEND_URL',
-  headers: {
-    'Authorization': 'Bearer API_TOKEN',
-  },
-};
-```
-
-Replace `BACKEND_URL` and `API_TOKEN` with your own values. The endpoint must use HTTPS.
-
-| Option | Default | Description |
-|---|---|---|
-| `endpoint` | `''` | Full URL to POST events to. Must be HTTPS. |
-| `headers` | `{}` | Custom headers to include (for example, authorization). |
-| `bodyTransform` | `undefined` | Optional function to transform the event array before sending. Receives the events array and returns what you want to serialize as JSON. Example: `(events) => ({ events })`. |
-
-### OpenTelemetry Protocol
-
-To send events to an OpenTelemetry-compatible backend, set `destination` to `'otlp'`.
-
-```js
-window.Do11yConfig = {
-  destination: 'otlp',
-  otelSdkEndpoint: 'OTLP_ENDPOINT',
-  otelSdkHeaders: {
-    'Authorization': 'Bearer API_TOKEN',
-  },
-};
-```
-
-Replace `OTLP_ENDPOINT` and `API_TOKEN` with your own values.
-
-If you use the OTLP destination, your Do11y implementation relies on external dependencies. Do11y dynamically loads the [OpenTelemetry Browser SDK](https://github.com/open-telemetry/opentelemetry-browser) via a CDN and sends events as OTel LogRecords. The event name goes in the top-level `event_name` field, the event's `_time` becomes the record timestamp, and all other fields become attributes.
-
-| Option | Default | Description |
-|---|---|---|
-| `otelSdkEndpoint` | `''` | Your OTLP collector URL. For example: `https://otlp.grafana.com/otlp`. The `/v1/logs` path is appended automatically. |
-| `otelSdkHeaders` | `{}` | Custom headers for the OTLP request (for example, authorization). |
-| `otelSdkServiceName` | `'do11y'` | Value of the `service.name` resource attribute. |
-| `otelSdkResourceAttributes` | `{}` | Extra resource attributes to attach to every exported LogRecord. |
-
-#### CORS and the OTel Collector
-
-OTLP endpoints are designed for backend-to-backend communication and most cloud services (Grafana, Datadog, etc.) don't return CORS headers, which means browsers block cross-origin requests directly to them.
-
-The standard OTel solution is to run a local [OpenTelemetry Collector](https://opentelemetry.io/docs/collector/) that accepts CORS requests from your docs domain and forwards them to your backend. You can configure the collector with a [CORS HTTP receiver](https://github.com/open-telemetry/opentelemetry-collector-contrib/tree/main/receiver/corsreceiver):
-
-```yaml
-receivers:
-  otlp:
-    protocols:
-      http:
-        cors:
-          allowed_origins:
-            - https://docs.example.com
-            - https://your-docs-domain.com
-            - http://localhost:*
-          allowed_headers:
-            - Content-Type
-            - Authorization
-
-exporters:
-  otlphttp:
-    endpoint: https://otlp.grafana.com/otlp
-
-service:
-  pipelines:
-    logs:
-      receivers: [otlp]
-      exporters: [otlphttp]
-```
-
-Set `otelSdkEndpoint` to your collector (for example, `https://collector.example.com:4318`). The collector handles authentication and forwarding to your cloud backend.
-
-If you cannot run a collector, use a lightweight CORS proxy (such as [cors-anywhere](https://github.com/Rob--W/cors-anywhere) or a Cloudflare Worker) that adds the required headers.
+The instrumentation class accepts a subset of the full configuration such as framework selection, tracking toggles, and optional custom selectors. Configure transport-level options (endpoint, headers, API keys) through the OTel SDK, not through Do11y. See [Destinations and setup paths](/destinations) for more information.
 
 ## Behavior
 
@@ -177,12 +82,6 @@ Set `framework` to auto-configure CSS selectors for your documentation platform:
 | `'custom'` | Provide your own selectors (see below) |
 
 When you set `framework` to a supported value, Do11y automatically configures the correct CSS selectors for search bars, copy buttons, code blocks, navigation, footers, and content areas.
-
-You can also set the framework via a meta tag:
-
-```html
-<meta name="do11y-framework" content="docusaurus">
-```
 
 ## Custom selectors
 
