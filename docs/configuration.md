@@ -49,7 +49,6 @@ The following options are supported:
 | `do11y-debug` | `debug` |
 | `do11y-domains` | `allowedDomains` |
 | `do11y-framework` | `framework` |
-| `do11y-use-otel-instrumentations` | `useOtelBrowserInstrumentations` |
 
 #### Configuration object
 
@@ -70,7 +69,7 @@ window.Do11yConfig = {
 
 ## OpenTelemetry instrumentation path
 
-Pass configuration as a constructor argument to `DocsInstrumentation`:
+Pass the configuration as a constructor argument to `DocsInstrumentation`:
 
 ```ts
 import { DocsInstrumentation } from '@manototh/do11y/instrumentation';
@@ -82,15 +81,16 @@ new DocsInstrumentation({
 });
 ```
 
-The instrumentation class accepts a subset of the full configuration such as framework selection, tracking toggles, and optional custom selectors.
+The following options from the full configuration are **not** supported by `DocsInstrumentation`:
+
+| `flushInterval`, `maxBatchSize` | Standalone batch queue. Batching is handled by the OTel SDK batch processor. |
+| `maxRetries`, `retryDelay` | Standalone transport retry. Retries are handled by the OTel exporter/collector. |
 
 ## Behavior
 
 | Option | Default | Description |
 |---|---|---|
 | `debug` | `false` | Log events to the browser console. |
-| `flushInterval` | `5000` | Milliseconds between batch flushes. |
-| `maxBatchSize` | `10` | Events queued before forcing a flush. |
 | `trackOutboundLinks` | `true` | Track clicks on external links. |
 | `trackInternalLinks` | `true` | Track clicks on internal links. |
 | `trackScrollDepth` | `true` | Track scroll depth thresholds. |
@@ -103,9 +103,16 @@ The instrumentation class accepts a subset of the full configuration such as fra
 | `trackFeedback` | `true` | Track "Was this helpful?" feedback widget clicks. |
 | `allowedDomains` | `null` | Restrict which domains may send data. Set to `null` to allow any. |
 | `respectDNT` | `true` | Honor the browser's Do Not Track setting. |
+| `rateLimitMs` | `100` | Minimum gap between events of the same type (applies to both the script-tag build and `DocsInstrumentation`). Distinct scroll depth thresholds are exempt, so a fast scroll still records every milestone. |
+
+The following options are only supported in the Standalone setup path. They are ignored when using the OpenTelemetry instrumentation path because batching and retries are handled by the OpenTelemetry SDK.
+
+| Option | Default | Description |
+|---|---|---|
+| `flushInterval` | `5000` | Milliseconds between batch flushes. |
+| `maxBatchSize` | `10` | Events queued before forcing a flush. |
 | `maxRetries` | `2` | Retry count for failed requests. |
 | `retryDelay` | `1000` | Base delay between retries in milliseconds (doubles each attempt). |
-| `rateLimitMs` | `100` | Minimum gap between events of the same type (applies to both the script-tag build and `DocsInstrumentation`). Distinct scroll depth thresholds are exempt, so a fast scroll still records every milestone. |
 
 ## Framework
 
@@ -139,18 +146,34 @@ Set `framework: 'custom'` and provide any combination of the selectors below. An
 | `tocSelector` | On-page table of contents container. |
 | `feedbackSelector` | "Was this helpful?" feedback widget container. |
 
-Example:
+**Example using a configuration object:**
+
+Pass custom selectors as flat top-level keys:
 
 ```js
 window.Do11yConfig = {
-  supabaseUrl: 'SUPABASE_PROJECT_URL',
-  supabaseKey: 'SUPABASE_PUBLISHABLE_KEY',
   framework: 'custom',
   searchSelector: '#search-input',
   copyButtonSelector: '.copy-btn',
   codeBlockSelector: 'pre code',
   contentSelector: 'article.content',
-  tocSelector: 'nav.toc',
-  feedbackSelector: null,
+  tocSelector: 'nav.toc'
 };
 ```
+
+**Example using the `DocsInstrumentation` constructor:**
+
+Pass custom selectors as a nested `selectors` object:
+
+  ```ts
+  new DocsInstrumentation({
+    framework: 'custom',
+    selectors: {
+      searchSelector: '#search-input',
+      copyButtonSelector: '.copy-btn',
+      codeBlockSelector: 'pre code',
+      contentSelector: 'article.content',
+      tocSelector: 'nav.toc'
+    },
+  });
+  ```
