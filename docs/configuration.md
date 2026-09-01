@@ -137,43 +137,11 @@ Set `framework: 'custom'` and provide any combination of the selectors below. An
 | Selector | What it targets |
 |---|---|
 | `searchSelector` | Search trigger elements (input, button). |
-| `copyButtonSelector` | "Copy code" buttons inside code blocks. |
+| `copyButtonSelector` | Copy code buttons inside code blocks. |
 | `codeBlockSelector` | Code block containers (`<pre>`, wrappers). |
 | `navigationSelector` | Navigation and sidebar regions. |
 | `footerSelector` | Page footer. |
 | `contentSelector` | Main content area. |
 | `tabContainerSelector` | Tab groups for code language/framework switching. |
 | `tocSelector` | On-page table of contents container. |
-| `feedbackSelector` | "Was this helpful?" feedback widget container. |
-
-**Example using a configuration object:**
-
-Pass custom selectors as flat top-level keys:
-
-```js
-window.Do11yConfig = {
-  framework: 'custom',
-  searchSelector: '#search-input',
-  copyButtonSelector: '.copy-btn',
-  codeBlockSelector: 'pre code',
-  contentSelector: 'article.content',
-  tocSelector: 'nav.toc'
-};
-```
-
-**Example using the `DocsInstrumentation` constructor:**
-
-Pass custom selectors as a nested `selectors` object:
-
-  ```ts
-  new DocsInstrumentation({
-    framework: 'custom',
-    selectors: {
-      searchSelector: '#search-input',
-      copyButtonSelector: '.copy-btn',
-      codeBlockSelector: 'pre code',
-      contentSelector: 'article.content',
-      tocSelector: 'nav.toc'
-    },
-  });
-  ```
+| `feedbackSelector` | Feedback widget container. |

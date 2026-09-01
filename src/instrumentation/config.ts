@@ -15,18 +15,16 @@ export interface DocsInstrumentationConfig extends InstrumentationConfig {
   /** Documentation framework preset. Default: 'mintlify' */
   framework?: FrameworkPreset;
 
-  /** Custom selectors override (only used when framework='custom') */
-  selectors?: {
-    searchSelector?: string;
-    copyButtonSelector?: string;
-    codeBlockSelector?: string;
-    navigationSelector?: string;
-    footerSelector?: string;
-    contentSelector?: string;
-    tabContainerSelector?: string;
-    tocSelector?: string;
-    feedbackSelector?: string;
-  };
+  // Custom selectors override (only used when framework='custom')
+  searchSelector?: string;
+  copyButtonSelector?: string;
+  codeBlockSelector?: string;
+  navigationSelector?: string;
+  footerSelector?: string;
+  contentSelector?: string;
+  tabContainerSelector?: string;
+  tocSelector?: string;
+  feedbackSelector?: string;
 
   // Tracking toggles — all default to true
   trackScrollDepth?: boolean;
@@ -91,14 +89,14 @@ export function buildConfig(userConfig: DocsInstrumentationConfig): Partial<Do11
     respectDNT: userConfig.respectDNT ?? true,
     allowedDomains: userConfig.allowedDomains ?? null,
     // Selector overrides from user config
-    searchSelector: userConfig.selectors?.searchSelector ?? null,
-    copyButtonSelector: userConfig.selectors?.copyButtonSelector ?? null,
-    codeBlockSelector: userConfig.selectors?.codeBlockSelector ?? null,
-    navigationSelector: userConfig.selectors?.navigationSelector ?? null,
-    footerSelector: userConfig.selectors?.footerSelector ?? null,
-    contentSelector: userConfig.selectors?.contentSelector ?? null,
-    tabContainerSelector: userConfig.selectors?.tabContainerSelector ?? null,
-    tocSelector: userConfig.selectors?.tocSelector ?? null,
-    feedbackSelector: userConfig.selectors?.feedbackSelector ?? null,
+    searchSelector: userConfig.searchSelector ?? null,
+    copyButtonSelector: userConfig.copyButtonSelector ?? null,
+    codeBlockSelector: userConfig.codeBlockSelector ?? null,
+    navigationSelector: userConfig.navigationSelector ?? null,
+    footerSelector: userConfig.footerSelector ?? null,
+    contentSelector: userConfig.contentSelector ?? null,
+    tabContainerSelector: userConfig.tabContainerSelector ?? null,
+    tocSelector: userConfig.tocSelector ?? null,
+    feedbackSelector: userConfig.feedbackSelector ?? null,
   } as Partial<Do11yConfig>;
 }

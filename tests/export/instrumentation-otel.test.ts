@@ -77,17 +77,15 @@ function makeConfig(overrides: Partial<DocsInstrumentationConfig> = {}): DocsIns
   return {
     framework: 'custom',
     debug: false,
-    selectors: {
-      searchSelector: '#search-bar-entry, .search-input',
-      copyButtonSelector: '.copy-btn, button[aria-label*="copy"]',
-      codeBlockSelector: 'pre',
-      tocSelector: '.table-of-contents',
-      contentSelector: 'main',
-      navigationSelector: 'nav',
-      footerSelector: 'footer',
-      feedbackSelector: '.feedback',
-      tabContainerSelector: '[role="tablist"]',
-    },
+    searchSelector: '#search-bar-entry, .search-input',
+    copyButtonSelector: '.copy-btn, button[aria-label*="copy"]',
+    codeBlockSelector: 'pre',
+    tocSelector: '.table-of-contents',
+    contentSelector: 'main',
+    navigationSelector: 'nav',
+    footerSelector: 'footer',
+    feedbackSelector: '.feedback',
+    tabContainerSelector: '[role="tablist"]',
     sectionVisibleThreshold: 0,
     trackSectionVisibility: true,
     trackTabSwitches: true,
@@ -159,11 +157,9 @@ describe('export / instrumentation-otel', () => {
 
   it('emits code_copied event when copy button is clicked', () => {
     instrumentation = new DocsInstrumentation(makeConfig({
-      selectors: {
-        copyButtonSelector: '.copy-btn, button[aria-label*="copy"]',
-        codeBlockSelector: 'pre',
-        contentSelector: 'main',
-      },
+      copyButtonSelector: '.copy-btn, button[aria-label*="copy"]',
+      codeBlockSelector: 'pre',
+      contentSelector: 'main',
     }));
     instrumentation.enable();
     clearRecords();
@@ -179,9 +175,7 @@ describe('export / instrumentation-otel', () => {
 
   it('emits search_opened event when a search element is clicked', () => {
     instrumentation = new DocsInstrumentation(makeConfig({
-      selectors: {
-        searchSelector: '#search-bar-entry, .search-input',
-      },
+      searchSelector: '#search-bar-entry, .search-input',
     }));
     instrumentation.enable();
     clearRecords();
@@ -209,9 +203,7 @@ describe('export / instrumentation-otel', () => {
 
   it('emits feedback event when a feedback button is clicked', () => {
     instrumentation = new DocsInstrumentation(makeConfig({
-      selectors: {
-        feedbackSelector: '.feedback',
-      },
+      feedbackSelector: '.feedback',
     }));
     instrumentation.enable();
     clearRecords();
@@ -227,9 +219,7 @@ describe('export / instrumentation-otel', () => {
 
   it('emits tab_switch event when a non-active tab is clicked', () => {
     instrumentation = new DocsInstrumentation(makeConfig({
-      selectors: {
-        tabContainerSelector: '[role="tablist"]',
-      },
+      tabContainerSelector: '[role="tablist"]',
     }));
     instrumentation.enable();
     clearRecords();
@@ -245,9 +235,7 @@ describe('export / instrumentation-otel', () => {
 
   it('emits expand_collapse event when details is toggled', () => {
     instrumentation = new DocsInstrumentation(makeConfig({
-      selectors: {
-        contentSelector: 'main',
-      },
+      contentSelector: 'main',
     }));
     instrumentation.enable();
     clearRecords();
@@ -265,10 +253,8 @@ describe('export / instrumentation-otel', () => {
 
   it('emits toc_click event when a TOC link is clicked', () => {
     instrumentation = new DocsInstrumentation(makeConfig({
-      selectors: {
-        tocSelector: '.table-of-contents',
-        contentSelector: 'main',
-      },
+      tocSelector: '.table-of-contents',
+      contentSelector: 'main',
     }));
     instrumentation.enable();
     clearRecords();

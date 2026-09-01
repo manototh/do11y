@@ -1082,15 +1082,15 @@ function buildConfig(userConfig) {
 		sessionAttributes: userConfig.sessionAttributes ?? true,
 		respectDNT: userConfig.respectDNT ?? true,
 		allowedDomains: userConfig.allowedDomains ?? null,
-		searchSelector: userConfig.selectors?.searchSelector ?? null,
-		copyButtonSelector: userConfig.selectors?.copyButtonSelector ?? null,
-		codeBlockSelector: userConfig.selectors?.codeBlockSelector ?? null,
-		navigationSelector: userConfig.selectors?.navigationSelector ?? null,
-		footerSelector: userConfig.selectors?.footerSelector ?? null,
-		contentSelector: userConfig.selectors?.contentSelector ?? null,
-		tabContainerSelector: userConfig.selectors?.tabContainerSelector ?? null,
-		tocSelector: userConfig.selectors?.tocSelector ?? null,
-		feedbackSelector: userConfig.selectors?.feedbackSelector ?? null
+		searchSelector: userConfig.searchSelector ?? null,
+		copyButtonSelector: userConfig.copyButtonSelector ?? null,
+		codeBlockSelector: userConfig.codeBlockSelector ?? null,
+		navigationSelector: userConfig.navigationSelector ?? null,
+		footerSelector: userConfig.footerSelector ?? null,
+		contentSelector: userConfig.contentSelector ?? null,
+		tabContainerSelector: userConfig.tabContainerSelector ?? null,
+		tocSelector: userConfig.tocSelector ?? null,
+		feedbackSelector: userConfig.feedbackSelector ?? null
 	};
 }
 //#endregion
