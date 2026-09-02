@@ -41,7 +41,7 @@ Do11y streams the following behavioral events:
 | Page views | Every page load and SPA navigation, with referrer and AI platform classification. |
 | Scroll depth | How far down the page users actually scroll. |
 | Link clicks | Internal links, external links, anchor links, and email links. |
-| Search queries | When users open the search dialog. |
+| Search usage | When users open the search dialog. |
 | Code-block copies | Which code blocks users copy and in which language. |
 | Section reading time | How long each heading stays in the viewport. |
 | Tab switches | Which code language or framework tab users select. |
@@ -55,7 +55,7 @@ These events are specific to how documentation is used. Knowing which sections u
 
 Do11y collects anonymous usage data with no impact on user privacy:
 
-- No cookies. Do11y uses `sessionStorage`, which the browser clears when it closes.
+- No cookies. Do11y uses `sessionStorage`, which the browser clears when the tab closes.
 - No personally identifiable information (PII).
 - No device fingerprinting.
 - No cross-site tracking.
