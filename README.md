@@ -7,7 +7,7 @@ Do11y is a documentation observability tool. It streams behavioral events from y
 - Page views
 - Scroll depth
 - Link clicks
-- Search queries
+- Search usage
 - Code-block copies
 - Section reading time
 - Tab switches
@@ -19,13 +19,13 @@ Do11y is built for humans and machines alike. It emits observability data design
 
 Do11y is agent-native: it detects AI platform referrers (ChatGPT, Perplexity, Claude, Gemini, and others) so you can understand how agents and humans engage with your content differently.
 
-The runtime artifact is a single dependency-free JavaScript file. The source is TypeScript (`src/do11y.ts`). [rolldown](https://rolldown.rs) produces the built output.
+The standalone artifact is a single dependency-free JavaScript file. The source is TypeScript. [rolldown](https://rolldown.rs) produces the built output.
 
 ## Privacy
 
 Do11y collects anonymous usage data:
 
-- No cookies. Do11y uses `sessionStorage`, which the browser clears when it closes.
+- No cookies. Do11y uses `sessionStorage`, which the browser clears when the tab closes.
 - No personally identifiable information (PII).
 - No device fingerprinting.
 - No cross-site tracking.
@@ -49,11 +49,11 @@ For other frameworks, use manual setup with custom selectors.
 
 ## Setup
 
-Follow the [get started guide](https://docservable.com/get-started) to set up Do11y.
+You can install Do11y as a standalone script or as an instrumentation layer on top of the official [OpenTelemetry Browser SDK](https://github.com/open-telemetry/opentelemetry-browser). Follow the [get started guide](https://docservable.com/get-started) to set up Do11y.
 
 ## Configuration
 
-You can set all options via `window.Do11yConfig` or meta tags. See the [configuration docs](https://docservable.com/configuration) for the full reference.
+You can set options via meta tags or a configuration object. See the [configuration docs](https://docservable.com/configuration) for the full reference.
 
 ## Insights
 
