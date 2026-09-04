@@ -4,7 +4,7 @@ layout: home
 hero:
   name: "Do11y"
   text: "Documentation observability"
-  tagline: Turn documentation usage into structured event data. Stream behavioral events from your docs site to Supabase in real time.
+  tagline: Turn documentation usage into structured event data. Stream behavioral events from your docs site in real time.
   actions:
     - theme: brand
       text: Get started
