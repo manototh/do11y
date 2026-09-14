@@ -1064,6 +1064,9 @@ var Do11yBundle = (function(exports) {
 	let _otelInitPromise = null;
 	/** Set once CDN init fails so we don't retry the load on every event. */
 	let _otelInitFailed = false;
+	/** Set once the self-hosted Supabase hint has been logged, so debug mode
+	*  doesn't repeat it on every flush. */
+	let _selfHostedHintLogged = false;
 	function setIsDisabled(v) {
 		isDisabled = v;
 	}
@@ -1118,12 +1121,21 @@ var Do11yBundle = (function(exports) {
 		if (flushTimeout) return;
 		flushTimeout = setTimeout(() => flush(config), config.flushInterval);
 	}
-	function validateSupabaseUrl(url) {
+	/**
+	* Validate a Supabase destination URL.
+	*
+	* Hosted projects live at `https://<project>.supabase.co`, but self-hosted
+	* instances use custom domains or localhost, so the host is not restricted.
+	* The URL must satisfy the same rules as the generic HTTP destination
+	* (HTTPS, or HTTP for localhost/private addresses when `debug` is enabled).
+	*/
+	function validateSupabaseUrl(url, debug = false) {
+		return validateEndpoint(url, debug);
+	}
+	/** Whether the URL points at a hosted Supabase project (`*.supabase.co`). */
+	function isHostedSupabaseUrl(url) {
 		try {
-			const parsed = new URL(url);
-			if (parsed.protocol !== "https:") return false;
-			if (!parsed.hostname.endsWith(".supabase.co")) return false;
-			return true;
+			return new URL(url).hostname.endsWith(".supabase.co");
 		} catch {
 			return false;
 		}
@@ -1147,9 +1159,13 @@ var Do11yBundle = (function(exports) {
 				if (config.debug) console.warn("[Do11y] No Supabase URL configured");
 				return false;
 			}
-			if (!validateSupabaseUrl(config.supabaseUrl)) {
-				if (config.debug) console.warn("[Do11y] Invalid Supabase URL. Must be https://<project>.supabase.co");
+			if (!validateSupabaseUrl(config.supabaseUrl, config.debug)) {
+				if (config.debug) console.warn("[Do11y] Invalid Supabase URL. Must be a valid HTTPS URL (HTTP is allowed for localhost/private addresses when debug is enabled).");
 				return false;
+			}
+			if (config.debug && !_selfHostedHintLogged && !isHostedSupabaseUrl(config.supabaseUrl)) {
+				_selfHostedHintLogged = true;
+				console.warn("[Do11y] Non-hosted Supabase URL. Ensure your instance's REST endpoint and CORS are configured.");
 			}
 			if (!config.supabaseKey || typeof config.supabaseKey !== "string" || config.supabaseKey.length < 10) {
 				if (config.debug) console.warn("[Do11y] Invalid or missing Supabase publishable key");

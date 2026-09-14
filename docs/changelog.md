@@ -12,6 +12,12 @@ head:
 
 # Changelog
 
+## v0.2.1
+
+**Release date:** 2026-09-14
+
+- **Support self-hosted Supabase support:** The Supabase destination of the Standalone path now accepts any HTTPS URL, so self-hosted Supabase instances and custom domains work without switching to the generic HTTP destination.
+
 ## v0.2.0
 
 **Release date:** 2026-09-01

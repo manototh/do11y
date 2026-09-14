@@ -312,8 +312,50 @@ describe('transport', () => {
       expect(validateConfig(makeSupabaseConfig({ supabaseKey: '' }))).toBe(false);
     });
 
-    it('returns false for invalid Supabase URL', () => {
-      expect(validateConfig(makeSupabaseConfig({ supabaseUrl: 'https://evil.com' }))).toBe(false);
+    it('returns true for a self-hosted Supabase URL', () => {
+      expect(validateConfig(makeSupabaseConfig({ supabaseUrl: 'https://supabase.example.com' }))).toBe(
+        true,
+      );
+    });
+
+    it('returns true for an HTTP localhost Supabase URL when debug is enabled', () => {
+      expect(
+        validateConfig(makeSupabaseConfig({ supabaseUrl: 'http://localhost:8000', debug: true })),
+      ).toBe(true);
+    });
+
+    it('returns false for an HTTP localhost Supabase URL when debug is disabled', () => {
+      expect(validateConfig(makeSupabaseConfig({ supabaseUrl: 'http://localhost:8000' }))).toBe(
+        false,
+      );
+    });
+
+    it('returns false for a private-address Supabase URL', () => {
+      expect(validateConfig(makeSupabaseConfig({ supabaseUrl: 'https://10.0.0.5' }))).toBe(false);
+    });
+
+    it('returns false for a non-URL Supabase value', () => {
+      expect(validateConfig(makeSupabaseConfig({ supabaseUrl: 'not-a-url' }))).toBe(false);
+    });
+
+    it('logs a hint for self-hosted Supabase URLs when debug is enabled', () => {
+      const warn = vi.spyOn(console, 'warn').mockImplementation(() => {});
+      try {
+        validateConfig(makeSupabaseConfig({ supabaseUrl: 'https://supabase.example.com', debug: true }));
+        expect(warn).toHaveBeenCalledWith(expect.stringContaining('Non-hosted Supabase URL'));
+      } finally {
+        warn.mockRestore();
+      }
+    });
+
+    it('does not log the self-hosted hint for hosted Supabase URLs', () => {
+      const warn = vi.spyOn(console, 'warn').mockImplementation(() => {});
+      try {
+        expect(validateConfig(makeSupabaseConfig({ debug: true }))).toBe(true);
+        expect(warn).not.toHaveBeenCalled();
+      } finally {
+        warn.mockRestore();
+      }
     });
 
     it('returns false for HTTP config with private address', () => {

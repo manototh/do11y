@@ -38,9 +38,21 @@ The Standalone path with the Supabase destination is the easiest way to set up D
 
 | Option | Default | Description |
 |---|---|---|
-| `supabaseUrl` | `''` | Your Supabase project URL. For example: `https://abc123.supabase.co` |
+| `supabaseUrl` | `''` | Your Supabase project URL. For example: `https://abc123.supabase.co`. Self-hosted instances and custom domains are supported. |
 | `supabaseKey` | `''` | Publishable key. For example: `sb_publishable_1234567890` |
 | `supabaseTable` | `'do11y_events'` | Name of the table to insert events into. |
+
+#### Self-hosted Supabase
+
+To send events to a self-hosted Supabase instance:
+1. Set `supabaseUrl` to the base URL of your instance. Do11y appends `/rest/v1/<supabaseTable>` to the base URL.
+1. Ensure your instance exposes its REST API at the base URL.
+1. Give the `anon` role the same table grants as the [Get started](/get-started) setup.
+
+Two requirements come from the browser rather than from Do11y:
+
+- **CORS:** Ensure your instance allows requests from your documentation site's origin.
+- **HTTPS:** Ensure your instance uses HTTPS in production. The reason is that a docs site served over HTTPS can't POST to an HTTP Supabase instance. For local development against an instance on `http://localhost:8000`, set `debug: true` to allow the non-HTTPS URL.
 
 ### Standalone + generic HTTP
 
