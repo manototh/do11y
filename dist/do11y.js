@@ -9,7 +9,7 @@ var Do11yBundle = (function(exports) {
 	* Standard attrs from https://opentelemetry.io/docs/specs/semconv/.
 	* Custom do11y attrs use the `browser.do11y.*` namespace.
 	*/
-	const VERSION = "0.2.0";
+	const VERSION = "0.2.1";
 	const ATTR_SESSION_ID = "session.id";
 	const ATTR_URL_PATH = "url.path";
 	const ATTR_URL_FRAGMENT = "url.fragment";
@@ -1064,6 +1064,9 @@ var Do11yBundle = (function(exports) {
 	let _otelInitPromise = null;
 	/** Set once CDN init fails so we don't retry the load on every event. */
 	let _otelInitFailed = false;
+	/** Set once the self-hosted Supabase hint has been logged, so debug mode
+	*  doesn't repeat it on every flush. */
+	let _selfHostedHintLogged = false;
 	function setIsDisabled(v) {
 		isDisabled = v;
 	}
@@ -1118,12 +1121,12 @@ var Do11yBundle = (function(exports) {
 		if (flushTimeout) return;
 		flushTimeout = setTimeout(() => flush(config), config.flushInterval);
 	}
-	function validateSupabaseUrl(url) {
+	function validateSupabaseUrl(url, debug = false) {
+		return validateEndpoint(url, debug);
+	}
+	function isHostedSupabaseUrl(url) {
 		try {
-			const parsed = new URL(url);
-			if (parsed.protocol !== "https:") return false;
-			if (!parsed.hostname.endsWith(".supabase.co")) return false;
-			return true;
+			return new URL(url).hostname.endsWith(".supabase.co");
 		} catch {
 			return false;
 		}
@@ -1147,9 +1150,13 @@ var Do11yBundle = (function(exports) {
 				if (config.debug) console.warn("[Do11y] No Supabase URL configured");
 				return false;
 			}
-			if (!validateSupabaseUrl(config.supabaseUrl)) {
-				if (config.debug) console.warn("[Do11y] Invalid Supabase URL. Must be https://<project>.supabase.co");
+			if (!validateSupabaseUrl(config.supabaseUrl, config.debug)) {
+				if (config.debug) console.warn("[Do11y] Invalid Supabase URL. Must be a valid HTTPS URL (HTTP is allowed for localhost/private addresses when debug is enabled).");
 				return false;
+			}
+			if (config.debug && !_selfHostedHintLogged && !isHostedSupabaseUrl(config.supabaseUrl)) {
+				_selfHostedHintLogged = true;
+				console.warn("[Do11y] Non-hosted Supabase URL. Ensure you configure your instance's REST endpoint and CORS settings.");
 			}
 			if (!config.supabaseKey || typeof config.supabaseKey !== "string" || config.supabaseKey.length < 10) {
 				if (config.debug) console.warn("[Do11y] Invalid or missing Supabase publishable key");
@@ -1583,7 +1590,7 @@ var Do11yBundle = (function(exports) {
 			return !!config.endpoint;
 		},
 		getQueueSize: () => getQueueLength(),
-		version: "0.2.0",
+		version: "0.2.1",
 		destroy: () => destroy()
 	};
 	//#endregion

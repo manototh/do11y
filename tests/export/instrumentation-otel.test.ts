@@ -15,6 +15,7 @@ import {
   triggerBeforeUnload,
 } from '../helpers/mock-dom';
 import { resetTrackedScrollDepths } from '@do11y/core/tracking/scroll';
+import { VERSION } from '@do11y/core/constants';
 
 // Mock @opentelemetry/api-logs so DocsInstrumentation uses our test logger.
 // `providerRegistered` controls whether getLoggerProvider() reports a real
@@ -430,7 +431,7 @@ describe('export / instrumentation-otel', () => {
       const first = records[0]!;
 
       expect(first.attributes).toHaveProperty('browser.do11y.version');
-      expect(first.attributes['browser.do11y.version']).toBe('0.2.0');
+      expect(first.attributes['browser.do11y.version']).toBe(VERSION);
       expect(first.attributes).toHaveProperty('browser.family');
       expect(first.attributes).toHaveProperty('device.type');
       expect(first.attributes).toHaveProperty('browser.language');
