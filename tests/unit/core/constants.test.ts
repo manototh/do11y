@@ -5,6 +5,7 @@
  * are defined correctly and consistently.
  */
 import { describe, it, expect } from 'vitest';
+import { readFileSync } from 'fs';
 import {
   VERSION,
   ATTR_SESSION_ID,
@@ -70,6 +71,15 @@ import {
 describe('constants', () => {
   it('has a semantic version string', () => {
     expect(VERSION).toMatch(/^\d+\.\d+\.\d+$/);
+  });
+
+  it('matches the version declared in package.json', () => {
+    // A release bumps both package.json and src/core/constants.ts. Keep them in
+    // lockstep so a half-finished bump fails here instead of in the export tests.
+    const pkg = JSON.parse(
+      readFileSync(new URL('../../../package.json', import.meta.url), 'utf-8'),
+    ) as { version: string };
+    expect(VERSION).toBe(pkg.version);
   });
 
   describe('event names', () => {

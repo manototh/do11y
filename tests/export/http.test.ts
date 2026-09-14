@@ -14,6 +14,7 @@ import { describe, it, expect, beforeAll, afterAll } from 'vitest';
 import puppeteer from 'puppeteer';
 import path from 'path';
 import fs from 'fs';
+import { VERSION } from '@do11y/core/constants';
 import type { Browser } from 'puppeteer';
 
 const DO11Y_PATH = path.resolve(__dirname, '../../dist/do11y.js');
@@ -73,7 +74,7 @@ describe('export / http', () => {
     expect(api.hasFlush).toBe(true);
     expect(api.hasIsEnabled).toBe(true);
     expect(api.hasGetQueueSize).toBe(true);
-    expect(api.version).toBe('0.2.0');
+    expect(api.version).toBe(VERSION);
 
     await page.close();
   });

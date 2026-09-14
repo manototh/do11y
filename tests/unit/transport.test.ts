@@ -8,7 +8,7 @@ import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
 import { setupTestDOM, teardownTestDOM } from '../helpers/mock-dom';
 import { mockFetch, restoreFetch, getRequests, setDefaultResponse, setMockResponse, setMockError, clearRequests } from '../helpers/mock-fetch';
 import type { Do11yConfig, Do11yEvent } from '@do11y/core/types';
-import { ATTR_DO11Y_SCROLL_THRESHOLD } from '@do11y/core/constants';
+import { ATTR_DO11Y_SCROLL_THRESHOLD, VERSION } from '@do11y/core/constants';
 
 // The transport module uses module-level state (eventQueue, flushTimeout, etc.)
 // We import the functions directly and manage state via reset helpers.
@@ -176,7 +176,7 @@ describe('transport', () => {
       expect(reqs.length).toBeGreaterThan(0);
       const body = reqs[0]!.body as Array<Record<string, unknown>>;
       expect(body[0]!.eventName).toBe('browser.do11y.test_event');
-      expect(body[0]!['browser.do11y.version']).toBe('0.2.0');
+      expect(body[0]!['browser.do11y.version']).toBe(VERSION);
     });
   });
 
@@ -480,7 +480,7 @@ describe('transport', () => {
       queueEvent(config, 'browser.do11y.scroll_depth', {});
 
       const record = mockOtelRecords[0]!;
-      expect(record.attributes['browser.do11y.version']).toBe('0.2.0');
+      expect(record.attributes['browser.do11y.version']).toBe(VERSION);
       expect(record.attributes).toHaveProperty('session.id');
       expect(record.attributes).toHaveProperty('browser.family');
       expect(record.attributes).toHaveProperty('device.type');

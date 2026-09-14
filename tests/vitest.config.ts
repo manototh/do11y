@@ -19,9 +19,6 @@ export default defineConfig({
     globals: true,
     include: ['**/*.test.ts'],
     exclude: ['node_modules', 'sites'],
-    env: {
-      DO11Y_VERSION: '0.2.0',
-    },
   },
   resolve: {
     alias: {
