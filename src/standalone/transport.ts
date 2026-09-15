@@ -283,7 +283,7 @@ const OTEL_CDN_BASE = "https://esm.sh/";
 
 /** Version of the OTel SDK packages loaded from the CDN.
  *  Keep in sync with the `@opentelemetry/*` peer/dev dependencies in package.json. */
-const OTEL_SDK_VERSION = "0.221.0";
+const OTEL_SDK_VERSION = "0.222.0";
 
 /** Emit a single event through the OTel Logger. */
 function emitOtlpRecord(eventName: string, event: Record<string, unknown>, eventTime: Date): void {

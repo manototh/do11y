@@ -23,6 +23,11 @@ import {
   createSessionManager,
   createSessionSpanProcessor,
 } from '@opentelemetry/browser-sdk/session';
+import {
+  createDocumentLogRecordProcessor,
+  createDocumentSpanProcessor,
+  createLocationDocumentProvider,
+} from '@opentelemetry/browser-sdk/document';
 import { NavigationTimingInstrumentation } from '@opentelemetry/browser-instrumentation/experimental/navigation-timing';
 import { ResourceTimingInstrumentation } from '@opentelemetry/browser-instrumentation/experimental/resource-timing';
 import { UserActionInstrumentation } from '@opentelemetry/browser-instrumentation/experimental/user-action';
@@ -61,6 +66,12 @@ async function boot() {
   });
   await sessionManager.start();
 
+  // ── Document context ─────────────────────────────────────────────────────
+  // Reads `location.href` as each span starts and each log record is emitted,
+  // so `browser.document.url.full` follows Docusaurus's soft navigations with
+  // no bookkeeping. Introduced in @opentelemetry/browser-sdk@0.4.0.
+  const documentProvider = createLocationDocumentProvider();
+
   // ── 1. Start the Browser SDK (provider-first) ────────────────────────────
   startBrowserSdk({
     serviceName: 'do11y-test',
@@ -70,14 +81,23 @@ async function boot() {
       'deployment.environment': 'test',
     },
     logs: {
-      // Session processor first, then the batching OTLP exporter.
-      processors: [createSessionLogRecordProcessor(sessionManager)],
+      // Session and document processors first (so `session.id` and
+      // `browser.document.url.full` are set), then the batching OTLP exporter.
+      // Because we pass custom `processors`, the SDK does NOT add its own
+      // document processor — we wire it explicitly.
+      processors: [
+        createSessionLogRecordProcessor(sessionManager),
+        createDocumentLogRecordProcessor(documentProvider),
+      ],
       exportConfig: {
         url: `${OTLP_ENDPOINT}/v1/logs`,
       },
     },
     traces: {
-      processors: [createSessionSpanProcessor(sessionManager)],
+      processors: [
+        createSessionSpanProcessor(sessionManager),
+        createDocumentSpanProcessor(documentProvider),
+      ],
       exportConfig: {
         url: `${OTLP_ENDPOINT}/v1/traces`,
       },
