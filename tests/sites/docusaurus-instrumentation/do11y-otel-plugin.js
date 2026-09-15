@@ -14,8 +14,8 @@
  * (`TypeError: Class constructor InstrumentationBase cannot be invoked
  * without 'new'`). Shipping the pre-built `dist/` as-is avoids that.
  *
- * Version alignment: this site pins `@opentelemetry/browser-sdk@0.3.0`, which
- * targets the 0.221.x `@opentelemetry/api-logs` line
+ * Version alignment: this site pins `@opentelemetry/browser-sdk@0.4.0`, which
+ * targets the 0.222.x `@opentelemetry/api-logs` line
  */
 const path = require('path');
 const fs = require('fs');

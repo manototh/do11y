@@ -9,7 +9,7 @@ var Do11yBundle = (function(exports) {
 	* Standard attrs from https://opentelemetry.io/docs/specs/semconv/.
 	* Custom do11y attrs use the `browser.do11y.*` namespace.
 	*/
-	const VERSION = "0.2.1";
+	const VERSION = "0.2.2";
 	const ATTR_SESSION_ID = "session.id";
 	const ATTR_URL_PATH = "url.path";
 	const ATTR_URL_FRAGMENT = "url.fragment";
@@ -1198,7 +1198,7 @@ var Do11yBundle = (function(exports) {
 	const OTEL_CDN_BASE = "https://esm.sh/";
 	/** Version of the OTel SDK packages loaded from the CDN.
 	*  Keep in sync with the `@opentelemetry/*` peer/dev dependencies in package.json. */
-	const OTEL_SDK_VERSION = "0.221.0";
+	const OTEL_SDK_VERSION = "0.222.0";
 	/** Emit a single event through the OTel Logger. */
 	function emitOtlpRecord(eventName, event, eventTime) {
 		if (!_otelLogger) return;
@@ -1590,7 +1590,7 @@ var Do11yBundle = (function(exports) {
 			return !!config.endpoint;
 		},
 		getQueueSize: () => getQueueLength(),
-		version: "0.2.1",
+		version: "0.2.2",
 		destroy: () => destroy()
 	};
 	//#endregion

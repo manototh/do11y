@@ -163,3 +163,5 @@ registerInstrumentations({
   ],
 });
 ```
+
+Do11y supports the latest version of the OpenTelemetry Browser SDK. No backward compatibility is guaranteed with earlier versions.
