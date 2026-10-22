@@ -140,6 +140,30 @@ If you can't run a collector, use a lightweight CORS proxy such as [cors-anywher
 
 ## OpenTelemetry instrumentation
 
+### Install package
+
+Install the Do11y npm package:
+
+::: code-group
+
+```bash [npm]
+npm install @manototh/do11y
+```
+
+```bash [yarn]
+yarn add @manototh/do11y
+``` 
+
+```bash [pnpm]
+pnpm add @manototh/do11y
+```
+
+:::
+
+Install the [OTel Browser SDK](https://github.com/open-telemetry/opentelemetry-browser/tree/main/packages/sdk).
+
+### Configure OTel Browser SDK
+
 `DocsInstrumentation` emits events through the OTel API. The destination is whatever exporter you configure on the OTel SDK:
 
 ```ts
