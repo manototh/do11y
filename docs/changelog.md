@@ -12,6 +12,13 @@ head:
 
 # Changelog
 
+## v0.2.3
+
+**Release date:** 2026-10-23
+
+- **Align OpenTelemetry instrumentation path with Browser SDK 0.6.0:** The `@opentelemetry/api-logs` and `@opentelemetry/instrumentation` peer dependencies now target the `0.223.x` line, matching Browser SDK 0.5.0 and 0.6.0. No backward compatibility with earlier versions. If you use the OpenTelemetry instrumentation path, upgrade `@opentelemetry/browser-sdk` to 0.6.0. The script-tag OTLP destination loads the matching `0.223.0` CDN packages.
+- **Register `DocsInstrumentation` through the Browser SDK:** On Browser SDK 0.5.0 and later you can pass `new DocsInstrumentation()` to the SDK's `instrumentations` option instead of calling `registerInstrumentations` yourself. For more information, see [Configure OTel Browser SDK](/destinations#configure-otel-browser-sdk).
+
 ## v0.2.2
 
 **Release date:** 2026-09-15

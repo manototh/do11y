@@ -9,7 +9,7 @@
  * pipeline as the browser's own telemetry (Web Vitals, navigation timing,
  * resource timing, user actions).
  *
- * Ordering matters (this is the setup documented in docs/get-started.md):
+ * Ordering matters (this is the setup documented in docs/destinations.md):
  *   1. Start the Browser SDK FIRST — it registers the global LoggerProvider.
  *   2. THEN register instrumentations, Do11y's `DocsInstrumentation` included.
  * `DocsInstrumentation` resolves the logger lazily per event, so records
