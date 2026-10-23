@@ -164,24 +164,19 @@ Install the [OTel Browser SDK](https://github.com/open-telemetry/opentelemetry-b
 
 ### Configure OTel Browser SDK
 
-`DocsInstrumentation` emits events through the OTel API. The destination is whatever exporter you configure on the OTel SDK:
+`DocsInstrumentation` emits events through the OTel API. The destination is whatever exporter you configure on the OTel SDK.
+
+Pass Do11y to the SDK's `instrumentations` option:
 
 ```ts
 import { startLogsSdk } from '@opentelemetry/browser-sdk/logs';
-import { registerInstrumentations } from '@opentelemetry/instrumentation';
 import { DocsInstrumentation } from '@manototh/do11y/instrumentation';
 
-// 1. Start the logs SDK — registers the global LoggerProvider and defines
-//    where records go (OTLP by default).
 startLogsSdk({
   serviceName: 'my-docs-site',
   exportConfig: {
     url: 'https://otel-collector.example.com/v1/logs',
   },
-});
-
-// 2. Register Do11y alongside your other instrumentations.
-registerInstrumentations({
   instrumentations: [
     new DocsInstrumentation({ framework: 'docusaurus' }),
   ],
